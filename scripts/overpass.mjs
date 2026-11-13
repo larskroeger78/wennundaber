@@ -1,9 +1,11 @@
 // Gemeinsamer Overpass-Client: User-Agent (sonst 406), mehrere Server, Wartezeit + Wiederholung bei 429/504.
 const SERVERS = [
+  'https://lz4.overpass-api.de/api/interpreter',
+  'https://z.overpass-api.de/api/interpreter',
+  'https://overpass.openstreetmap.fr/api/interpreter',
   'https://overpass-api.de/api/interpreter',
-  'https://overpass.private.coffee/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
-  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
 ];
 const HEAD = {
   'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
@@ -16,10 +18,11 @@ export async function overpass(query, rounds = 3) {
   for (let round = 0; round < rounds; round++) {
     for (const url of SERVERS) {
       try {
-        const r = await fetch(url, { method: 'POST', headers: HEAD, body: 'data=' + encodeURIComponent(query) });
+        console.log('  →', new URL(url).host, '…');
+        const r = await fetch(url, { method: 'POST', headers: HEAD, body: 'data=' + encodeURIComponent(query), signal: AbortSignal.timeout(45000) });
         if (r.ok) { console.log('OK von', new URL(url).host); return await r.json(); }
-        console.log(new URL(url).host, '→', r.status);
-      } catch (e) { console.log(new URL(url).host, '→', e.message); }
+        console.log('   ', new URL(url).host, 'antwortet mit', r.status);
+      } catch (e) { console.log('   ', new URL(url).host, 'Fehler:', e.name === 'TimeoutError' ? 'keine Antwort nach 45 s' : (e.cause && e.cause.code) || e.message); }
     }
     if (round < rounds - 1) { const w = 20 * (round + 1); console.log(`Alle Server belegt – warte ${w} s und versuche es erneut …`); await sleep(w * 1000); }
   }
