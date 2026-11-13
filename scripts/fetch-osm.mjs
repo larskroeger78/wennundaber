@@ -46,7 +46,17 @@ function buildingHeight(t) {
   return 7.5;
 }
 const toXZ = g => g.map(p => [(p.lon - LON0) * KX, -(p.lat - LAT0) * KY]);
-function simplify(pts, tol) {                         // Douglas-Peucker
+function simplify(pts, tol) {
+  const n = pts.length;
+  if (n > 4 && pts[0][0] === pts[n - 1][0] && pts[0][1] === pts[n - 1][1]) {   // geschlossener Ring: am entferntesten Punkt teilen, sonst fallen alle Punkte weg
+    let m = 1, dm = -1;
+    for (let i = 1; i < n - 1; i++) { const d = Math.hypot(pts[i][0] - pts[0][0], pts[i][1] - pts[0][1]); if (d > dm) { dm = d; m = i; } }
+    const a = dp(pts.slice(0, m + 1), tol), b = dp(pts.slice(m), tol);
+    return a.concat(b.slice(1));
+  }
+  return dp(pts, tol);
+}
+function dp(pts, tol) {                                  // Douglas-Peucker (offene Linie)
   if (pts.length < 4) return pts;
   const keep = new Uint8Array(pts.length); keep[0] = keep[pts.length - 1] = 1;
   const st = [[0, pts.length - 1]];
@@ -80,8 +90,11 @@ async function main() {
   console.log('Frage Overpass ab …', bb);
   if (WANT_QUERY) { console.log('\nIn https://overpass-turbo.eu einfügen → „Ausführen“ → Export → „Rohdaten direkt aus Overpass API“ (JSON) speichern, dann:\n  npm run osm -- --datei=PFAD/export.json\n\n' + ALL + '\n'); return; }
   const data = { elements: [] };
-  const off = await elementsOrNull();
+  const CACHE = new URL('./osm-roh.json', import.meta.url);
+  let off = await elementsOrNull();
+  if (!off && process.argv.includes('--cache')) { off = JSON.parse(fs.readFileSync(CACHE, 'utf8')).elements; console.log('Rohdaten aus scripts/osm-roh.json:', off.length, 'Elemente'); }
   if (off) data.elements.push(...off); else for (const [name, minN, qq] of QUERIES) { console.log('Teil:', name); const d = await overpass(qq, 5, minN); data.elements.push(...d.elements); await new Promise(r => setTimeout(r, 3000)); }
+  if (!off) fs.writeFileSync(CACHE, JSON.stringify({ elements: data.elements }));
   const buildings = [], areas = [], lines = [];
   for (const el of data.elements) {
     const t = el.tags || {};
