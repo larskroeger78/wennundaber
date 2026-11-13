@@ -15,15 +15,12 @@ const S = LAT0 - z1 / KY, N = LAT0 - z0 / KY, W = LON0 + x0 / KX, E = LON0 + x1 
 const bb = `${S.toFixed(5)},${W.toFixed(5)},${N.toFixed(5)},${E.toFixed(5)}`;
 
 const LANDUSE_OPEN = 'farmland|meadow|grass|orchard|vineyard|allotments|village_green|recreation_ground|farmyard|brownfield|construction|quarry|cemetery';
-const q = `[out:json][timeout:180];(
-  way["building"](${bb});
-  way["landuse"~"^(forest|residential|industrial|commercial|retail|${LANDUSE_OPEN})$"](${bb});
-  way["natural"~"^(wood|water|scrub|heath|grassland|wetland)$"](${bb});
-  way["leisure"~"^(park|garden|pitch|golf_course)$"](${bb});
-  way["waterway"~"^(river|canal|stream)$"](${bb});
-  relation["landuse"~"^(forest|residential|industrial|farmland|meadow)$"](${bb});
-  relation["natural"~"^(wood|water)$"](${bb});
-);out geom;`;
+const mk = body => `[out:json][timeout:90];(${body});out geom;`;
+const QUERIES = [
+  ['Gebäude', mk(`way["building"](${bb});`)],
+  ['Wald/Flächen', mk(`way["landuse"~"^(forest|residential|industrial|commercial|retail|${LANDUSE_OPEN})$"](${bb});way["natural"~"^(wood|water|scrub|heath|grassland|wetland)$"](${bb});way["leisure"~"^(park|garden|pitch|golf_course)$"](${bb});`)],
+  ['Wasser/Relationen', mk(`way["waterway"~"^(river|canal|stream)$"](${bb});relation["landuse"~"^(forest|residential|industrial|farmland|meadow)$"](${bb});relation["natural"~"^(wood|water)$"](${bb});`)],
+];
 
 // Flächenklassen: 1 Wald, 2 offen (Feld/Wiese), 3 Siedlung/Gewerbe, 4 Wasser, 5 Gebüsch, 7 Park/Garten
 function areaClass(t) {
@@ -79,7 +76,8 @@ function joinRings(segs) {
 
 async function main() {
   console.log('Frage Overpass ab …', bb);
-  const data = await overpass(q);
+  const data = { elements: [] };
+  for (const [name, qq] of QUERIES) { console.log('Teil:', name); const d = await overpass(qq, 5); data.elements.push(...d.elements); await new Promise(r => setTimeout(r, 3000)); }
   const buildings = [], areas = [], lines = [];
   for (const el of data.elements) {
     const t = el.tags || {};
