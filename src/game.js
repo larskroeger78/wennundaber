@@ -9,6 +9,20 @@ import MITT from './routes/mittwochsrunde.json';
 const SURF_FILES=import.meta.glob('./routes/*.surf.json',{eager:true});
 // Strecke per URL: ?route=mittwoch startet die Mittwochsrunde (GPX), sonst Halde Großes Holz
 const ROUTE=new URLSearchParams(location.search).get('route')==='mittwoch';
+// Echtes Geländemodell (DGM1 NRW, per npm run terrain erzeugt): Höhenraster in Dezimetern
+const GEL_F=import.meta.glob('./routes/gelaende.json',{eager:true});
+const GEL=(()=>{
+  const k=Object.keys(GEL_F)[0];if(!k)return null;
+  const g=GEL_F[k].default||GEL_F[k],bin=atob(g.dm),u=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
+  return {g:g,h:new Int16Array(u.buffer)};
+})();
+const useDem=ROUTE&&!!GEL;
+function demH(x,z){
+  const g=GEL.g,u=Math.max(0,Math.min(g.nx-1.001,(x-g.x0)/g.cell)),v=Math.max(0,Math.min(g.nz-1.001,(z-g.z0)/g.cell));
+  const i=Math.floor(u),j=Math.floor(v),fu=u-i,fv=v-j,H=GEL.h,o=j*g.nx+i;
+  return ((H[o]*(1-fu)+H[o+1]*fu)*(1-fv)+(H[o+g.nx]*(1-fu)+H[o+g.nx+1]*fu)*fv)/10;
+}
 
 // ================= Helfer =================
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -116,6 +130,8 @@ const SEC=new Array(N+1);
     SEC[i]=raw[j].sec;
   }
 })();
+let DEMOFF=0;   // GPX-Höhen (Komoot) und DGM1 weichen etwas ab: mittleren Versatz ausgleichen, Strecke behält die GPX-Höhen
+if(useDem){for(let i=0;i<=N;i++)DEMOFF+=PY[i]-demH(PX[i],PZ[i]);DEMOFF/=N+1;}
 const iTrail=ROUTE?N+1:SEC.indexOf(5);
 const SURF=new Uint8Array(N+1);
 for(let i=0;i<=N;i++)SURF[i]=ROUTE?SEC[i]:(SEC[i]===5?2:0);
@@ -187,6 +203,10 @@ function baseRoute(x,z){
   return lerp(m2,m1,a)+(fbm(x/60+11,z/60+7)-0.5)*5*sstep(0.1,0.5,s1/FG.s1m);
 }
 function baseH(x,z){
+  if(useDem){            // echtes Gelände, am Rand weich zur Umland-Ebene auslaufend
+    const e=Math.min(x-FG.ox,FG.ox+(FG.nx-1)*FG.G-x,z-FG.oz,FG.oz+(FG.nz-1)*FG.G-z);
+    return lerp(-1.2,demH(x,z)+DEMOFF,sstep(0,110,e));
+  }
   if(ROUTE)return baseRoute(x,z);
   const r=Math.hypot(x,z),e=Math.max(Math.abs(x),Math.abs(z));
   const m=sstep(RTOP+4,RTOP+50,r)*(1-sstep(RBASE-20,RBASE+90,r));
@@ -383,7 +403,7 @@ const cGrassA=L3(0x5f7d34),cGrassB=L3(0x84903f),cDry=L3(0xa39a5c),cForest=L3(0x3
 function forestD(x,z){
   if(ROUTE){
     let f=sstep(0.05,0.2,routePresence(x,z))*(sstep(0.32,0.48,fbm(x/90+3,z/90+9))*0.85+0.15);
-    return f*(1-0.75*sstep(38,64,baseRoute(x,z)));      // oben auf der Halde offener
+    return f*(1-0.75*sstep(38,64,baseH(x,z)));      // oben auf der Halde offener
   }
   const r=Math.hypot(x,z);
   let f=sstep(RTOP+18,RTOP+95,r)*(1-sstep(RBASE+110,RBASE+210,r));
@@ -870,13 +890,15 @@ function updateJoggers(dt){
 // ================= Zustand, Eingabe, Physik =================
 const M=95,CDA=0.38,RHO=1.2,GRAV=9.81,PMAX=300,BRAKE=260;
 const keys={};
-let running=false,inputMode='keyboard',st;
+let running=false,inputMode='keyboard',st,FPV=true;   // FPV: Cockpit-Ansicht aus Fahrersicht (Taste C wechselt)
+const cockpitEl=document.getElementById('cockpit');
 function reset(){st={pos:0,v:0,x:0,power:0,t:0,crank:0.6,wheel:0,lean:0,pitch:0,done:false};resetJoggers();}
 reset();
 window.addEventListener('keydown',e=>{
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].indexOf(e.key)>=0)e.preventDefault();
   keys[e.key]=true;
   if(e.key==='r'||e.key==='R')start();
+  if(e.key==='c'||e.key==='C')FPV=!FPV;
 });
 window.addEventListener('keyup',e=>{keys[e.key]=false;});
 window.addEventListener('blur',()=>{for(const k in keys)keys[k]=false;});
@@ -997,7 +1019,18 @@ function render(dt,now){
   bike.rotation.set(st.pitch,smp.h,st.lean);
   wheels[0].rotation.x=st.wheel;wheels[1].rotation.x=st.wheel;
   poseLegs(st.crank);
-  if(running||st.done){
+  const fp=FPV&&(running||st.done);
+  bike.visible=!fp;
+  cockpitEl.style.display=fp?'block':'none';document.body.classList.toggle('fpv',fp);
+  if(fp){
+    const ey=by+1.3,k=1-Math.exp(-dt*9);
+    camera.position.set(bx+Math.sin(smp.h)*0.05,ey+Math.sin(st.wheel*0.9)*0.004*Math.min(1,st.v/4),bz+Math.cos(smp.h)*0.05);
+    sample(st.pos+9,smp2);
+    lookT.set(smp2.x+rx*st.x*0.9,smp2.y+1.15,smp2.z+rz*st.x*0.9);
+    if(!camInit){lookC.copy(lookT);camInit=true;}else lookC.lerp(lookT,k);
+    camera.fov+=((70+Math.min(12,st.v*0.9))-camera.fov)*Math.min(1,dt*3);camera.updateProjectionMatrix();
+    ctr.set(bx,by,bz);
+  }else if(running||st.done){
     sample(st.pos-6.2,smp2);
     const r2x=-Math.cos(smp2.h),r2z=Math.sin(smp2.h);
     camT.set(smp2.x+r2x*st.x*0.75,Math.max(smp2.y,by-0.4)+2.25,smp2.z+r2z*st.x*0.75);
@@ -1014,6 +1047,11 @@ function render(dt,now){
     ctr.set(OR.cx+Math.cos(t)*OR.cr,OR.ly+2,OR.cz+Math.sin(t)*OR.cr);
   }
   camera.lookAt(lookC);
+  if(fp){
+    camera.rotateZ(-st.lean*0.55);                       // Neigung in Kurven
+    const deg=clamp(st.lean*55,-17,17);                 // Lenker dreht mit
+    cockpitEl.style.transform='translate(-50%,'+(30+Math.abs(deg)*0.1)+'%) rotate('+deg.toFixed(2)+'deg)';
+  }
   sky.position.copy(camera.position);sky.material.uniforms.time.value=now*0.001;
   const sc=running||st.done?1:3.2;
   sun.shadow.camera.left=-90*sc;sun.shadow.camera.right=90*sc;sun.shadow.camera.top=90*sc;sun.shadow.camera.bottom=-90*sc;sun.shadow.camera.far=520*sc;sun.shadow.camera.updateProjectionMatrix();
