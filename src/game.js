@@ -921,7 +921,7 @@ function updateJoggers(dt){
 const M=95,CDA=0.38,RHO=1.2,GRAV=9.81,PMAX=300,BRAKE=260;
 const keys={};
 let running=false,inputMode='keyboard',st,FPV=true;
-const trainer=new Trainer(),click=new ClickPad();let gear=0,bleMsg='',lastMenu=null;   // gear: virtuelle Schaltung = Widerstand in %-Steigung (+/-)
+const trainer=new Trainer(),click=new ClickPad();let paused=false,gear=0,bleMsg='',lastMenu=null;   // gear: virtuelle Schaltung = Widerstand in %-Steigung (+/-)
 function shift(d){gear=clamp(gear+d,-6,6);}
 click.onShift=shift;
 const bleChange=()=>{if(trainer.connected)inputMode='trainer';else if(inputMode==='trainer')inputMode='keyboard';if(ov.style.display!=='none'&&lastMenu)menu(lastMenu[0],lastMenu[1]);};
@@ -934,6 +934,7 @@ window.addEventListener('keydown',e=>{
   keys[e.key]=true;
   if(e.key==='r'||e.key==='R')start();
   if(e.key==='c'||e.key==='C')FPV=!FPV;
+  if(e.key==='Escape'&&running){running=false;paused=true;trainer.setGrade(0,0.005,true);offEl.style.display='none';menu('Weiterfahren','Pause · '+(st.pos/1000).toFixed(2)+' km · '+fmtT(st.t));}
   if(e.key==='+'||e.key==='PageUp')shift(1);
   if(e.key==='-'||e.key==='PageDown')shift(-1);
 });
@@ -1043,14 +1044,15 @@ function menu(title,sub){
     '<div class="tag">'+(ROUTE?'Mittwochsrunde · Halde Großes Holz und Umland':TRACK_NAME)+' · '+(TOTAL/1000).toFixed(1).replace('.',',')+' km · '+HM+' Hm</div>'+
     '<div><button id="go">'+title+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastaturmodus: AN':'Tastaturmodus: AUS')+'</button><button id="alt" class="sec">'+(ROUTE?'Halde Großes Holz':'Mittwochsrunde starten')+'</button><button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln (D100 / KICKR)')+'</button><button id="clk" class="sec">'+(click.connected?'Zwift Click ✓ ('+click.count+')':'Zwift Click koppeln (experimentell)')+'</button></div>'+
     '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?'Bluetooth nur in Chrome/Edge (nicht Safari).':'')+(bleMsg?'<br>'+bleMsg:'')+(click.connected&&click.log.length?'<br><small>'+click.log.slice(-3).join('<br>')+'</small>':'')+'</div>'+
-    '<div class="help">↑ treten · ↓ bremsen · +/− Schaltung · R neu starten · C Ansicht<br>Lenken und Ausweichen laufen automatisch (Trainer können nicht lenken)<br>Abfahrten sind neutral: Tempo entsteht nur durchs Treten.</div>';
+    '<div class="help">↑ treten · ↓ bremsen · +/− Schaltung · Esc Pause/Menü · R neu starten · C Ansicht<br>Lenken und Ausweichen laufen automatisch (Trainer können nicht lenken)<br>Abfahrten sind neutral: Tempo entsteht nur durchs Treten.</div>';
   document.getElementById('mode').onclick=()=>{inputMode=inputMode==='keyboard'?'off':'keyboard';menu(title,sub);};
   document.getElementById('alt').onclick=()=>{location.href=location.pathname+(ROUTE?'':'?route=mittwoch')+'#go';};
   document.getElementById('trn').onclick=async()=>{bleMsg='';try{await trainer.connect();}catch(e){bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Trainer: '+(e&&e.message||e);}menu(title,sub);};
   document.getElementById('clk').onclick=async()=>{bleMsg='';try{await click.connect();}catch(e){bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Click: '+(e&&e.message||e);}menu(title,sub);};
-  document.getElementById('go').onclick=start;
+  document.getElementById('go').onclick=paused?resume:start;
 }
-function start(){reset();if(trainer.connected)trainer.setGrade(0,0.005,true);running=true;lastSec=-1;ov.style.display='none';hudBox.style.display='block';}
+function resume(){paused=false;running=true;ov.style.display='none';hudBox.style.display='block';}
+function start(){paused=false;reset();if(trainer.connected)trainer.setGrade(0,0.005,true);running=true;lastSec=-1;ov.style.display='none';hudBox.style.display='block';}
 
 // ================= Kamera & Render =================
 const smp={x:0,y:0,z:0,h:0},smp2={x:0,y:0,z:0,h:0};
