@@ -1,6 +1,7 @@
 // Wenn und Aber Bike Crew – Spielcode (Stand Prototyp 0.5).
 // Noch eine einzige Datei; wird schrittweise in Module aufgeteilt (Strecke, Gelände, Vegetation, Figuren, HUD).
 import * as THREE from 'three';
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import './style.css';
 
 // ================= Helfer =================
@@ -161,7 +162,7 @@ scene.background=HORIZON;
 scene.fog=new THREE.FogExp2(HORIZON,0.00055);
 const camera=new THREE.PerspectiveCamera(64,16/9,0.4,6000);
 const SUN=new THREE.Vector3(-0.55,0.62,0.42).normalize();
-scene.add(new THREE.HemisphereLight(new THREE.Color(0.72,0.84,1.0),new THREE.Color(0.34,0.31,0.22),0.75));
+const hemi=new THREE.HemisphereLight(new THREE.Color(0.72,0.84,1.0),new THREE.Color(0.34,0.31,0.22),0.75);scene.add(hemi);
 const sun=new THREE.DirectionalLight(new THREE.Color(1.0,0.92,0.78),2.1);
 sun.castShadow=true;
 sun.shadow.mapSize.set(2048,2048);
@@ -200,6 +201,38 @@ const sky=new THREE.Mesh(new THREE.SphereGeometry(4500,32,16),new THREE.ShaderMa
   '}'].join('\n')
 }));
 sky.frustumCulled=false;scene.add(sky);
+
+// ================= Foto-Assets (optional; ohne Dateien bleibt alles prozedural) =================
+const ASSETS=import.meta.env.BASE_URL+'assets/';
+const TL=new THREE.TextureLoader();
+function photo(id,karte,srgb,cb){
+  TL.load(ASSETS+'textures/'+id+'/'+karte+'.jpg',t=>{t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=8;if(srgb)t.encoding=THREE.sRGBEncoding;cb(t);},undefined,()=>{});
+}
+function applyPhoto(mat,id,rx,ry,o){
+  o=o||{};
+  photo(id,'Diffuse',true,t=>{t.repeat.set(rx,ry);mat.map=t;if(o.color)mat.color.copy(o.color);mat.needsUpdate=true;if(o.onDiffuse)o.onDiffuse();});
+  if(o.normal!==false)photo(id,'nor_gl',false,t=>{t.repeat.set(rx,ry);mat.normalMap=t;if(o.normalScale)mat.normalScale.set(o.normalScale,o.normalScale);mat.needsUpdate=true;});
+  if(o.arm)photo(id,'arm',false,t=>{t.repeat.set(rx,ry);mat.roughnessMap=t;mat.roughness=1;if(o.ao){mat.aoMap=t;}mat.needsUpdate=true;});
+}
+// Himmelspanorama: Hintergrund, Umgebungslicht, Sonnenrichtung und Dunstfarbe kommen aus dem HDR
+new RGBELoader().load(ASSETS+'hdri/kloofendal_48d_partly_cloudy_puresky.hdr',tex=>{
+  const d=tex.image.data,w=tex.image.width,h=tex.image.height;
+  let best=-1,bx=0,by=0;
+  for(let y=0;y<h/2;y+=2)for(let x=0;x<w;x+=2){const k=(y*w+x)*4,l=Math.max(d[k],d[k+1],d[k+2])*Math.pow(2,d[k+3]-136);if(l>best){best=l;bx=x;by=y;}}
+  const v=1-(by+0.5)/h,u=(bx+0.5)/w,lat=(v-0.5)*Math.PI,lon=(u-0.5)*2*Math.PI;
+  SUN.set(Math.cos(lon)*Math.cos(lat),Math.max(0.35,Math.sin(lat)),Math.sin(lon)*Math.cos(lat)).normalize();
+  let r=0,g=0,b=0,n=0;const yy=Math.floor(h*0.485);
+  for(let x=0;x<w;x+=8){const k=(yy*w+x)*4,f=Math.pow(2,d[k+3]-136);r+=d[k]*f;g+=d[k+1]*f;b+=d[k+2]*f;n++;}
+  const hc=new THREE.Color(Math.min(1.2,r/n),Math.min(1.2,g/n),Math.min(1.2,b/n));
+  scene.fog.color.copy(hc);
+  tex.mapping=THREE.EquirectangularReflectionMapping;
+  const pm=new THREE.PMREMGenerator(renderer);
+  scene.environment=pm.fromEquirectangular(tex).texture;pm.dispose();
+  scene.background=tex;sky.visible=false;
+  hemi.intensity=0.5;
+  scene.traverse(o=>{const m=o.material;if(m&&m.isMeshStandardMaterial)m.envMapIntensity=0.28;});
+  window.__hdr={sun:SUN.toArray(),fog:hc.toArray(),best:best};
+},undefined,()=>{});
 
 // ================= Texturen (prozedural) =================
 function canvasTex(w,h,draw,rep){
@@ -286,7 +319,7 @@ function forestD(x,z){
 }
 (function buildTerrain(){
   const G=4,HALF=660,n=Math.round(2*HALF/G),V=n+1;
-  const pos=new Float32Array(V*V*3),col=new Float32Array(V*V*3),uv=new Float32Array(V*V*2);
+  const pos=new Float32Array(V*V*3),col=new Float32Array(V*V*3),col2=new Float32Array(V*V*3),uv=new Float32Array(V*V*2);
   let p=0,q=0,u=0;
   for(let iz=0;iz<V;iz++){
     for(let ix=0;ix<V;ix++){
@@ -303,6 +336,7 @@ function forestD(x,z){
         if(i>=iTrail)c=mix3(c,cDirt,(1-sstep(HW[i],HW[i]+2.2,d))*0.9);
         else c=mix3(c,cGravel,(1-sstep(HW[i]+0.4,HW[i]+2.8,d))*0.9);
       }
+      col2[q]=Math.min(1.6,c[0]/0.50);col2[q+1]=Math.min(1.6,c[1]/0.42);col2[q+2]=Math.min(1.6,c[2]/0.20);
       col[q++]=c[0];col[q++]=c[1];col[q++]=c[2];
     }
   }
@@ -317,7 +351,9 @@ function forestD(x,z){
   g.setAttribute('uv',new THREE.BufferAttribute(uv,2));
   g.setIndex(new THREE.BufferAttribute(idx,1));
   g.computeVertexNormals();
-  const m=new THREE.Mesh(g,new THREE.MeshStandardMaterial({map:texGround,vertexColors:true,roughness:1,metalness:0}));
+  const tm=new THREE.MeshStandardMaterial({map:texGround,vertexColors:true,roughness:1,metalness:0});
+  applyPhoto(tm,'forrest_ground_01',1.75,1.75,{arm:true,normalScale:1.2,onDiffuse:()=>{g.setAttribute('color',new THREE.BufferAttribute(col2,3));}});
+  const m=new THREE.Mesh(g,tm);
   m.receiveShadow=true;scene.add(m);
 })();
 // Umland: Felder, Kanal
@@ -345,8 +381,14 @@ function ribbon(i0,i1,wScale,mat,vLen,lift){
   g.setIndex(idx);g.computeVertexNormals();
   const m=new THREE.Mesh(g,mat);m.receiveShadow=true;scene.add(m);return m;
 }
-ribbon(0,Math.min(N,iTrail+4),1,new THREE.MeshStandardMaterial({map:texAsphalt,roughness:0.85,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}),8,0.05);
-ribbon(iTrail-2,N,1.7,new THREE.MeshStandardMaterial({map:texDirt,roughness:1,side:THREE.DoubleSide,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3}),5,0.07);
+const asphaltMat=new THREE.MeshStandardMaterial({map:texAsphalt,roughness:0.85,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+applyPhoto(asphaltMat,'asphalt_02',1,2,{arm:true,color:new THREE.Color(1.1,1.1,1.1)});
+ribbon(0,Math.min(N,iTrail+4),1,asphaltMat,8,0.05);
+const trailMat=new THREE.MeshStandardMaterial({map:texDirt,roughness:1,side:THREE.DoubleSide,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3});
+applyPhoto(trailMat,'forest_ground_04',1,1.6,{arm:true,color:new THREE.Color(1.25,1.2,1.15),onDiffuse:()=>{
+  trailMat.alphaMap=canvasTex(64,4,(g,w,h)=>{const ag=g.createLinearGradient(0,0,w,0);ag.addColorStop(0,'#000');ag.addColorStop(0.3,'#fff');ag.addColorStop(0.7,'#fff');ag.addColorStop(1,'#000');g.fillStyle=ag;g.fillRect(0,0,w,h);},true);
+  trailMat.alphaMap.encoding=THREE.LinearEncoding;trailMat.needsUpdate=true;}});
+ribbon(iTrail-2,N,1.7,trailMat,5,0.07);
 
 // ================= Vegetation =================
 function cardGeo(quads,nrmFn){
@@ -379,6 +421,7 @@ const leafDepth=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking
 const grassMat=new THREE.MeshLambertMaterial({map:texGrass,alphaTest:0.3});
 const trunkGeo=new THREE.CylinderGeometry(0.6,1,1,6,1,true);trunkGeo.translate(0,0.5,0);
 const trunkMat=new THREE.MeshLambertMaterial({color:C(0x6a5f52)});
+applyPhoto(trunkMat,'tree_bark_03',2,7,{normal:false,color:new THREE.Color(0.75,0.72,0.7)});
 const DUM=new THREE.Object3D(),TC=new THREE.Color();
 
 (function plant(){

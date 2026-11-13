@@ -18,16 +18,16 @@ Dann die angezeigte Adresse (http://localhost:5173) in Chrome öffnen.
 Steuerung im Tastaturmodus: ↑ treten · ← → lenken · ↓ bremsen · R neu starten.
 Abfahrten sind neutral: Tempo entsteht nur durchs Treten.
 
-## Texturen und Himmel laden
+## Texturen und Himmel
 
-Die Fototexturen und das Himmelspanorama liegen nicht im Repository. Sie kommen von Poly Haven (Lizenz CC0)
-und werden einmalig geladen:
+Fototexturen (Asphalt, Waldboden, Trail, Rinde) und das Himmelspanorama stammen von Poly Haven (Lizenz CC0)
+und liegen in `public/assets/`. Welche es sind, steht in `assets.json`. Neue Einträge dort lädt
 
 ```bash
 npm run assets
 ```
 
-Welche Dateien das sind, steht in `assets.json`. Sie landen in `public/assets/`.
+nach. Fehlen die Dateien, läuft das Spiel mit den im Code erzeugten Ersatztexturen.
 
 ## Aufbau
 
