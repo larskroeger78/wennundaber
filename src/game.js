@@ -2,7 +2,7 @@
 // Noch eine einzige Datei; wird schrittweise in Module aufgeteilt (Strecke, Gelände, Vegetation, Figuren, HUD).
 import * as THREE from 'three';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
-import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import './style.css';
 import MITT from './routes/mittwochsrunde.json';
@@ -831,10 +831,10 @@ function poseJogger(j){
   jA.set(0,1.69,-0.1);jB.set(Math.sin(ph)*0.08,1.43+Math.abs(Math.cos(ph))*0.05,-0.21);setTube(j.tail,jA,jB);
 }
 // Mixamo-Joggerin: ersetzt die Platzhalter-Figuren, sobald das Modell geladen ist
-new FBXLoader().load(ASSETS+'models/joggerin.fbx',fbx=>{
-  const box=new THREE.Box3().setFromObject(fbx),h=box.max.y-box.min.y||170,k=1.68/h;
-  const clip=fbx.animations[0];
-  console.log('joggerin.fbx geladen: Hoehe',h.toFixed(1),'Clips',fbx.animations.length,clip?clip.name+' '+clip.duration.toFixed(2)+'s':'-');
+new GLTFLoader().load(ASSETS+'models/joggerin.glb',gltf=>{
+  const fbx=gltf.scene,box=new THREE.Box3().setFromObject(fbx),h=box.max.y-box.min.y||170,k=1.68/h;
+  const clip=gltf.animations[0];
+  console.log('joggerin.glb geladen: Hoehe',h.toFixed(1),'Clips',gltf.animations.length,clip?clip.name+' '+clip.duration.toFixed(2)+'s':'-');
   joggers.forEach((j,n)=>{
     const m=SkeletonUtils.clone(fbx);
     m.scale.setScalar(k*(0.97+n*0.03));
@@ -843,7 +843,7 @@ new FBXLoader().load(ASSETS+'models/joggerin.fbx',fbx=>{
     j.mixer=new THREE.AnimationMixer(m);
     if(clip){const a=j.mixer.clipAction(clip);a.play();a.time=n*0.37;}
   });
-},undefined,e=>console.warn('joggerin.fbx nicht geladen, Platzhalter bleiben',e&&e.message));
+},undefined,e=>console.warn('joggerin.glb nicht geladen, Platzhalter bleiben',e&&e.message));
 function resetJoggers(){joggers.forEach((j,n)=>{j.active=false;j.g.visible=false;j.wait=n===0?0.5:6+n*11;});}
 function updateJoggers(dt){
   const sMax=ROUTE?TOTAL-40:(iTrail-30)*SEG;
