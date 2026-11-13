@@ -1,3 +1,4 @@
+import { overpass } from './overpass.mjs';
 // Liest die Untergründe entlang der Mittwochsrunde aus OpenStreetMap (Overpass-API)
 // und schreibt src/routes/mittwochsrunde.surf.json (je Streckenpunkt: 0 Asphalt, 1 Schotter, 2 Trail).
 // Aufruf: npm run surfaces   (Node 18+, Internet nötig)
@@ -64,9 +65,7 @@ async function main() {
   const bb = [Math.min(...lats) - 0.001, Math.min(...lons) - 0.0015, Math.max(...lats) + 0.001, Math.max(...lons) + 0.0015].join(',');
   const q = `[out:json][timeout:60];way["highway"](${bb});out tags geom;`;
   console.log('Frage OpenStreetMap ab …');
-  const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
-  if (!res.ok) throw new Error('Overpass antwortet mit ' + res.status);
-  const data = await res.json();
+  const data = await overpass(q);
   const out = assign(data.elements);
   fs.writeFileSync(OUT, JSON.stringify(out));
   const cnt = [0, 1, 2].map(k => out.filter(v => v === k).length * 2);

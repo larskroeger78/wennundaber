@@ -1,3 +1,4 @@
+import { overpass } from './overpass.mjs';
 // Lädt Gebäude, Wald, Felder, Siedlungen und Gewässer aus OpenStreetMap (Overpass-API) für das Spielgebiet
 // und schreibt src/routes/umgebung.json (Koordinaten im Spielsystem: x = Ost, z = -Nord, in Metern).
 // Aufruf: npm run osm   (Node 18+, Internet nötig). Daten © OpenStreetMap-Mitwirkende (ODbL).
@@ -78,15 +79,7 @@ function joinRings(segs) {
 
 async function main() {
   console.log('Frage Overpass ab …', bb);
-  let data = null;
-  for (const url of ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter']) {
-    try {
-      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'data=' + encodeURIComponent(q) });
-      if (!r.ok) { console.log(url, r.status); continue; }
-      data = await r.json(); break;
-    } catch (e) { console.log(url, e.message); }
-  }
-  if (!data) throw new Error('Overpass nicht erreichbar – später noch einmal versuchen.');
+  const data = await overpass(q);
   const buildings = [], areas = [], lines = [];
   for (const el of data.elements) {
     const t = el.tags || {};
