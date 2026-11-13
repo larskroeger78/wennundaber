@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wenn und Aber Bike Crew</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div id="vig"></div>
+  <div id="hudbox" style="display:none">
+    <div id="sec" class="hud"></div>
+    <div id="off" class="hud">Neben der Strecke</div>
+    <canvas id="mini" class="hud" width="180" height="180"></canvas>
+    <canvas id="prof" class="hud" width="420" height="64"></canvas>
+    <div id="stats" class="hud"><div id="spd">0<span>km/h</span></div><div id="sub"></div></div>
+  </div>
+  <div id="overlay"></div>
+</div>
+<script type="module" src="/src/game.js"></script>
+</body>
+</html>
