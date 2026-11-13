@@ -464,9 +464,9 @@ function textTex(txt,bg,fg){
 const cGrassA=L3(0x5f7d34),cGrassB=L3(0x84903f),cDry=L3(0xa39a5c),cForest=L3(0x3d4a25),cGravel=L3(0x837c6d),cDirt=L3(0x5c4730),cRough=L3(0x2b2019),cField=L3(0x6d8a3e),cUrban=L3(0x8f9180),cWater=L3(0x3b5f70);
 function forestD(x,z){
   if(ROUTE){
-    let f=sstep(0.05,0.2,routePresence(x,z))*(sstep(0.32,0.48,fbm(x/90+3,z/90+9))*0.85+0.15);
-    if(LU)f=lerp(f,lu(LU.FD,x,z)*(0.75+0.25*sstep(0.25,0.55,fbm(x/30+2,z/30+6))),lu(LU.K,x,z));
-    return f*(1-0.75*sstep(38,64,baseH(x,z)));      // oben auf der Halde offener
+    let f=sstep(0.05,0.2,routePresence(x,z))*(sstep(0.26,0.42,fbm(x/90+3,z/90+9))*0.7+0.3);
+    if(LU)f=lerp(f,Math.min(1,lu(LU.FD,x,z)*(0.92+0.2*sstep(0.25,0.55,fbm(x/30+2,z/30+6)))),lu(LU.K,x,z));
+    return f*(1-0.6*sstep(40,66,baseH(x,z)));      // oben auf der Halde offener
   }
   const r=Math.hypot(x,z);
   let f=sstep(RTOP+18,RTOP+95,r)*(1-sstep(RBASE+110,RBASE+210,r));
@@ -636,12 +636,13 @@ const DUM=new THREE.Object3D(),TC=new THREE.Color();
     addTree(x,z,1);
   }
   if(ROUTE&&LU){       // Wälder aus OpenStreetMap auch abseits der Strecke
-    for(let gx=FG.ox+20;gx<FG.ox+(FG.nx-1)*FG.G-20;gx+=10)for(let gz=FG.oz+20;gz<FG.oz+(FG.nz-1)*FG.G-20;gz+=10){
-      const x=gx+(rnd()-0.5)*8,z=gz+(rnd()-0.5)*8,f=lu(LU.FD,x,z);
-      if(f<0.15||rnd()>f*0.9)continue;
+    for(let gx=FG.ox+20;gx<FG.ox+(FG.nx-1)*FG.G-20;gx+=7)for(let gz=FG.oz+20;gz<FG.oz+(FG.nz-1)*FG.G-20;gz+=7){
+      const x=gx+(rnd()-0.5)*6,z=gz+(rnd()-0.5)*6,f=lu(LU.FD,x,z);
+      if(f<0.15||rnd()>Math.min(1,f*1.1))continue;
       if(nearest(allHash,x,z)&&nD<70)continue;
       if(!clearOf(x,z,0))continue;
       addTree(x,z,0.85+rnd()*0.35);
+      if(rnd()<0.1){const bx=x+(rnd()-0.5)*4,bz=z+(rnd()-0.5)*4;if(clearOf(bx,bz,0.4))bushes.push({x:bx,y:gnd(bx,bz)-0.1,z:bz,w:0.9+rnd()*1.5,h:0.5+rnd()*1.0});}
     }
   }
   // Trail-Korridor: dichte junge Bäume, Unterwuchs
@@ -690,10 +691,10 @@ const DUM=new THREE.Object3D(),TC=new THREE.Color();
   if(ROUTE){          // Bewuchs entlang der Strecke
     for(let i=4;i<N-2;i++){
       const h=HS[i],rx=-Math.cos(h),rz=Math.sin(h);
-      for(let k=0;k<3;k++){
-        if(rnd()<0.3)continue;
+      for(let k=0;k<5;k++){
+        if(rnd()<0.2)continue;
         const o=(HW[i]+1.8+Math.pow(rnd(),1.5)*75)*(rnd()<0.5?-1:1),x=PX[i]+rx*o+(rnd()-0.5)*3,z=PZ[i]+rz*o+(rnd()-0.5)*3;
-        if(rnd()>forestD(x,z)*1.15||!clearOf(x,z,0.3))continue;
+        if(rnd()>forestD(x,z)*1.5||!clearOf(x,z,0.3))continue;
         addTree(x,z,0.85+rnd()*0.3);
       }
       if(rnd()<0.4){
@@ -707,24 +708,31 @@ const DUM=new THREE.Object3D(),TC=new THREE.Color();
       }
     }
   }
-  const fol=new THREE.InstancedMesh(foliageGeo,leafMat,trees.length);
-  const trk=new THREE.InstancedMesh(trunkGeo,trunkMat,trees.length);
-  trees.forEach((t,i)=>{
-    DUM.rotation.set(0,t.rot,0);
-    DUM.position.set(t.x,t.y+t.H-t.ch,t.z);DUM.scale.set(t.cw,t.ch,t.cw);DUM.updateMatrix();fol.setMatrixAt(i,DUM.matrix);
-    DUM.position.set(t.x,t.y,t.z);DUM.scale.set(t.rad,t.H-t.ch*0.45,t.rad);DUM.updateMatrix();trk.setMatrixAt(i,DUM.matrix);
-    const tb=0.8+rnd()*0.45;fol.setColorAt(i,TC.setRGB(tb*(0.85+rnd()*0.35),tb,tb*(0.7+rnd()*0.25)));
-    const tg=0.65+rnd()*0.6;trk.setColorAt(i,TC.setRGB(tg,tg*0.97,tg*0.92));
-  });
-  fol.castShadow=true;fol.receiveShadow=true;fol.customDepthMaterial=leafDepth;fol.frustumCulled=false;
-  trk.castShadow=true;trk.receiveShadow=true;trk.frustumCulled=false;
-  scene.add(fol);scene.add(trk);
-  const bsh=new THREE.InstancedMesh(foliageGeo,leafMat,bushes.length);
-  bushes.forEach((b,i)=>{
-    DUM.rotation.set(0,rnd()*6.283,0);DUM.position.set(b.x,b.y,b.z);DUM.scale.set(b.w,b.h,b.w);DUM.updateMatrix();bsh.setMatrixAt(i,DUM.matrix);
-    const bb=0.75+rnd()*0.4;bsh.setColorAt(i,TC.setRGB(bb,bb*1.05,bb*0.7));
-  });
-  bsh.castShadow=true;bsh.receiveShadow=true;bsh.customDepthMaterial=leafDepth;bsh.frustumCulled=false;scene.add(bsh);
+  // Instanzen in Kacheln (300 m) aufteilen: pro Kachel ein Mesh mit eigener Hüllkugel, damit nur Sichtbares gezeichnet wird
+  function tiled(items,geo,mat,fill,shadow,depthMat){
+    const T=300,map=new Map();
+    items.forEach(it=>{const k=Math.floor(it.x/T)+','+Math.floor(it.z/T);let a=map.get(k);if(!a)map.set(k,a=[]);a.push(it);});
+    map.forEach((arr,k)=>{
+      const kk=k.split(',').map(Number),cx=(kk[0]+0.5)*T,cz=(kk[1]+0.5)*T;
+      const g=new THREE.BufferGeometry();g.setIndex(geo.index);for(const n in geo.attributes)g.setAttribute(n,geo.attributes[n]);
+      g.boundingSphere=new THREE.Sphere(new THREE.Vector3(0,30,0),T*0.75+60);
+      const m=new THREE.InstancedMesh(g,mat,arr.length);m.position.set(cx,0,cz);
+      arr.forEach((it,i)=>fill(it,i,m,cx,cz));
+      m.castShadow=shadow;m.receiveShadow=true;if(depthMat)m.customDepthMaterial=depthMat;m.frustumCulled=true;scene.add(m);
+    });
+  }
+  tiled(trees,foliageGeo,leafMat,(t,i,m,cx,cz)=>{
+    DUM.rotation.set(0,t.rot,0);DUM.position.set(t.x-cx,t.y+t.H-t.ch,t.z-cz);DUM.scale.set(t.cw,t.ch,t.cw);DUM.updateMatrix();m.setMatrixAt(i,DUM.matrix);
+    const tb=0.8+rnd()*0.45;m.setColorAt(i,TC.setRGB(tb*(0.85+rnd()*0.35),tb,tb*(0.7+rnd()*0.25)));
+  },true,leafDepth);
+  tiled(trees,trunkGeo,trunkMat,(t,i,m,cx,cz)=>{
+    DUM.rotation.set(0,t.rot,0);DUM.position.set(t.x-cx,t.y,t.z-cz);DUM.scale.set(t.rad,t.H-t.ch*0.45,t.rad);DUM.updateMatrix();m.setMatrixAt(i,DUM.matrix);
+    const tg=0.65+rnd()*0.6;m.setColorAt(i,TC.setRGB(tg,tg*0.97,tg*0.92));
+  },true,null);
+  tiled(bushes,foliageGeo,leafMat,(b,i,m,cx,cz)=>{
+    DUM.rotation.set(0,rnd()*6.283,0);DUM.position.set(b.x-cx,b.y,b.z-cz);DUM.scale.set(b.w,b.h,b.w);DUM.updateMatrix();m.setMatrixAt(i,DUM.matrix);
+    const bb=0.75+rnd()*0.4;m.setColorAt(i,TC.setRGB(bb,bb*1.05,bb*0.7));
+  },true,leafDepth);
   const grs=new THREE.InstancedMesh(grassGeo,grassMat,tufts.length);
   tufts.forEach((t,i)=>{
     DUM.rotation.set(0,rnd()*6.283,0);DUM.position.set(t.x,t.y,t.z);DUM.scale.set(t.w,t.h,t.w);DUM.updateMatrix();grs.setMatrixAt(i,DUM.matrix);
