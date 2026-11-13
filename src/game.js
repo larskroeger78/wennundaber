@@ -1057,6 +1057,10 @@ const keys={};
 let running=false,inputMode='keyboard',st,FPV=true;
 const trainer=new Trainer(),click=new ClickPad();let paused=false,gear=0,bleMsg='',lastMenu=null;   // gear: virtuelle Schaltung = Widerstand in %-Steigung (+/-)
 let gearUsed=false,toastT=0;
+const DIFFN={1:'Leicht',2:'Normal'};
+let diff=1;try{const v=+localStorage.getItem('miworu_diff');if(v===1||v===2)diff=v;}catch(e){}   // Schwierigkeit: 1 Leicht (Steigungen zählen 40 %), 2 Normal
+const gearF=()=>(gear<0?Math.pow(1.26,gear):1+gear*0.05)*(diff===1?0.4:1);   // Faktor auf die Steigung: Gang x Schwierigkeit
+function setDiff(d){diff=d;try{localStorage.setItem('miworu_diff',d);}catch(e){}gearHud.k=null;toastEl.textContent='Schwierigkeit: '+DIFFN[d];toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1200);}
 const gearEl=document.getElementById('gear'),toastEl=document.getElementById('toast');
 function shift(d){
   const ng=clamp(gear+d,-6,6);gearUsed=true;
@@ -1066,12 +1070,10 @@ function shift(d){
   toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),900);
 }
 function gearHud(){
-  const show=trainer.connected||click.connected||gearUsed;
-  gearEl.style.display=show?'block':'none';
-  if(!show)return;
-  const key=gear+'|'+click.connected;if(gearHud.k===key)return;gearHud.k=key;
+  gearEl.style.display='block';
+  const key=gear+'|'+click.connected+'|'+diff;if(gearHud.k===key)return;gearHud.k=key;
   let bars='';for(let k=0;k<13;k++)bars+='<i class="'+(k===gear+6?'on':'')+'" style="height:'+(8+k*1.8)+'px"></i>';
-  gearEl.innerHTML='<div class="lbl">GANG'+(click.connected?'':' · Tasten +/−')+'</div><div class="gn">'+(gear+7)+'<small>/ 13</small></div><div class="bars">'+bars+'</div>';
+  gearEl.innerHTML='<div class="lbl">GANG · <span class="dif d'+diff+'">'+DIFFN[diff].toUpperCase()+'</span></div><div class="gn">'+(gear+7)+'<small>/ 13</small></div><div class="bars">'+bars+'</div>';
 }
 click.onShift=shift;
 const bleChange=()=>{if(trainer.connected)inputMode='trainer';else if(inputMode==='trainer')inputMode='keyboard';if(ov.style.display!=='none'&&lastMenu)menu(lastMenu[0],lastMenu[1]);};
@@ -1085,6 +1087,8 @@ window.addEventListener('keydown',e=>{
   if(e.key==='r'||e.key==='R')start();
   if(e.key==='c'||e.key==='C')FPV=!FPV;
   if(e.key==='Escape'&&running){running=false;paused=true;trainer.setGrade(0,0.005,true);offEl.style.display='none';menu('Weiterfahren','Pause · '+(st.pos/1000).toFixed(2)+' km · '+fmtT(st.t));}
+  if(e.key==='1')setDiff(1);
+  if(e.key==='2')setDiff(2);
   if(e.key==='+'||e.key==='PageUp')shift(1);
   if(e.key==='-'||e.key==='PageDown')shift(-1);
 });
@@ -1098,7 +1102,7 @@ function update(dt){
   const i=Math.min(N-1,Math.floor(st.pos/SEG)),dirt=SURF[i]===2;
   const tr=inputMode==='trainer'&&trainer.connected;
   if(tr)st.power+=(trainer.power-st.power)*Math.min(1,dt*6);else st.power+=((up?PMAX:0)-st.power)*Math.min(1,dt*2.5);
-  const gf=gear<0?Math.pow(1.26,gear):1+gear*0.05;   // Gangfaktor auf die Steigung: leichtester Gang x0,25 (18 % fühlen sich wie 4,5 % an), schwerster x1,3
+  const gf=gearF();   // Gang x Schwierigkeit: Normal: leichtester Gang x0,25, schwerster x1,3; Leicht: alles x0,4
   const eg=Math.max(0,GR[i]>0?GR[i]*gf+Math.max(0,gear)*0.15:Math.max(0,gear)*0.15*(GR[i]>-2?1:0));   // Abfahrten neutral
   if(tr)trainer.setGrade(eg,dirt?0.012:SURF[i]===1?0.009:0.005);
   const climb=eg/100;            // Abfahrten neutral: zählen wie flach
@@ -1185,7 +1189,7 @@ function drawHud(){
   if(SEC[i]!==lastSec){lastSec=SEC[i];secEl.innerHTML=SECN[lastSec]+'<small>'+PLACE+'</small>';}
   spdEl.firstChild.nodeValue=(st.v*3.6).toFixed(0);
   gearHud();
-  subEl.innerHTML='<b>'+Math.round(st.power)+' W</b>'+' · '+(GR[i]>=0?'+':'')+GR[i].toFixed(0)+' %'+(GR[i]>2&&Math.abs(Math.max(0,GR[i]*(gear<0?Math.pow(1.26,gear):1+gear*0.05))-GR[i])>0.5?' (fühlt sich an wie '+(GR[i]*(gear<0?Math.pow(1.26,gear):1+gear*0.05)).toFixed(0)+' %)':'')+' · '+(NHN0+PY[i]).toFixed(0)+' m ü. NHN<br>'+(st.pos/1000).toFixed(2)+' / '+(TOTAL/1000).toFixed(2)+' km · '+fmtT(st.t);
+  subEl.innerHTML='<b>'+Math.round(st.power)+' W</b>'+' · '+(GR[i]>=0?'+':'')+GR[i].toFixed(0)+' %'+(GR[i]>2&&Math.abs(GR[i]*gearF()-GR[i])>0.5?' (fühlt sich an wie '+(GR[i]*gearF()).toFixed(0)+' %)':'')+' · '+(NHN0+PY[i]).toFixed(0)+' m ü. NHN<br>'+(st.pos/1000).toFixed(2)+' / '+(TOTAL/1000).toFixed(2)+' km · '+fmtT(st.t);
   mg.clearRect(0,0,180,180);mg.drawImage(miniBase,0,0);
   const mx=90+(PX[i]-Math.cos(HS[i])*st.x-MCX)*MS,my=90+(PZ[i]+Math.sin(HS[i])*st.x-MCZ)*MS;
   mg.save();mg.translate(mx,my);mg.rotate(Math.atan2(Math.cos(HS[i]),Math.sin(HS[i])));
@@ -1211,7 +1215,7 @@ function menu(title,sub){
       '<div class="stats"><div><b>'+km+'</b><i>km</i></div><div><b>'+HM+'</b><i>Höhenmeter</i></div></div>'+
       '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(click.connected?'Zwift Click ✓ ('+click.count+')':'Zwift Click (experimentell)')+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button></div>'+
       '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?'Bluetooth nur in Chrome/Edge (nicht Safari).':'D100 oder KICKR einschalten, dann „Trainer koppeln“.')+(bleMsg?'<br>'+bleMsg:'')+(click.connected?'<br>'+click.name+' verbunden · '+click.count+' Pakete empfangen'+(click.count?'':' – Taste an der Click drücken (+/− schaltet; Tastatur: + / − geht immer)')+(click.log.length?'<br><small>'+click.log.slice(-3).join('<br>')+'</small>':''):'')+'</div>'+
-      '<div class="help keys"><b>↑</b> treten · <b>↓</b> bremsen · <b>+/−</b> Schaltung · <b>Esc</b> Pause · <b>R</b> neu · <b>C</b> Ansicht<br>Lenken und Ausweichen laufen automatisch. Abfahrten sind neutral: Tempo entsteht nur durchs Treten.</div>'+
+      '<div class="help keys"><b>↑</b> treten · <b>↓</b> bremsen · <b>+/−</b> Schaltung · <b>1</b>/<b>2</b> Schwierigkeit (Leicht/Normal) · <b>Esc</b> Pause · <b>R</b> neu · <b>C</b> Ansicht<br>Lenken und Ausweichen laufen automatisch. Abfahrten sind neutral: Tempo entsteht nur durchs Treten.</div>'+
     '</div></div>';
   document.getElementById('mode').onclick=()=>{inputMode=inputMode==='keyboard'?'off':'keyboard';menu(title,sub);};
   document.querySelectorAll('[data-route]').forEach(b=>b.onclick=()=>{const r=b.getAttribute('data-route');location.href=location.pathname+(r?'?route='+r:'')+'#go';});

@@ -54,3 +54,5 @@ button.main{background:#e14230;color:#fff;font-size:30px;padding:12px 34px}
 #gear .bars i.on{background:#f5a524;box-shadow:0 0 8px rgba(245,165,36,.8)}
 #toast{left:50%;top:34%;transform:translateX(-50%);font-size:46px;font-weight:800;color:#f5a524;opacity:0;transition:opacity .35s;letter-spacing:.05em;white-space:nowrap}
 #toast.on{opacity:1;transition:none}
+#gear .dif{padding:1px 8px;border-radius:4px;background:#2f9e5b;color:#fff;letter-spacing:.1em}
+#gear .dif.d2{background:#c0392b}
