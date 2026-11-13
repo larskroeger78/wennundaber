@@ -240,7 +240,7 @@ function ground(m,x,z){
   if(nearest(m,x,z)){
     if(useDem){
       // Wegbett eben, dann sanft ins echte Gelände; die Höhenabweichung klingt über 28 m ab (keine Wände, keine Brücken)
-      if(nD<14){const t=sstep(RW[nI]+0.4,RW[nI]+3.4,nD);h=lerp(PY[nI]-0.14,h+OFF[nI]*(1-sstep(RW[nI],RW[nI]+6,nD)),t);}
+      if(nD<14){let t=sstep(RW[nI]+0.3,RW[nI]+5.5,nD);t=t*t*(3-2*t);t=t*t*(3-2*t)*0.35+t*0.65;h=lerp(PY[nI]-0.14,h+OFF[nI]*(1-sstep(RW[nI],RW[nI]+7,nD))+(fbm(x/2.6+3,z/2.6)-0.5)*0.34*sstep(RW[nI]+1.2,RW[nI]+5,nD)+(fbm(x/9,z/9+5)-0.5)*0.5*sstep(RW[nI]+2,RW[nI]+9,nD),t);}
     }else if(nD<OUTR[nI]){const w=1-sstep(FLAT[nI],OUTR[nI],nD);h=lerp(h,PY[nI]-0.14,w);}
   }
   return h;
@@ -401,11 +401,15 @@ const texLeaf=canvasTex(512,512,(g,w,h)=>{
   });
 },false);
 const texGrass=canvasTex(128,128,(g,w,h)=>{
-  g.clearRect(0,0,w,h);g.lineCap='round';
-  for(let i=0;i<70;i++){
-    const x=10+rnd()*108,hh=40+rnd()*80,dx=(rnd()-0.5)*40;
-    g.strokeStyle='hsl('+(62+rnd()*45)+','+(30+rnd()*25)+'%,'+(24+rnd()*26)+'%)';g.lineWidth=1.5+rnd()*2;
-    g.beginPath();g.moveTo(x,128);g.quadraticCurveTo(x+dx*0.2,128-hh*0.6,x+dx,128-hh);g.stroke();
+  g.clearRect(0,0,w,h);
+  for(let i=0;i<110;i++){
+    const x=6+rnd()*116,hh=34+rnd()*86,dx=(rnd()-0.5)*(18+hh*0.45),bw=0.9+rnd()*1.5,dry=rnd()<0.18;
+    const gr=g.createLinearGradient(0,128,0,128-hh);
+    if(dry){gr.addColorStop(0,'hsl(48,28%,28%)');gr.addColorStop(1,'hsl(46,38%,52%)');}
+    else{const hu=70+rnd()*28;gr.addColorStop(0,'hsl('+hu+',38%,13%)');gr.addColorStop(1,'hsl('+(hu-6)+',44%,'+(30+rnd()*14)+'%)');}
+    g.fillStyle=gr;g.beginPath();g.moveTo(x-bw,128);
+    g.quadraticCurveTo(x-bw*0.6+dx*0.15,128-hh*0.55,x+dx,128-hh);
+    g.quadraticCurveTo(x+bw*0.6+dx*0.15,128-hh*0.55,x+bw,128);g.closePath();g.fill();
   }
 },false);
 const texConcrete=canvasTex(256,256,(g,w,h)=>{
@@ -437,7 +441,7 @@ function forestD(x,z){
   return f;
 }
 (function buildTerrain(){
-  const G=ROUTE?5:4,X0=ROUTE?FG.ox:-660,Z0=ROUTE?FG.oz:-660;
+  const G=4,X0=ROUTE?FG.ox:-660,Z0=ROUTE?FG.oz:-660;
   const nx=ROUTE?Math.floor((FG.nx-1)*FG.G/G):330,nz=ROUTE?Math.floor((FG.nz-1)*FG.G/G):330,VX=nx+1,VZ=nz+1;
   const pos=new Float32Array(VX*VZ*3),col=new Float32Array(VX*VZ*3),col2=new Float32Array(VX*VZ*3),uv=new Float32Array(VX*VZ*2);
   let p=0,q=0,u=0;
@@ -478,6 +482,17 @@ function forestD(x,z){
   g.setAttribute('uv',new THREE.BufferAttribute(uv,2));
   g.setIndex(new THREE.BufferAttribute(idx,1));
   g.computeVertexNormals();
+  {   // steile Hänge: Erde/Geröll statt Rasen (Böschungen wirken gewachsen statt tapeziert)
+    const nr=g.attributes.normal.array;
+    for(let v=0;v<VX*VZ;v++){
+      const ny=nr[v*3+1],t=sstep(0.93,0.8,ny)*0.7*(0.6+0.8*fbm(pos[v*3]/3,pos[v*3+2]/3));
+      if(t<=0.01)continue;
+      const e=mix3([col[v*3],col[v*3+1],col[v*3+2]],cDirt,Math.min(1,t));
+      col[v*3]=e[0];col[v*3+1]=e[1];col[v*3+2]=e[2];
+      col2[v*3]=Math.min(1.6,e[0]/0.50);col2[v*3+1]=Math.min(1.6,e[1]/0.42);col2[v*3+2]=Math.min(1.6,e[2]/0.20);
+    }
+    g.attributes.color.needsUpdate=true;
+  }
   const tm=new THREE.MeshStandardMaterial({map:texGround,vertexColors:true,roughness:1,metalness:0});
   applyPhoto(tm,'forrest_ground_01',1.75,1.75,{arm:true,normalScale:1.2,onDiffuse:()=>{g.setAttribute('color',new THREE.BufferAttribute(col2,3));}});
   const m=new THREE.Mesh(g,tm);
@@ -553,7 +568,7 @@ const foliageGeo=(function(){
   }
   return cardGeo(q,p=>{const v=new THREE.Vector3(p[0],(p[1]-0.4)*0.8,p[2]).normalize();v.y+=0.55;v.normalize();return [v.x,v.y,v.z];});
 })();
-const grassGeo=cardGeo([[[-0.5,0,0],[0.5,0,0],[0.5,1,0],[-0.5,1,0]],[[0,0,-0.5],[0,0,0.5],[0,1,0.5],[0,1,-0.5]]],()=>[0,1,0]);
+const grassGeo=cardGeo([0,1,2].map(k=>{const a=k*Math.PI/3,cx=Math.cos(a)*0.5,cz=Math.sin(a)*0.5;return [[-cx,0,-cz],[cx,0,cz],[cx,1,cz],[-cx,1,-cz]];}),()=>[0,1,0]);
 const leafMat=new THREE.MeshLambertMaterial({map:texLeaf,alphaTest:0.35});
 const leafDepth=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking,map:texLeaf,alphaTest:0.35});
 const grassMat=new THREE.MeshLambertMaterial({map:texGrass,alphaTest:0.3});
@@ -599,7 +614,7 @@ const DUM=new THREE.Object3D(),TC=new THREE.Color();
     }
     for(let k=0;k<5;k++){
       const o=(HW[i]+0.25+rnd()*4.5)*(rnd()<0.5?-1:1),x=PX[i]+rx*o+(rnd()-0.5),z=PZ[i]+rz*o+(rnd()-0.5);
-      tufts.push({x:x,y:gnd(x,z)-0.05,z:z,w:0.6+rnd()*0.7,h:0.35+rnd()*0.5,dry:0.1});
+      tufts.push({x:x,y:gnd(x,z)-0.05,z:z,w:0.35+rnd()*0.45,h:0.18+rnd()*0.3,dry:0.1});
     }
   }
   // Wegränder Uphill
@@ -608,7 +623,7 @@ const DUM=new THREE.Object3D(),TC=new THREE.Color();
     for(let k=0;k<4;k++){
       const o=(HW[i]+0.5+rnd()*8)*(rnd()<0.5?-1:1),x=PX[i]+rx*o+(rnd()-0.5),z=PZ[i]+rz*o+(rnd()-0.5);
       if(Math.hypot(x,z)<33)continue;
-      tufts.push({x:x,y:gnd(x,z)-0.05,z:z,w:0.7+rnd()*0.8,h:0.3+rnd()*0.55,dry:rnd()*0.8});
+      tufts.push({x:x,y:gnd(x,z)-0.05,z:z,w:0.35+rnd()*0.5,h:0.16+rnd()*0.3,dry:rnd()*0.8});
     }
     if(rnd()<0.14){
       const o=(FLAT[i]+1+rnd()*6)*(rnd()<0.5?-1:1),x=PX[i]+rx*o,z=PZ[i]+rz*o;
@@ -619,7 +634,7 @@ const DUM=new THREE.Object3D(),TC=new THREE.Color();
   for(let k=0;k<(ROUTE?0:4200);k++){
     const an=rnd()*6.283,r=34+Math.sqrt(rnd())*150,x=Math.cos(an)*r,z=Math.sin(an)*r;
     if(!clearOf(x,z,-0.6))continue;
-    tufts.push({x:x,y:gnd(x,z)-0.05,z:z,w:0.8+rnd()*0.9,h:0.3+rnd()*0.6,dry:0.3+rnd()*0.7});
+    tufts.push({x:x,y:gnd(x,z)-0.05,z:z,w:0.4+rnd()*0.5,h:0.18+rnd()*0.32,dry:0.3+rnd()*0.7});
   }
   for(let k=0;k<(ROUTE?0:420);k++){
     const an=rnd()*6.283,r=RTOP+4+rnd()*110,x=Math.cos(an)*r,z=Math.sin(an)*r;
@@ -639,9 +654,10 @@ const DUM=new THREE.Object3D(),TC=new THREE.Color();
         const o=(HW[i]+1.3+rnd()*7)*(rnd()<0.5?-1:1),x=PX[i]+rx*o,z=PZ[i]+rz*o;
         if(clearOf(x,z,0.4))bushes.push({x:x,y:gnd(x,z)-0.1,z:z,w:0.9+rnd()*1.4,h:0.5+rnd()*1.0});
       }
-      for(let k=0;k<4;k++){
-        const o=(HW[i]+0.25+rnd()*5)*(rnd()<0.5?-1:1),x=PX[i]+rx*o+(rnd()-0.5),z=PZ[i]+rz*o+(rnd()-0.5);
-        tufts.push({x:x,y:gnd(x,z)-0.05,z:z,w:0.6+rnd()*0.8,h:0.32+rnd()*0.55,dry:SURF[i]===2?0.1:rnd()*0.7});
+      for(let k=0;k<10;k++){
+        const o=(HW[i]+0.2+Math.pow(rnd(),1.6)*6)*(rnd()<0.5?-1:1),x=PX[i]+rx*o+(rnd()-0.5),z=PZ[i]+rz*o+(rnd()-0.5);
+        if(!clearOf(x,z,0.1))continue;
+        tufts.push({x:x,y:gnd(x,z)-0.06,z:z,w:0.3+rnd()*0.5,h:0.14+rnd()*0.3+(k<2?0.25:0),dry:SURF[i]===2?0.1:rnd()*0.7});
       }
     }
   }
@@ -666,9 +682,39 @@ const DUM=new THREE.Object3D(),TC=new THREE.Color();
   const grs=new THREE.InstancedMesh(grassGeo,grassMat,tufts.length);
   tufts.forEach((t,i)=>{
     DUM.rotation.set(0,rnd()*6.283,0);DUM.position.set(t.x,t.y,t.z);DUM.scale.set(t.w,t.h,t.w);DUM.updateMatrix();grs.setMatrixAt(i,DUM.matrix);
-    grs.setColorAt(i,TC.setRGB(0.6+t.dry*0.7,0.62+t.dry*0.45,0.45+t.dry*0.12));
+    grs.setColorAt(i,TC.setRGB(0.5+t.dry*0.4,0.55+t.dry*0.25,0.4+t.dry*0.08));
   });
   grs.receiveShadow=true;grs.frustumCulled=false;scene.add(grs);
+  // Bergab: Untergrund wird wurzelig und steinig (je steiler, desto mehr), Wurzeln queren den Weg, Steine liegen drauf und daneben
+  {
+    const rootG=new THREE.CylinderGeometry(1,1,1,5);rootG.rotateZ(Math.PI/2);
+    const stoneG=new THREE.DodecahedronGeometry(1,0);
+    const roots=[],stones=[];
+    for(let i=(ROUTE?0:iTrail);i<N;i++){
+      if(ROUTE&&SURF[i]===0)continue;
+      const dn=-GR[i];if(dn<2)continue;
+      const pr=clamp((dn-2)/9,0,1)*(ROUTE&&SURF[i]===1?0.6:1),h=HS[i],rx=-Math.cos(h),rz=Math.sin(h);
+      if(rnd()<pr*0.8){
+        const hw=HW[i]*(ROUTE?[1,1.5,1.7][SURF[i]]:1.7)*0.9,o0=-hw*(0.7+rnd()*0.3),o1=hw*(0.7+rnd()*0.3),L=o1-o0,oc=(o0+o1)/2,sk=(rnd()-0.5)*0.9;
+        const x=PX[i]+rx*oc,z=PZ[i]+rz*oc;
+        roots.push({x:x,y:gnd(x,z)+0.035,z:z,L:L/Math.cos(sk),r:0.05+rnd()*0.07,a:Math.atan2(-rz,rx)+sk,t:rnd()});
+        if(rnd()<0.4){const x2=x+Math.sin(h)*0.5,z2=z+Math.cos(h)*0.5;roots.push({x:x2,y:gnd(x2,z2)+0.03,z:z2,L:L*0.6,r:0.025+rnd()*0.03,a:Math.atan2(-rz,rx)+sk+(rnd()-0.5)*0.6,t:rnd()});}
+      }
+      const ns=Math.round(pr*(3+rnd()*6));
+      for(let k=0;k<ns;k++){
+        const hw=HW[i]*(ROUTE?[1,1.5,1.7][SURF[i]]:1.7),o=(rnd()*2-1)*hw*(rnd()<0.7?0.95:1.6),x=PX[i]+rx*o+Math.sin(h)*(rnd()-0.5)*SEG,z=PZ[i]+rz*o+Math.cos(h)*(rnd()-0.5)*SEG;
+        const w=0.05+Math.pow(rnd(),2.4)*0.17;
+        stones.push({x:x,y:gnd(x,z)+w*0.18,z:z,w:w,hh:w*(0.45+rnd()*0.35),t:rnd()});
+      }
+    }
+    const rm=new THREE.InstancedMesh(rootG,new THREE.MeshStandardMaterial({roughness:1,color:0xffffff}),Math.max(1,roots.length));rm.count=roots.length;
+    roots.forEach((r,i)=>{DUM.rotation.set(0,r.a,0);DUM.position.set(r.x,r.y,r.z);DUM.scale.set(r.L,r.r,r.r);DUM.updateMatrix();rm.setMatrixAt(i,DUM.matrix);rm.setColorAt(i,TC.setRGB(0.14+r.t*0.1,0.09+r.t*0.06,0.05+r.t*0.03));});
+    rm.castShadow=false;rm.receiveShadow=true;rm.frustumCulled=false;scene.add(rm);
+    const sm=new THREE.InstancedMesh(stoneG,new THREE.MeshStandardMaterial({roughness:0.95,color:0xffffff,flatShading:true}),Math.max(1,stones.length));sm.count=stones.length;
+    stones.forEach((r,i)=>{DUM.rotation.set(rnd()*0.6,rnd()*6.283,rnd()*0.6);DUM.position.set(r.x,r.y,r.z);DUM.scale.set(r.w,r.hh,r.w*(0.7+rnd()*0.5));DUM.updateMatrix();sm.setMatrixAt(i,DUM.matrix);const c=0.16+r.t*0.16;sm.setColorAt(i,TC.setRGB(c*1.05,c*0.95,c*0.8));});
+    sm.castShadow=true;sm.receiveShadow=true;sm.frustumCulled=false;scene.add(sm);
+    window.__rs={roots:roots.length,stones:stones.length};
+  }
   window.__counts={trees:trees.length,bushes:bushes.length,tufts:tufts.length};
 })();
 
@@ -956,7 +1002,7 @@ function update(dt){
   st.v=Math.max(0,v+(st.power/vs-fres)/M*dt);
   const off=Math.abs(st.x)>HW[i]+0.15;
   if(off)st.v*=Math.max(0,1-1.3*dt);
-  st.pos+=st.v*dt;st.t+=dt;
+  st.pos=Math.max(0,st.pos+st.v*dt);st.t+=dt;
   updateJoggers(dt);
   const steer=(right?1:0)-(left?1:0);
   // Automatische Lenkung (Rollentrainer wie D100 oder KICKR können nicht lenken): Lenker und Neigung folgen dem
@@ -1117,7 +1163,7 @@ function render(dt,now){
 }
 let last=performance.now();
 function loop(now){
-  const dt=Math.min(0.05,(now-last)/1000);last=now;
+  const dt=clamp((now-last)/1000,0,0.05);last=now;
   update(dt);render(dt,now);
   requestAnimationFrame(loop);
 }
