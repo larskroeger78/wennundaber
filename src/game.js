@@ -130,8 +130,26 @@ const SEC=new Array(N+1);
     SEC[i]=raw[j].sec;
   }
 })();
-let DEMOFF=0;   // GPX-Höhen (Komoot) und DGM1 weichen etwas ab: mittleren Versatz ausgleichen, Strecke behält die GPX-Höhen
-if(useDem){for(let i=0;i<=N;i++)DEMOFF+=PY[i]-demH(PX[i],PZ[i]);DEMOFF/=N+1;}
+// Mit echtem Gelände: Streckenhöhe aus dem Höhenmodell (Median aus Mitte und ±3 m seitlich gegen GPS-Versatz),
+// stark geglättet und auf 17 % Steigung begrenzt. So liegt die Strecke auf dem Gelände statt in der Luft.
+const OFF=new Float32Array(N+1);
+if(useDem){
+  const tmp=new Float32Array(N+1);
+  for(let i=0;i<=N;i++){
+    const i0=Math.max(0,i-2),i1=Math.min(N,i+2),dx=PX[i1]-PX[i0],dz=PZ[i1]-PZ[i0],l=Math.hypot(dx,dz)||1,nx=-dz/l,nz=dx/l;
+    const a=demH(PX[i],PZ[i]),b=demH(PX[i]+nx*3,PZ[i]+nz*3),c=demH(PX[i]-nx*3,PZ[i]-nz*3);
+    tmp[i]=Math.max(Math.min(a,b),Math.min(Math.max(a,b),c));       // Median
+  }
+  for(let i=0;i<=N;i++)PY[i]=Math.max(0,tmp[i]);
+  smoothArr(PY,12);
+  for(let it=0;it<80;it++){
+    let ch=false;
+    for(let i=0;i<N;i++){const d=PY[i+1]-PY[i],mx=0.17*SEG;if(Math.abs(d)>mx){const e=(Math.abs(d)-mx)/2*Math.sign(d);PY[i]+=e;PY[i+1]-=e;ch=true;}}
+    if(!ch)break;
+  }
+  for(let i=0;i<=N;i++)OFF[i]=PY[i]-0.14-demH(PX[i],PZ[i]);        // Abweichung Strecke ↔ Gelände
+  smoothArr(OFF,8);
+}
 const iTrail=ROUTE?N+1:SEC.indexOf(5);
 const SURF=new Uint8Array(N+1);
 for(let i=0;i<=N;i++)SURF[i]=ROUTE?SEC[i]:(SEC[i]===5?2:0);
@@ -152,6 +170,8 @@ for(let i=0;i<=N;i++){
   OUTR[i]=s===5?7:(s===2?24:14);
 }
 smoothArr(HW,10);smoothArr(FLAT,10);smoothArr(OUTR,10);
+const RW=new Float32Array(N+1);      // halbe Breite des sichtbaren Wegbandes
+for(let i=0;i<=N;i++)RW[i]=HW[i]*(ROUTE?[1,1.5,1.7][SURF[i]]:1);
 
 // Räumlicher Hash für "nächster Streckenpunkt"
 const CELL=28;
@@ -205,7 +225,7 @@ function baseRoute(x,z){
 function baseH(x,z){
   if(useDem){            // echtes Gelände, am Rand weich zur Umland-Ebene auslaufend
     const e=Math.min(x-FG.ox,FG.ox+(FG.nx-1)*FG.G-x,z-FG.oz,FG.oz+(FG.nz-1)*FG.G-z);
-    return lerp(-1.2,demH(x,z)+DEMOFF,sstep(0,110,e));
+    return lerp(-1.2,demH(x,z),sstep(0,110,e));
   }
   if(ROUTE)return baseRoute(x,z);
   const r=Math.hypot(x,z),e=Math.max(Math.abs(x),Math.abs(z));
@@ -216,7 +236,12 @@ function baseH(x,z){
 }
 function ground(m,x,z){
   let h=baseH(x,z);
-  if(nearest(m,x,z)&&nD<OUTR[nI]){const w=1-sstep(FLAT[nI],OUTR[nI],nD);h=lerp(h,PY[nI]-0.14,w);}
+  if(nearest(m,x,z)){
+    if(useDem){
+      // Wegbett eben, dann sanft ins echte Gelände; die Höhenabweichung klingt über 28 m ab (keine Wände, keine Brücken)
+      if(nD<14){const t=sstep(RW[nI]+0.4,RW[nI]+3.4,nD);h=lerp(PY[nI]-0.14,h+OFF[nI]*(1-sstep(RW[nI],RW[nI]+6,nD)),t);}
+    }else if(nD<OUTR[nI]){const w=1-sstep(FLAT[nI],OUTR[nI],nD);h=lerp(h,PY[nI]-0.14,w);}
+  }
   return h;
 }
 // Trailhöhe folgt dem Gelände inkl. Wegbankett des Uphills
@@ -473,6 +498,10 @@ function ribbon(i0,i1,wScale,mat,vLen,lift){
     const i=i0+k,h=HS[i],rx=-Math.cos(h),rz=Math.sin(h),w=HW[i]*wScale;
     pos[k*6]=PX[i]-rx*w;pos[k*6+1]=PY[i]+lift;pos[k*6+2]=PZ[i]-rz*w;
     pos[k*6+3]=PX[i]+rx*w;pos[k*6+4]=PY[i]+lift;pos[k*6+5]=PZ[i]+rz*w;
+    if(useDem){      // Wegband liegt auf dem Gelände (kein Schweben über Böschungen oder doppelten Wegen)
+      const gl=gnd(pos[k*6],pos[k*6+2])+lift+0.08,gr=gnd(pos[k*6+3],pos[k*6+5])+lift+0.08;
+      pos[k*6+1]=Math.min(PY[i]+lift+0.6,Math.max(PY[i]+lift-0.6,gl));pos[k*6+4]=Math.min(PY[i]+lift+0.6,Math.max(PY[i]+lift-0.6,gr));
+    }
     uv[k*4]=0;uv[k*4+1]=i*SEG/vLen;uv[k*4+2]=1;uv[k*4+3]=i*SEG/vLen;
     if(k<cnt-1){const a=k*2;idx.push(a,a+1,a+2,a+1,a+3,a+2);}
   }
@@ -1075,7 +1104,7 @@ function loop(now){
   update(dt);render(dt,now);
   requestAnimationFrame(loop);
 }
-window.__dbg={KV:KV,ROUTE:ROUTE,SURF:SURF,cam:camera,joggers:joggers,get st(){return st;},set pos(v){st.pos=v;camInit=false;},N:N,TOTAL:TOTAL,iTrail:iTrail,SEC:SEC,PY:PY,GR:GR};
+window.__dbg={gnd:gnd,HS:HS,PX:PX,PZ:PZ,HW:HW,KV:KV,ROUTE:ROUTE,SURF:SURF,cam:camera,joggers:joggers,get st(){return st;},set pos(v){st.pos=v;camInit=false;},N:N,TOTAL:TOTAL,iTrail:iTrail,SEC:SEC,PY:PY,GR:GR};
 menu('Start');
 if(location.hash==='#go')start();
 requestAnimationFrame(loop);
