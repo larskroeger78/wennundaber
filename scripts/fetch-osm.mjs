@@ -1,4 +1,4 @@
-import { overpass } from './overpass.mjs';
+import { overpass, WANT_QUERY, elementsOrNull } from './overpass.mjs';
 // Lädt Gebäude, Wald, Felder, Siedlungen und Gewässer aus OpenStreetMap (Overpass-API) für das Spielgebiet
 // und schreibt src/routes/umgebung.json (Koordinaten im Spielsystem: x = Ost, z = -Nord, in Metern).
 // Aufruf: npm run osm   (Node 18+, Internet nötig). Daten © OpenStreetMap-Mitwirkende (ODbL).
@@ -21,6 +21,8 @@ const QUERIES = [
   ['Wald/Flächen', mk(`way["landuse"~"^(forest|residential|industrial|commercial|retail|${LANDUSE_OPEN})$"](${bb});way["natural"~"^(wood|water|scrub|heath|grassland|wetland)$"](${bb});way["leisure"~"^(park|garden|pitch|golf_course)$"](${bb});`)],
   ['Wasser/Relationen', mk(`way["waterway"~"^(river|canal|stream)$"](${bb});relation["landuse"~"^(forest|residential|industrial|farmland|meadow)$"](${bb});relation["natural"~"^(wood|water)$"](${bb});`)],
 ];
+
+const ALL = '[out:json][timeout:180];(' + QUERIES.map(([, q]) => q.replace(/^\[out:json\]\[timeout:90\];\(/, '').replace(/\);out geom;$/, '')).join('') + ');out geom;';
 
 // Flächenklassen: 1 Wald, 2 offen (Feld/Wiese), 3 Siedlung/Gewerbe, 4 Wasser, 5 Gebüsch, 7 Park/Garten
 function areaClass(t) {
@@ -76,8 +78,10 @@ function joinRings(segs) {
 
 async function main() {
   console.log('Frage Overpass ab …', bb);
+  if (WANT_QUERY) { console.log('\nIn https://overpass-turbo.eu einfügen → „Ausführen“ → Export → „Rohdaten direkt aus Overpass API“ (JSON) speichern, dann:\n  npm run osm -- --datei=PFAD/export.json\n\n' + ALL + '\n'); return; }
   const data = { elements: [] };
-  for (const [name, qq] of QUERIES) { console.log('Teil:', name); const d = await overpass(qq, 5); data.elements.push(...d.elements); await new Promise(r => setTimeout(r, 3000)); }
+  const off = await elementsOrNull();
+  if (off) data.elements.push(...off); else for (const [name, qq] of QUERIES) { console.log('Teil:', name); const d = await overpass(qq, 5); data.elements.push(...d.elements); await new Promise(r => setTimeout(r, 3000)); }
   const buildings = [], areas = [], lines = [];
   for (const el of data.elements) {
     const t = el.tags || {};

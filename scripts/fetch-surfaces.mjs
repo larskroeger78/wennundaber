@@ -1,10 +1,10 @@
-import { overpass } from './overpass.mjs';
+import { overpass, ARGS, WANT_QUERY, elementsOrNull } from './overpass.mjs';
 // Liest die Untergründe entlang der Mittwochsrunde aus OpenStreetMap (Overpass-API)
 // und schreibt src/routes/mittwochsrunde.surf.json (je Streckenpunkt: 0 Asphalt, 1 Schotter, 2 Trail).
 // Aufruf: npm run surfaces   (Node 18+, Internet nötig)
 import fs from 'node:fs';
 
-const NAME = process.argv[2] || 'tour2';            // npm run surfaces [-- mittwochsrunde]
+const NAME = ARGS[0] || 'tour2';            // npm run surfaces [-- mittwochsrunde]
 const ROUTE = new URL(`../src/routes/${NAME}.json`, import.meta.url);
 const OUT = new URL(`../src/routes/${NAME}.surf.json`, import.meta.url);
 const route = JSON.parse(fs.readFileSync(ROUTE, 'utf8'));
@@ -64,8 +64,10 @@ async function main() {
   const lats = P.map(p => lat0 + p[1] / KY), lons = P.map(p => lon0 + p[0] / KX);
   const bb = [Math.min(...lats) - 0.001, Math.min(...lons) - 0.0015, Math.max(...lats) + 0.001, Math.max(...lons) + 0.0015].join(',');
   const q = `[out:json][timeout:60];way["highway"](${bb});out tags geom;`;
+  if (WANT_QUERY) { console.log('\nIn https://overpass-turbo.eu einfügen → „Ausführen“ → Export → „Rohdaten direkt aus Overpass API“ (JSON) speichern, dann:\n  npm run surfaces -- --datei=PFAD/export.json\n\n' + q + '\n'); return; }
   console.log('Frage OpenStreetMap ab …');
-  const data = await overpass(q);
+  const off = await elementsOrNull();
+  const data = off ? { elements: off } : await overpass(q);
   const out = assign(data.elements);
   fs.writeFileSync(OUT, JSON.stringify(out));
   const cnt = [0, 1, 2].map(k => out.filter(v => v === k).length * 2);
