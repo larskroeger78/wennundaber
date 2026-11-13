@@ -5,6 +5,7 @@ import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import './style.css';
+import { Trainer, ClickPad, BLE_OK } from './ble.js';
 import MITT from './routes/mittwochsrunde.json';
 const SURF_FILES=import.meta.glob('./routes/*.surf.json',{eager:true});
 // Strecke per URL: ?route=mittwoch startet die Mittwochsrunde (GPX), sonst Halde Großes Holz
@@ -919,7 +920,12 @@ function updateJoggers(dt){
 // ================= Zustand, Eingabe, Physik =================
 const M=95,CDA=0.38,RHO=1.2,GRAV=9.81,PMAX=300,BRAKE=260;
 const keys={};
-let running=false,inputMode='keyboard',st,FPV=true;   // FPV: Cockpit-Ansicht aus Fahrersicht (Taste C wechselt)
+let running=false,inputMode='keyboard',st,FPV=true;
+const trainer=new Trainer(),click=new ClickPad();let gear=0,bleMsg='',lastMenu=null;   // gear: virtuelle Schaltung = Widerstand in %-Steigung (+/-)
+function shift(d){gear=clamp(gear+d,-6,6);}
+click.onShift=shift;
+const bleChange=()=>{if(trainer.connected)inputMode='trainer';else if(inputMode==='trainer')inputMode='keyboard';if(ov.style.display!=='none'&&lastMenu)menu(lastMenu[0],lastMenu[1]);};
+trainer.onChange=bleChange;click.onChange=bleChange;   // FPV: Cockpit-Ansicht aus Fahrersicht (Taste C wechselt)
 const cockpitEl=document.getElementById('cockpit');
 function reset(){st={pos:0,v:0,x:0.4,power:0,t:0,crank:0.6,wheel:0,lean:0,bar:0,pitch:0,done:false};resetJoggers();}
 reset();
@@ -928,6 +934,8 @@ window.addEventListener('keydown',e=>{
   keys[e.key]=true;
   if(e.key==='r'||e.key==='R')start();
   if(e.key==='c'||e.key==='C')FPV=!FPV;
+  if(e.key==='+'||e.key==='PageUp')shift(1);
+  if(e.key==='-'||e.key==='PageDown')shift(-1);
 });
 window.addEventListener('keyup',e=>{keys[e.key]=false;});
 window.addEventListener('blur',()=>{for(const k in keys)keys[k]=false;});
@@ -936,9 +944,12 @@ function update(dt){
   if(!running)return;
   const kb=inputMode==='keyboard';
   const up=kb&&keys.ArrowUp,down=kb&&keys.ArrowDown,left=kb&&keys.ArrowLeft,right=kb&&keys.ArrowRight;
-  st.power+=((up?PMAX:0)-st.power)*Math.min(1,dt*2.5);
   const i=Math.min(N-1,Math.floor(st.pos/SEG)),dirt=SURF[i]===2;
-  const climb=Math.max(0,GR[i])/100;            // Abfahrten neutral: zählen wie flach
+  const tr=inputMode==='trainer'&&trainer.connected;
+  if(tr)st.power+=(trainer.power-st.power)*Math.min(1,dt*6);else st.power+=((up?PMAX:0)-st.power)*Math.min(1,dt*2.5);
+  const eg=Math.max(0,GR[i]+gear*0.5);          // effektive Steigung inkl. virtueller Schaltung; Abfahrten neutral
+  if(tr)trainer.setGrade(eg,dirt?0.012:SURF[i]===1?0.009:0.005);
+  const climb=eg/100;            // Abfahrten neutral: zählen wie flach
   const v=st.v,vs=Math.max(v,1.5);
   const fres=M*GRAV*((dirt?0.012:SURF[i]===1?0.009:0.005)+climb)+0.5*RHO*CDA*v*v+(down?BRAKE:0);
   st.v=Math.max(0,v+(st.power/vs-fres)/M*dt);
@@ -961,11 +972,11 @@ function update(dt){
   st.x+=(tx-st.x)*Math.min(1,dt*2.2);
   st.lean+=((clamp((tx-st.x)*0.12,-0.1,0.1)-clamp(KV[i]*st.v*st.v*0.08,-0.35,0.35))-st.lean)*Math.min(1,dt*5);
   st.bar+=((clamp((tx-st.x)*6,-6,6)-clamp(KV[i]*600,-17,17))-st.bar)*Math.min(1,dt*6);   // Lenkereinschlag in Grad (Cockpit)
-  if(st.power>25)st.crank+=9*dt;
+  if(tr&&trainer.cadence>5)st.crank+=trainer.cadence*Math.PI/30*dt;else if(st.power>25)st.crank+=9*dt;
   st.wheel+=st.v/0.36*dt;
   offEl.style.display=off?'block':'none';
   if(st.pos>=TOTAL-16){
-    st.done=true;running=false;
+    st.done=true;running=false;trainer.setGrade(0,0.005,true);
     menu('Nochmal fahren','Ziel! '+fmtT(st.t)+' · Ø '+(st.pos/st.t*3.6).toFixed(1)+' km/h');
   }
 }
@@ -1012,7 +1023,7 @@ function drawHud(){
   const i=Math.min(N-1,Math.floor(st.pos/SEG));
   if(SEC[i]!==lastSec){lastSec=SEC[i];secEl.innerHTML=SECN[lastSec]+'<small>'+PLACE+'</small>';}
   spdEl.firstChild.nodeValue=(st.v*3.6).toFixed(0);
-  subEl.innerHTML='<b>'+Math.round(st.power)+' W</b> · '+(GR[i]>=0?'+':'')+GR[i].toFixed(0)+' % · '+(NHN0+PY[i]).toFixed(0)+' m ü. NHN<br>'+(st.pos/1000).toFixed(2)+' / '+(TOTAL/1000).toFixed(2)+' km · '+fmtT(st.t);
+  subEl.innerHTML='<b>'+Math.round(st.power)+' W</b>'+(gear?' · Gang '+(gear>0?'+':'')+gear:'')+' · '+(GR[i]>=0?'+':'')+GR[i].toFixed(0)+' % · '+(NHN0+PY[i]).toFixed(0)+' m ü. NHN<br>'+(st.pos/1000).toFixed(2)+' / '+(TOTAL/1000).toFixed(2)+' km · '+fmtT(st.t);
   mg.clearRect(0,0,180,180);mg.drawImage(miniBase,0,0);
   const mx=90+(PX[i]-Math.cos(HS[i])*st.x-MCX)*MS,my=90+(PZ[i]+Math.sin(HS[i])*st.x-MCZ)*MS;
   mg.save();mg.translate(mx,my);mg.rotate(Math.atan2(Math.cos(HS[i]),Math.sin(HS[i])));
@@ -1024,18 +1035,22 @@ let HM=90;
 if(ROUTE){HM=0;for(let i=0;i<N;i++)HM+=Math.max(0,PY[i+1]-PY[i]);HM=Math.round(HM/10)*10;}
 const ov=document.getElementById('overlay');
 function menu(title,sub){
+  lastMenu=[title,sub];
   ov.style.display='flex';hudBox.style.display=sub?'block':'none';
   ov.innerHTML='<div class="tag">The Aber Version · Prototyp 0.5</div>'+
     '<h1>Wenn und Aber<br><em>Bike Crew</em></h1>'+
     (sub?'<div class="res">'+sub+'</div>':'')+
     '<div class="tag">'+(ROUTE?'Mittwochsrunde · Halde Großes Holz und Umland':TRACK_NAME)+' · '+(TOTAL/1000).toFixed(1).replace('.',',')+' km · '+HM+' Hm</div>'+
-    '<div><button id="go">'+title+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastaturmodus: AN':'Tastaturmodus: AUS')+'</button><button id="alt" class="sec">'+(ROUTE?'Halde Großes Holz':'Mittwochsrunde starten')+'</button><button disabled>Trainer D100 (folgt)</button></div>'+
-    '<div class="help">↑ treten · ↓ bremsen · R neu starten · C Ansicht<br>Lenken und Ausweichen laufen automatisch (Trainer können nicht lenken)<br>Abfahrten sind neutral: Tempo entsteht nur durchs Treten.</div>';
+    '<div><button id="go">'+title+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastaturmodus: AN':'Tastaturmodus: AUS')+'</button><button id="alt" class="sec">'+(ROUTE?'Halde Großes Holz':'Mittwochsrunde starten')+'</button><button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln (D100 / KICKR)')+'</button><button id="clk" class="sec">'+(click.connected?'Zwift Click ✓ ('+click.count+')':'Zwift Click koppeln (experimentell)')+'</button></div>'+
+    '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?'Bluetooth nur in Chrome/Edge (nicht Safari).':'')+(bleMsg?'<br>'+bleMsg:'')+(click.connected&&click.log.length?'<br><small>'+click.log.slice(-3).join('<br>')+'</small>':'')+'</div>'+
+    '<div class="help">↑ treten · ↓ bremsen · +/− Schaltung · R neu starten · C Ansicht<br>Lenken und Ausweichen laufen automatisch (Trainer können nicht lenken)<br>Abfahrten sind neutral: Tempo entsteht nur durchs Treten.</div>';
   document.getElementById('mode').onclick=()=>{inputMode=inputMode==='keyboard'?'off':'keyboard';menu(title,sub);};
   document.getElementById('alt').onclick=()=>{location.href=location.pathname+(ROUTE?'':'?route=mittwoch')+'#go';};
+  document.getElementById('trn').onclick=async()=>{bleMsg='';try{await trainer.connect();}catch(e){bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Trainer: '+(e&&e.message||e);}menu(title,sub);};
+  document.getElementById('clk').onclick=async()=>{bleMsg='';try{await click.connect();}catch(e){bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Click: '+(e&&e.message||e);}menu(title,sub);};
   document.getElementById('go').onclick=start;
 }
-function start(){reset();running=true;lastSec=-1;ov.style.display='none';hudBox.style.display='block';}
+function start(){reset();if(trainer.connected)trainer.setGrade(0,0.005,true);running=true;lastSec=-1;ov.style.display='none';hudBox.style.display='block';}
 
 // ================= Kamera & Render =================
 const smp={x:0,y:0,z:0,h:0},smp2={x:0,y:0,z:0,h:0};
