@@ -892,7 +892,7 @@ const M=95,CDA=0.38,RHO=1.2,GRAV=9.81,PMAX=300,BRAKE=260;
 const keys={};
 let running=false,inputMode='keyboard',st,FPV=true;   // FPV: Cockpit-Ansicht aus Fahrersicht (Taste C wechselt)
 const cockpitEl=document.getElementById('cockpit');
-function reset(){st={pos:0,v:0,x:0,power:0,t:0,crank:0.6,wheel:0,lean:0,pitch:0,done:false};resetJoggers();}
+function reset(){st={pos:0,v:0,x:0.4,power:0,t:0,crank:0.6,wheel:0,lean:0,bar:0,pitch:0,done:false};resetJoggers();}
 reset();
 window.addEventListener('keydown',e=>{
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].indexOf(e.key)>=0)e.preventDefault();
@@ -918,10 +918,20 @@ function update(dt){
   st.pos+=st.v*dt;st.t+=dt;
   updateJoggers(dt);
   const steer=(right?1:0)-(left?1:0);
-  st.x+=steer*(dirt?1.7:2.6)*dt*Math.min(1,st.v/3);
-  st.x+=clamp(KV[i]*st.v*st.v*0.12,-1.2,1.2)*dt;
-  const lim=HW[i]+1.3;st.x=clamp(st.x,-lim,lim);
-  st.lean+=((steer*0.16-clamp(KV[i]*st.v*st.v*0.035,-0.35,0.35))-st.lean)*Math.min(1,dt*6);
+  // Automatische Lenkung (Rollentrainer wie D100 oder KICKR können nicht lenken): Lenker und Neigung folgen dem
+  // Streckenverlauf, Ausweichen übernimmt das Spiel. Auf Asphalt/Schotter fährt das Rad rechts (Gegenverkehr links),
+  // auf dem Trail mittig; vor Hindernissen (Joggerinnen) weicht es rechtzeitig aus.
+  const lim=HW[i]-0.35;
+  let tx=clamp(SURF[i]===2?0:Math.min(0.5,HW[i]-1.2),-lim,lim);
+  joggers.forEach(j=>{
+    const ahead=j.s-st.pos;
+    if(!j.active||ahead<-1||ahead>32)return;
+    const jx=j.x;                                   // gleiche Seitenrichtung wie st.x (negativ = links)
+    if(Math.abs(tx-jx)<1.0){const r=jx+1.0,l=jx-1.0;tx=clamp(r<=lim?r:l,-lim,lim);}
+  });
+  st.x+=(tx-st.x)*Math.min(1,dt*2.2);
+  st.lean+=((clamp((tx-st.x)*0.12,-0.1,0.1)-clamp(KV[i]*st.v*st.v*0.08,-0.35,0.35))-st.lean)*Math.min(1,dt*5);
+  st.bar+=((clamp((tx-st.x)*6,-6,6)-clamp(KV[i]*600,-17,17))-st.bar)*Math.min(1,dt*6);   // Lenkereinschlag in Grad (Cockpit)
   if(st.power>25)st.crank+=9*dt;
   st.wheel+=st.v/0.36*dt;
   offEl.style.display=off?'block':'none';
@@ -991,7 +1001,7 @@ function menu(title,sub){
     (sub?'<div class="res">'+sub+'</div>':'')+
     '<div class="tag">'+(ROUTE?'Mittwochsrunde · Halde Großes Holz und Umland':TRACK_NAME)+' · '+(TOTAL/1000).toFixed(1).replace('.',',')+' km · '+HM+' Hm</div>'+
     '<div><button id="go">'+title+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastaturmodus: AN':'Tastaturmodus: AUS')+'</button><button id="alt" class="sec">'+(ROUTE?'Halde Großes Holz':'Mittwochsrunde starten')+'</button><button disabled>Trainer D100 (folgt)</button></div>'+
-    '<div class="help">↑ treten · ← → lenken · ↓ bremsen · R neu starten<br>Abfahrten sind neutral: Tempo entsteht nur durchs Treten.</div>';
+    '<div class="help">↑ treten · ↓ bremsen · R neu starten · C Ansicht<br>Lenken und Ausweichen laufen automatisch (Trainer können nicht lenken)<br>Abfahrten sind neutral: Tempo entsteht nur durchs Treten.</div>';
   document.getElementById('mode').onclick=()=>{inputMode=inputMode==='keyboard'?'off':'keyboard';menu(title,sub);};
   document.getElementById('alt').onclick=()=>{location.href=location.pathname+(ROUTE?'':'?route=mittwoch')+'#go';};
   document.getElementById('go').onclick=start;
@@ -1049,7 +1059,7 @@ function render(dt,now){
   camera.lookAt(lookC);
   if(fp){
     camera.rotateZ(-st.lean*0.55);                       // Neigung in Kurven
-    const deg=clamp(st.lean*55,-17,17);                 // Lenker dreht mit
+    const deg=clamp(st.bar,-17,17);                     // Lenker dreht mit
     cockpitEl.style.transform='translate(-50%,'+(18.5+Math.abs(deg)*0.062).toFixed(2)+'%) rotate('+deg.toFixed(2)+'deg)';
   }
   sky.position.copy(camera.position);sky.material.uniforms.time.value=now*0.001;
@@ -1065,7 +1075,7 @@ function loop(now){
   update(dt);render(dt,now);
   requestAnimationFrame(loop);
 }
-window.__dbg={ROUTE:ROUTE,SURF:SURF,cam:camera,joggers:joggers,get st(){return st;},set pos(v){st.pos=v;camInit=false;},N:N,TOTAL:TOTAL,iTrail:iTrail,SEC:SEC,PY:PY,GR:GR};
+window.__dbg={KV:KV,ROUTE:ROUTE,SURF:SURF,cam:camera,joggers:joggers,get st(){return st;},set pos(v){st.pos=v;camInit=false;},N:N,TOTAL:TOTAL,iTrail:iTrail,SEC:SEC,PY:PY,GR:GR};
 menu('Start');
 if(location.hash==='#go')start();
 requestAnimationFrame(loop);
