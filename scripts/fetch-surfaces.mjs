@@ -3,8 +3,9 @@
 // Aufruf: npm run surfaces   (Node 18+, Internet nötig)
 import fs from 'node:fs';
 
-const ROUTE = new URL('../src/routes/mittwochsrunde.json', import.meta.url);
-const OUT = new URL('../src/routes/mittwochsrunde.surf.json', import.meta.url);
+const NAME = process.argv[2] || 'tour2';            // npm run surfaces [-- mittwochsrunde]
+const ROUTE = new URL(`../src/routes/${NAME}.json`, import.meta.url);
+const OUT = new URL(`../src/routes/${NAME}.surf.json`, import.meta.url);
 const route = JSON.parse(fs.readFileSync(ROUTE, 'utf8'));
 const [lat0, lon0] = route.origin;
 const KX = 111320 * Math.cos(lat0 * Math.PI / 180), KY = 111320;

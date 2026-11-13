@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "assets": "node scripts/fetch-assets.mjs",
     "surfaces": "node scripts/fetch-surfaces.mjs",
+    "osm": "node scripts/fetch-osm.mjs",
     "terrain": "node scripts/fetch-terrain.mjs"
   },
   "dependencies": {

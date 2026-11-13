@@ -5,11 +5,15 @@ import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import './style.css';
+import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Trainer, ClickPad, BLE_OK } from './ble.js';
-import MITT from './routes/mittwochsrunde.json';
+import MITT1 from './routes/mittwochsrunde.json';
+import TOUR2 from './routes/tour2.json';
 const SURF_FILES=import.meta.glob('./routes/*.surf.json',{eager:true});
-// Strecke per URL: ?route=mittwoch startet die Mittwochsrunde (GPX), sonst Halde Großes Holz
-const ROUTE=new URLSearchParams(location.search).get('route')==='mittwoch';
+// Strecke: Standard ist die Tour vom 5.10.2022 (komoot-GPX); ?route=mittwoch bzw. ?route=halde nur zum Entwickeln
+const ROUTES={mittwoch:{data:MITT1,label:'Mittwochsrunde',surf:'mittwochsrunde',btn:'Mittwochsrunde'},tour2:{data:TOUR2,label:'Tour vom 5.10.2022',surf:'tour2',btn:'Tour 5.10.2022'}};
+const RKEY=new URLSearchParams(location.search).get('route'),RT=RKEY==='halde'?null:(ROUTES[RKEY]||ROUTES.tour2);   // Standard: die Tour vom 5.10.2022; andere Strecken nur noch per URL (?route=halde|mittwoch) für Entwicklung
+const ROUTE=!!RT,MITT=RT?RT.data:MITT1;
 // Echtes Geländemodell (DGM1 NRW, per npm run terrain erzeugt): Höhenraster in Dezimetern
 const GEL_F=import.meta.glob('./routes/gelaende.json',{eager:true});
 const GEL=(()=>{
@@ -46,7 +50,7 @@ const mix3=(a,b,t)=>[lerp(a[0],b[0],t),lerp(a[1],b[1],t),lerp(a[2],b[2],t)];
 const HTOP=90,RTOP=62,RBASE=340,KR=(RBASE-RTOP)/HTOP,SEG=2,NHN0=55.8;
 const TRACK_NAME='Halde Großes Holz · Uphill + Trail „Highway“';
 const SECN=ROUTE?['Asphaltweg','Schotterweg','Trail']:['Anfahrt am Haldenfuß','Uphill · Asphalt','Zwischenplateau · Blauer Leuchtmarker','Uphill · Asphalt','Gipfelplateau · 145,8 m ü. NHN','Trail „Highway“'];
-const PLACE=ROUTE?'Mittwochsrunde · Bergkamen':'Halde Großes Holz · Bergkamen';
+const PLACE=ROUTE?RT.label+' · Bergkamen':'Halde Großes Holz · Bergkamen';
 const coneH=r=>HTOP*clamp((RBASE-r)/(RBASE-RTOP),0,1);
 
 const raw=[];
@@ -61,7 +65,7 @@ function buildRouteRaw(){
     for(let i=0;i<n;i++){raw[i].x=nx[i];raw[i].z=nz[i];}
   }
   // Untergrund: 0 Asphalt, 1 Schotter, 2 Trail. Mit OSM-Datei (npm run surfaces) sonst frei aus der Steigung geschätzt.
-  const ov=Object.keys(SURF_FILES).find(k=>k.indexOf('mittwochsrunde')>=0);
+  const ov=Object.keys(SURF_FILES).find(k=>k.indexOf('/'+RT.surf+'.surf')>=0);
   if(ov){const a=SURF_FILES[ov].default||SURF_FILES[ov];for(let i=0;i<n;i++)raw[i].sec=a[Math.min(a.length-1,i)];return;}
   let cls=raw.map((r,i)=>{
     const a=raw[Math.max(0,i-10)],b=raw[Math.min(n-1,i+10)],g=(b.y-a.y)/(Math.hypot(b.x-a.x,b.z-a.z)||1)*100;
@@ -219,6 +223,31 @@ function fld(a,x,z){
   return lerp(lerp(a[o],a[o+1],fx),lerp(a[o+FG.nx],a[o+FG.nx+1],fx),fz);
 }
 function routePresence(x,z){return fld(FG.S2,x,z)/FG.s2m;}
+// Landschaft aus OpenStreetMap (npm run osm -> src/routes/umgebung.json): Wald, Felder, Siedlung, Wasser, Gebäude
+const OSM_F=import.meta.glob('./routes/umgebung.json',{eager:true});
+const OSM=(()=>{const k=Object.keys(OSM_F)[0];return ROUTE&&k?(OSM_F[k].default||OSM_F[k]):null;})();
+const LUC=4,LW=OSM?Math.ceil((FG.nx-1)*FG.G/LUC)+2:0,LH=OSM?Math.ceil((FG.nz-1)*FG.G/LUC)+2:0;
+const LU=OSM?{K:new Float32Array(LW*LH),FD:new Float32Array(LW*LH),OP:new Float32Array(LW*LH),UR:new Float32Array(LW*LH),WA:new Float32Array(LW*LH),B:new Uint8Array(LW*LH)}:null;
+if(LU){
+  const CLS=new Uint8Array(LW*LH);
+  const inPoly=(p,x,z)=>{let c=false;for(let a=0,b=p.length-2;a<p.length;b=a,a+=2){if((p[a+1]>z)!==(p[b+1]>z)&&x<(p[b]-p[a])*(z-p[a+1])/(p[b+1]-p[a+1])+p[a])c=!c;}return c;};
+  const cells=(p,f,pad)=>{let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(let a=0;a<p.length;a+=2){x0=Math.min(x0,p[a]);x1=Math.max(x1,p[a]);z0=Math.min(z0,p[a+1]);z1=Math.max(z1,p[a+1]);}
+    const i0=Math.max(0,Math.floor((x0-pad-FG.ox)/LUC)),i1=Math.min(LW-1,Math.ceil((x1+pad-FG.ox)/LUC)),j0=Math.max(0,Math.floor((z0-pad-FG.oz)/LUC)),j1=Math.min(LH-1,Math.ceil((z1+pad-FG.oz)/LUC));
+    for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++)f(i,j,FG.ox+i*LUC,FG.oz+j*LUC);};
+  const ORDER=[2,3,7,5,1,4];
+  ORDER.forEach(k=>OSM.areas.forEach(a=>{if(a.k!==k)return;cells(a.p,(i,j,x,z)=>{if(inPoly(a.p,x,z))CLS[j*LW+i]=k;},0);}));
+  OSM.lines.forEach(l=>{for(let a=0;a+3<l.p.length;a+=2){const ax=l.p[a],az=l.p[a+1],bx=l.p[a+2],bz=l.p[a+3],n=Math.ceil(Math.hypot(bx-ax,bz-az)/2)+1;
+    for(let t=0;t<=n;t++){const x=ax+(bx-ax)*t/n,z=az+(bz-az)*t/n,r=l.w/2+1;for(let dj=-Math.ceil(r/LUC);dj<=Math.ceil(r/LUC);dj++)for(let di=-Math.ceil(r/LUC);di<=Math.ceil(r/LUC);di++){
+      const i=Math.round((x-FG.ox)/LUC)+di,j=Math.round((z-FG.oz)/LUC)+dj;if(i<0||j<0||i>=LW||j>=LH)continue;
+      if(Math.hypot(FG.ox+i*LUC-x,FG.oz+j*LUC-z)<=r)CLS[j*LW+i]=4;}}}});
+  for(let q=0;q<CLS.length;q++){const k=CLS[q];if(!k)continue;LU.K[q]=1;LU.FD[q]=k===1?0.95:k===5?0.45:k===7?0.2:0;LU.OP[q]=k===2?1:k===7?0.5:0;LU.UR[q]=k===3?1:0;LU.WA[q]=k===4?1:0;}
+  OSM.buildings.forEach(b=>cells(b.p,(i,j,x,z)=>{if(inPoly(b.p,x,z)||b.p.some((v,a)=>a%2===0&&Math.hypot(v-x,b.p[a+1]-z)<LUC*1.2))LU.B[j*LW+i]=1;},LUC));
+}
+function lu(a,x,z){
+  const gx=clamp((x-FG.ox)/LUC,0,LW-1.001),gz=clamp((z-FG.oz)/LUC,0,LH-1.001),ix=Math.floor(gx),iz=Math.floor(gz),fx=gx-ix,fz=gz-iz,o=iz*LW+ix;
+  return lerp(lerp(a[o],a[o+1],fx),lerp(a[o+LW],a[o+LW+1],fx),fz);
+}
+const inBuilding=(x,z)=>{if(!LU)return false;const i=Math.round((x-FG.ox)/LUC),j=Math.round((z-FG.oz)/LUC);return i>=0&&j>=0&&i<LW&&j<LH&&LU.B[j*LW+i]===1;};
 function baseRoute(x,z){
   const s1=fld(FG.S1,x,z),a=sstep(0.04,0.35,s1/FG.s1m);
   const m1=fld(FG.T1,x,z)/(s1+1e-6),m2=fld(FG.T2,x,z)/(fld(FG.S2,x,z)+0.02*FG.s2m);
@@ -430,10 +459,11 @@ function textTex(txt,bg,fg){
 }
 
 // ================= Gelände =================
-const cGrassA=L3(0x5f7d34),cGrassB=L3(0x84903f),cDry=L3(0xa39a5c),cForest=L3(0x3d4a25),cGravel=L3(0x837c6d),cDirt=L3(0x5c4730),cField=L3(0x6d8a3e);
+const cGrassA=L3(0x5f7d34),cGrassB=L3(0x84903f),cDry=L3(0xa39a5c),cForest=L3(0x3d4a25),cGravel=L3(0x837c6d),cDirt=L3(0x5c4730),cField=L3(0x6d8a3e),cUrban=L3(0x8f9180),cWater=L3(0x3b5f70);
 function forestD(x,z){
   if(ROUTE){
     let f=sstep(0.05,0.2,routePresence(x,z))*(sstep(0.32,0.48,fbm(x/90+3,z/90+9))*0.85+0.15);
+    if(LU)f=lerp(f,lu(LU.FD,x,z)*(0.75+0.25*sstep(0.25,0.55,fbm(x/30+2,z/30+6))),lu(LU.K,x,z));
     return f*(1-0.75*sstep(38,64,baseH(x,z)));      // oben auf der Halde offener
   }
   const r=Math.hypot(x,z);
@@ -457,7 +487,8 @@ function forestD(x,z){
       if(ROUTE){
         c=mix3(c,cDry,0.3*fbm(x/40+8,z/40)+0.35*sstep(38,64,h));
         c=mix3(c,cForest,forestD(x,z)*0.85);
-        c=mix3(c,cField,1-sstep(0.04,0.22,routePresence(x,z)));
+        c=mix3(c,cField,(1-sstep(0.04,0.22,routePresence(x,z)))*(1-(LU?lu(LU.K,x,z):0)));
+        if(LU){c=mix3(c,cField,lu(LU.OP,x,z)*0.75);c=mix3(c,cUrban,lu(LU.UR,x,z)*0.85);c=mix3(c,cWater,lu(LU.WA,x,z)*0.95);}
       }else{
         c=mix3(c,cDry,0.55*(1-sstep(RTOP+30,RTOP+130,r))*sstep(RTOP-2,RTOP+6,r)+0.25*fbm(x/40+8,z/40));
         c=mix3(c,cForest,forestD(x,z)*0.85);
@@ -581,6 +612,7 @@ const DUM=new THREE.Object3D(),TC=new THREE.Color();
 (function plant(){
   const trees=[],bushes=[],tufts=[];
   function clearOf(x,z,extra){
+    if(inBuilding(x,z))return false;
     if(!nearest(allHash,x,z))return true;
     const lim=(ROUTE?SURF[nI]===2:nI>=iTrail-3)?HW[nI]+0.9+extra:FLAT[nI]+1+extra;
     return nD>lim;
@@ -598,6 +630,15 @@ const DUM=new THREE.Object3D(),TC=new THREE.Color();
     if(rnd()>f*0.92)continue;
     if(!clearOf(x,z,0))continue;
     addTree(x,z,1);
+  }
+  if(ROUTE&&LU){       // Wälder aus OpenStreetMap auch abseits der Strecke
+    for(let gx=FG.ox+20;gx<FG.ox+(FG.nx-1)*FG.G-20;gx+=10)for(let gz=FG.oz+20;gz<FG.oz+(FG.nz-1)*FG.G-20;gz+=10){
+      const x=gx+(rnd()-0.5)*8,z=gz+(rnd()-0.5)*8,f=lu(LU.FD,x,z);
+      if(f<0.15||rnd()>f*0.9)continue;
+      if(nearest(allHash,x,z)&&nD<70)continue;
+      if(!clearOf(x,z,0))continue;
+      addTree(x,z,0.85+rnd()*0.35);
+    }
   }
   // Trail-Korridor: dichte junge Bäume, Unterwuchs
   for(let i=iTrail+6;i<N&&!ROUTE;i++){
@@ -966,6 +1007,42 @@ function updateJoggers(dt){
   });
 }
 
+// ================= Gebäude und Gewässer (OpenStreetMap) =================
+if(OSM){
+  const wallC=[0xd9d2c3,0xcfc5b0,0xbfa58a,0xa8523f,0xe6e0d4,0xb8b2a8,0xc9b79a].map(c=>new THREE.Color(c)),roofC=[0x6b3b2e,0x4a4a4e,0x7a4a38,0x555a5e,0x5e3a33].map(c=>new THREE.Color(c));
+  const geos=[];
+  OSM.buildings.forEach(b=>{
+    const n=b.p.length/2;if(n<3)return;
+    let gmin=1e9,gmax=-1e9,area=0;
+    for(let a=0;a<n;a++){const x=b.p[a*2],z=b.p[a*2+1],g=gnd(x,z);gmin=Math.min(gmin,g);gmax=Math.max(gmax,g);const a2=(a+1)%n;area+=b.p[a*2]*b.p[a2*2+1]-b.p[a2*2]*b.p[a*2+1];}
+    if(Math.abs(area)/2<12)return;
+    const shp=new THREE.Shape();for(let a=0;a<n;a++){const x=b.p[a*2],y=-b.p[a*2+1];a?shp.lineTo(x,y):shp.moveTo(x,y);}
+    const dep=(gmax-gmin)+b.h+0.4,g=new THREE.ExtrudeGeometry(shp,{depth:dep,bevelEnabled:false});
+    g.rotateX(-Math.PI/2);g.translate(0,gmin-0.4,0);
+    const wc=wallC[(rnd()*wallC.length)|0],rc=b.r?new THREE.Color(0x5d6b6a):roofC[(rnd()*roofC.length)|0],nr=g.attributes.normal,cl=new Float32Array(nr.count*3),sh=0.9+rnd()*0.2;
+    for(let v=0;v<nr.count;v++){const c=nr.getY(v)>0.5?rc:wc;cl[v*3]=c.r*sh;cl[v*3+1]=c.g*sh;cl[v*3+2]=c.b*sh;}
+    g.setAttribute('color',new THREE.BufferAttribute(cl,3));g.deleteAttribute('uv');geos.push(g);
+  });
+  if(geos.length){
+    const mg=BufferGeometryUtils.mergeBufferGeometries(geos),m=new THREE.Mesh(mg,new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.9,metalness:0}));
+    m.castShadow=true;m.receiveShadow=true;m.frustumCulled=false;scene.add(m);
+  }
+  const wm=new THREE.MeshStandardMaterial({color:0x35607a,roughness:0.18,metalness:0.1,transparent:true,opacity:0.92,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
+  OSM.areas.forEach(a=>{
+    if(a.k!==4)return;const n=a.p.length/2;if(n<4)return;
+    let lo=1e9,area=0;for(let i=0;i<n;i++){lo=Math.min(lo,gnd(a.p[i*2],a.p[i*2+1]));const j=(i+1)%n;area+=a.p[i*2]*a.p[j*2+1]-a.p[j*2]*a.p[i*2+1];}
+    if(Math.abs(area)/2<120)return;
+    const shp=new THREE.Shape();for(let i=0;i<n;i++){const x=a.p[i*2],y=-a.p[i*2+1];i?shp.lineTo(x,y):shp.moveTo(x,y);}
+    const g=new THREE.ShapeGeometry(shp);g.rotateX(-Math.PI/2);g.translate(0,lo+0.12,0);scene.add(new THREE.Mesh(g,wm));
+  });
+  OSM.lines.forEach(l=>{
+    const n=l.p.length/2;if(n<2)return;const pos=[],idx=[];
+    for(let i=0;i<n;i++){const a=Math.max(0,i-1),b=Math.min(n-1,i+1),dx=l.p[b*2]-l.p[a*2],dz=l.p[b*2+1]-l.p[a*2+1],d=Math.hypot(dx,dz)||1,nx=-dz/d*l.w/2,nz=dx/d*l.w/2,x=l.p[i*2],z=l.p[i*2+1],y=gnd(x,z)+0.1;
+      pos.push(x+nx,y,z+nz,x-nx,y,z-nz);if(i<n-1){const k=i*2;idx.push(k,k+1,k+2,k+1,k+3,k+2);}}
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setIndex(idx);g.computeVertexNormals();
+    const m=new THREE.Mesh(g,wm);m.material.side=THREE.DoubleSide;scene.add(m);
+  });
+}
 // ================= Zustand, Eingabe, Physik =================
 const M=95,CDA=0.38,RHO=1.2,GRAV=9.81,PMAX=300,BRAKE=260;
 const keys={};
@@ -1092,18 +1169,19 @@ function drawHud(){
 let HM=90;
 if(ROUTE){HM=0;for(let i=0;i<N;i++)HM+=Math.max(0,PY[i+1]-PY[i]);HM=Math.round(HM/10)*10;}
 const ov=document.getElementById('overlay');
+function routeBtns(){return '';}   // nur eine Strecke im Spiel
 function menu(title,sub){
   lastMenu=[title,sub];
   ov.style.display='flex';hudBox.style.display=sub?'block':'none';
   ov.innerHTML='<div class="tag">The Aber Version · Prototyp 0.5</div>'+
     '<h1>Wenn und Aber<br><em>Bike Crew</em></h1>'+
     (sub?'<div class="res">'+sub+'</div>':'')+
-    '<div class="tag">'+(ROUTE?'Mittwochsrunde · Halde Großes Holz und Umland':TRACK_NAME)+' · '+(TOTAL/1000).toFixed(1).replace('.',',')+' km · '+HM+' Hm</div>'+
-    '<div><button id="go">'+title+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastaturmodus: AN':'Tastaturmodus: AUS')+'</button><button id="alt" class="sec">'+(ROUTE?'Halde Großes Holz':'Mittwochsrunde starten')+'</button><button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln (D100 / KICKR)')+'</button><button id="clk" class="sec">'+(click.connected?'Zwift Click ✓ ('+click.count+')':'Zwift Click koppeln (experimentell)')+'</button></div>'+
+    '<div class="tag">'+(ROUTE?RT.label+' · Bergkamen und Umland':TRACK_NAME)+' · '+(TOTAL/1000).toFixed(1).replace('.',',')+' km · '+HM+' Hm</div>'+
+    '<div><button id="go">'+title+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastaturmodus: AN':'Tastaturmodus: AUS')+'</button>'+routeBtns()+'<button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln (D100 / KICKR)')+'</button><button id="clk" class="sec">'+(click.connected?'Zwift Click ✓ ('+click.count+')':'Zwift Click koppeln (experimentell)')+'</button></div>'+
     '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?'Bluetooth nur in Chrome/Edge (nicht Safari).':'')+(bleMsg?'<br>'+bleMsg:'')+(click.connected&&click.log.length?'<br><small>'+click.log.slice(-3).join('<br>')+'</small>':'')+'</div>'+
     '<div class="help">↑ treten · ↓ bremsen · +/− Schaltung · Esc Pause/Menü · R neu starten · C Ansicht<br>Lenken und Ausweichen laufen automatisch (Trainer können nicht lenken)<br>Abfahrten sind neutral: Tempo entsteht nur durchs Treten.</div>';
   document.getElementById('mode').onclick=()=>{inputMode=inputMode==='keyboard'?'off':'keyboard';menu(title,sub);};
-  document.getElementById('alt').onclick=()=>{location.href=location.pathname+(ROUTE?'':'?route=mittwoch')+'#go';};
+  document.querySelectorAll('[data-route]').forEach(b=>b.onclick=()=>{const r=b.getAttribute('data-route');location.href=location.pathname+(r?'?route='+r:'')+'#go';});
   document.getElementById('trn').onclick=async()=>{bleMsg='';try{await trainer.connect();}catch(e){bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Trainer: '+(e&&e.message||e);}menu(title,sub);};
   document.getElementById('clk').onclick=async()=>{bleMsg='';try{await click.connect();}catch(e){bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Click: '+(e&&e.message||e);}menu(title,sub);};
   document.getElementById('go').onclick=paused?resume:start;
