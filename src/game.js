@@ -27,6 +27,7 @@ function demH(x,z){
 
 // ================= Helfer =================
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const BUMPS=[],SHK={y:0,vy:0,r:0,vr:0,i:0};   // Stöße (Wurzeln/Steine) -> Cockpit ruppelt
 const lerp=(a,b,t)=>a+(b-a)*t;
 const sstep=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
 const wrapA=d=>{while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;return d;};
@@ -697,13 +698,14 @@ const DUM=new THREE.Object3D(),TC=new THREE.Color();
       if(rnd()<pr*0.8){
         const hw=HW[i]*(ROUTE?[1,1.5,1.7][SURF[i]]:1.7)*0.9,o0=-hw*(0.7+rnd()*0.3),o1=hw*(0.7+rnd()*0.3),L=o1-o0,oc=(o0+o1)/2,sk=(rnd()-0.5)*0.9;
         const x=PX[i]+rx*oc,z=PZ[i]+rz*oc;
-        roots.push({x:x,y:gnd(x,z)+0.035,z:z,L:L/Math.cos(sk),r:0.05+rnd()*0.07,a:Math.atan2(-rz,rx)+sk,t:rnd()});
+        BUMPS.push({s:i*SEG,o0:o0-0.1,o1:o1+0.1,a:0.45+rnd()*0.35});roots.push({x:x,y:gnd(x,z)+0.035,z:z,L:L/Math.cos(sk),r:0.05+rnd()*0.07,a:Math.atan2(-rz,rx)+sk,t:rnd()});
         if(rnd()<0.4){const x2=x+Math.sin(h)*0.5,z2=z+Math.cos(h)*0.5;roots.push({x:x2,y:gnd(x2,z2)+0.03,z:z2,L:L*0.6,r:0.025+rnd()*0.03,a:Math.atan2(-rz,rx)+sk+(rnd()-0.5)*0.6,t:rnd()});}
       }
       const ns=Math.round(pr*(3+rnd()*6));
       for(let k=0;k<ns;k++){
         const hw=HW[i]*(ROUTE?[1,1.5,1.7][SURF[i]]:1.7),o=(rnd()*2-1)*hw*(rnd()<0.7?0.95:1.6),x=PX[i]+rx*o+Math.sin(h)*(rnd()-0.5)*SEG,z=PZ[i]+rz*o+Math.cos(h)*(rnd()-0.5)*SEG;
         const w=0.05+Math.pow(rnd(),2.4)*0.17;
+        if(w>0.07)BUMPS.push({s:i*SEG+(rnd()-0.5)*SEG*0.8,o0:o-0.3-w,o1:o+0.3+w,a:0.15+w*3});
         stones.push({x:x,y:gnd(x,z)+w*0.18,z:z,w:w,hh:w*(0.45+rnd()*0.35),t:rnd()});
       }
     }
@@ -713,6 +715,7 @@ const DUM=new THREE.Object3D(),TC=new THREE.Color();
     const sm=new THREE.InstancedMesh(stoneG,new THREE.MeshStandardMaterial({roughness:0.95,color:0xffffff,flatShading:true}),Math.max(1,stones.length));sm.count=stones.length;
     stones.forEach((r,i)=>{DUM.rotation.set(rnd()*0.6,rnd()*6.283,rnd()*0.6);DUM.position.set(r.x,r.y,r.z);DUM.scale.set(r.w,r.hh,r.w*(0.7+rnd()*0.5));DUM.updateMatrix();sm.setMatrixAt(i,DUM.matrix);const c=0.16+r.t*0.16;sm.setColorAt(i,TC.setRGB(c*1.05,c*0.95,c*0.8));});
     sm.castShadow=true;sm.receiveShadow=true;sm.frustumCulled=false;scene.add(sm);
+    BUMPS.sort((a,b)=>a.s-b.s);
     window.__rs={roots:roots.length,stones:stones.length};
   }
   window.__counts={trees:trees.length,bushes:bushes.length,tufts:tufts.length};
@@ -973,7 +976,7 @@ click.onShift=shift;
 const bleChange=()=>{if(trainer.connected)inputMode='trainer';else if(inputMode==='trainer')inputMode='keyboard';if(ov.style.display!=='none'&&lastMenu)menu(lastMenu[0],lastMenu[1]);};
 trainer.onChange=bleChange;click.onChange=bleChange;   // FPV: Cockpit-Ansicht aus Fahrersicht (Taste C wechselt)
 const cockpitEl=document.getElementById('cockpit');
-function reset(){st={pos:0,v:0,x:0.4,power:0,t:0,crank:0.6,wheel:0,lean:0,bar:0,pitch:0,done:false};resetJoggers();}
+function reset(){SHK.y=SHK.vy=SHK.r=SHK.vr=0;SHK.i=0;st={pos:0,v:0,x:0.4,power:0,t:0,crank:0.6,wheel:0,lean:0,bar:0,pitch:0,done:false};resetJoggers();}
 reset();
 window.addEventListener('keydown',e=>{
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].indexOf(e.key)>=0)e.preventDefault();
@@ -1002,7 +1005,15 @@ function update(dt){
   st.v=Math.max(0,v+(st.power/vs-fres)/M*dt);
   const off=Math.abs(st.x)>HW[i]+0.15;
   if(off)st.v*=Math.max(0,1-1.3*dt);
-  st.pos=Math.max(0,st.pos+st.v*dt);st.t+=dt;
+  const p0=st.pos;st.pos=Math.max(0,st.pos+st.v*dt);st.t+=dt;
+  // Ruppeln: Wurzeln und Steine unter dem Rad geben Stöße, Schotter/Trail rauschen leicht
+  while(SHK.i<BUMPS.length&&BUMPS[SHK.i].s<st.pos){
+    const b=BUMPS[SHK.i++];
+    if(b.s>=p0-0.01&&st.x>b.o0&&st.x<b.o1&&st.v>0.8){const f=0.5+0.5*Math.min(1,st.v/7);SHK.vy+=b.a*f*(rnd()<0.5?1:0.7);SHK.vr+=(rnd()-0.5)*b.a*f*5;}
+  }
+  SHK.vy+=(-420*SHK.y-17*SHK.vy)*dt;SHK.y+=SHK.vy*dt;SHK.vr+=(-380*SHK.r-16*SHK.vr)*dt;SHK.r+=SHK.vr*dt;
+  const rough=(ROUTE?[0,0.4,1][SURF[i]]:(i>=iTrail?1:0.2))*(1+Math.max(0,-GR[i])*0.06)*Math.min(1,st.v/6);
+  SHK.buzz=rough*(Math.sin(st.pos*9.3)+Math.sin(st.pos*17.9+1.3)*0.7+Math.sin(st.pos*31.7)*0.4);
   updateJoggers(dt);
   const steer=(right?1:0)-(left?1:0);
   // Automatische Lenkung (Rollentrainer wie D100 oder KICKR können nicht lenken): Lenker und Neigung folgen dem
@@ -1126,7 +1137,7 @@ function render(dt,now){
   cockpitEl.style.display=fp?'block':'none';document.body.classList.toggle('fpv',fp);
   if(fp){
     const ey=by+1.3,k=1-Math.exp(-dt*9);
-    camera.position.set(bx+Math.sin(smp.h)*0.05,ey+Math.sin(st.wheel*0.9)*0.004*Math.min(1,st.v/4),bz+Math.cos(smp.h)*0.05);
+    camera.position.set(bx+Math.sin(smp.h)*0.05,ey+Math.sin(st.wheel*0.9)*0.004*Math.min(1,st.v/4)+(running?SHK.y*0.9+(SHK.buzz||0)*0.0035:0),bz+Math.cos(smp.h)*0.05);
     sample(st.pos+9,smp2);
     lookT.set(smp2.x+rx*st.x*0.9,smp2.y+1.15,smp2.z+rz*st.x*0.9);
     if(!camInit){lookC.copy(lookT);camInit=true;}else lookC.lerp(lookT,k);
@@ -1150,9 +1161,10 @@ function render(dt,now){
   }
   camera.lookAt(lookC);
   if(fp){
-    camera.rotateZ(-st.lean*0.55);                       // Neigung in Kurven
+    camera.rotateZ(-st.lean*0.55+SHK.r*0.5);             // Neigung in Kurven + Ruppeln
+    camera.rotateX(SHK.y*0.9);
     const deg=clamp(st.bar,-17,17);                     // Lenker dreht mit
-    cockpitEl.style.transform='translate(-50%,'+(18.5+Math.abs(deg)*0.062).toFixed(2)+'%) rotate('+deg.toFixed(2)+'deg)';
+    cockpitEl.style.transform='translate(-50%,'+(18.5+Math.abs(deg)*0.062-SHK.y*70-(SHK.buzz||0)*0.12).toFixed(2)+'%) rotate('+(deg+SHK.r*25).toFixed(2)+'deg)';
   }
   sky.position.copy(camera.position);sky.material.uniforms.time.value=now*0.001;
   const sc=running||st.done?1:3.2;
@@ -1167,7 +1179,7 @@ function loop(now){
   update(dt);render(dt,now);
   requestAnimationFrame(loop);
 }
-window.__dbg={gnd:gnd,HS:HS,PX:PX,PZ:PZ,HW:HW,KV:KV,ROUTE:ROUTE,SURF:SURF,cam:camera,joggers:joggers,get st(){return st;},set pos(v){st.pos=v;camInit=false;},N:N,TOTAL:TOTAL,iTrail:iTrail,SEC:SEC,PY:PY,GR:GR};
+window.__dbg={SHK:SHK,BUMPS:BUMPS,gnd:gnd,HS:HS,PX:PX,PZ:PZ,HW:HW,KV:KV,ROUTE:ROUTE,SURF:SURF,cam:camera,joggers:joggers,get st(){return st;},set pos(v){st.pos=v;camInit=false;},N:N,TOTAL:TOTAL,iTrail:iTrail,SEC:SEC,PY:PY,GR:GR};
 menu('Start');
 if(location.hash==='#go')start();
 requestAnimationFrame(loop);
