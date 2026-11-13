@@ -1098,7 +1098,8 @@ function update(dt){
   const i=Math.min(N-1,Math.floor(st.pos/SEG)),dirt=SURF[i]===2;
   const tr=inputMode==='trainer'&&trainer.connected;
   if(tr)st.power+=(trainer.power-st.power)*Math.min(1,dt*6);else st.power+=((up?PMAX:0)-st.power)*Math.min(1,dt*2.5);
-  const eg=Math.max(0,GR[i]+gear*0.5);          // effektive Steigung inkl. virtueller Schaltung; Abfahrten neutral
+  const gf=gear<0?Math.pow(1.26,gear):1+gear*0.05;   // Gangfaktor auf die Steigung: leichtester Gang x0,25 (18 % fühlen sich wie 4,5 % an), schwerster x1,3
+  const eg=Math.max(0,GR[i]>0?GR[i]*gf+Math.max(0,gear)*0.15:Math.max(0,gear)*0.15*(GR[i]>-2?1:0));   // Abfahrten neutral
   if(tr)trainer.setGrade(eg,dirt?0.012:SURF[i]===1?0.009:0.005);
   const climb=eg/100;            // Abfahrten neutral: zählen wie flach
   const v=st.v,vs=Math.max(v,0.55);   // kleine Mindestgeschwindigkeit: auch steile Rampen lassen sich aus dem Stand anfahren
@@ -1184,7 +1185,7 @@ function drawHud(){
   if(SEC[i]!==lastSec){lastSec=SEC[i];secEl.innerHTML=SECN[lastSec]+'<small>'+PLACE+'</small>';}
   spdEl.firstChild.nodeValue=(st.v*3.6).toFixed(0);
   gearHud();
-  subEl.innerHTML='<b>'+Math.round(st.power)+' W</b>'+' · '+(GR[i]>=0?'+':'')+GR[i].toFixed(0)+' % · '+(NHN0+PY[i]).toFixed(0)+' m ü. NHN<br>'+(st.pos/1000).toFixed(2)+' / '+(TOTAL/1000).toFixed(2)+' km · '+fmtT(st.t);
+  subEl.innerHTML='<b>'+Math.round(st.power)+' W</b>'+' · '+(GR[i]>=0?'+':'')+GR[i].toFixed(0)+' %'+(GR[i]>2&&Math.abs(Math.max(0,GR[i]*(gear<0?Math.pow(1.26,gear):1+gear*0.05))-GR[i])>0.5?' (fühlt sich an wie '+(GR[i]*(gear<0?Math.pow(1.26,gear):1+gear*0.05)).toFixed(0)+' %)':'')+' · '+(NHN0+PY[i]).toFixed(0)+' m ü. NHN<br>'+(st.pos/1000).toFixed(2)+' / '+(TOTAL/1000).toFixed(2)+' km · '+fmtT(st.t);
   mg.clearRect(0,0,180,180);mg.drawImage(miniBase,0,0);
   const mx=90+(PX[i]-Math.cos(HS[i])*st.x-MCX)*MS,my=90+(PZ[i]+Math.sin(HS[i])*st.x-MCZ)*MS;
   mg.save();mg.translate(mx,my);mg.rotate(Math.atan2(Math.cos(HS[i]),Math.sin(HS[i])));
