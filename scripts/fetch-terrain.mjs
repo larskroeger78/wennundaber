@@ -29,7 +29,7 @@ const toLL = (x, z) => [LAT0 - z / KY, LON0 + x / KX];       // Spiel (x Ost, z 
 
 async function get(url) {
   const r = await fetch(url);
-  if (!r.ok) throw new Error(`${r.status} bei ${url.slice(0, 120)}\n${(await r.text()).slice(0, 300)}`);
+  if (!r.ok) throw new Error(`${r.status} bei ${url}\n${(await r.text()).slice(0, 1500)}`);
   return r;
 }
 
@@ -41,31 +41,57 @@ async function main() {
   const nx = (x1 - x0) / CELL + 1, nz = (z1 - z0) / CELL + 1;
   let eMin = 1e12, eMax = -1e12, nMin = 1e12, nMax = -1e12;
   for (const [x, z] of [[x0, z0], [x1, z0], [x0, z1], [x1, z1]]) { const [E, N] = utm32(...toLL(x, z)); eMin = Math.min(eMin, E); eMax = Math.max(eMax, E); nMin = Math.min(nMin, N); nMax = Math.max(nMax, N); }
-  eMin = Math.floor(eMin) - 5; eMax = Math.ceil(eMax) + 5; nMin = Math.floor(nMin) - 5; nMax = Math.ceil(nMax) + 5;
+  eMin = Math.floor(eMin / 10) * 10 - 10; eMax = Math.ceil(eMax / 10) * 10 + 10; nMin = Math.floor(nMin / 10) * 10 - 10; nMax = Math.ceil(nMax / 10) * 10 + 10;
 
   console.log('Suche Höhenmodell beim Land NRW …');
   const caps = await (await get(`${WCS}?SERVICE=WCS&REQUEST=GetCapabilities&VERSION=2.0.1`)).text();
   const ids = [...caps.matchAll(/<wcs:CoverageId>([^<]+)<\/wcs:CoverageId>/g)].map(m => m[1]);
-  console.log('Gefundene Coverages:', ids.join(', ') || '(keine)');
   const id = ids.find(s => /dgm/i.test(s)) || ids[0];
-  if (!id) throw new Error('Keine Coverage im Dienst gefunden – bitte die Ausgabe an Claude schicken.');
+  if (!id) throw new Error('Keine Coverage im Dienst gefunden.');
+  const formats = [...caps.matchAll(/<wcs:formatSupported>([^<]+)<\/wcs:formatSupported>/g)].map(m => m[1]);
+  console.log('Coverage', id, '· Formate:', formats.join(', ') || '(keine Angabe)');
   const desc = await (await get(`${WCS}?SERVICE=WCS&REQUEST=DescribeCoverage&VERSION=2.0.1&COVERAGEID=${id}`)).text();
   const labels = (desc.match(/axisLabels="([^"]+)"/) || [])[1] || 'x y';
   const [ax, ay] = labels.split(/\s+/);
-  console.log(`Coverage ${id}, Achsen ${ax}/${ay}. Lade ${eMax - eMin} x ${nMax - nMin} m …`);
-  const url = `${WCS}?SERVICE=WCS&REQUEST=GetCoverage&VERSION=2.0.1&COVERAGEID=${id}&FORMAT=image/tiff` +
-    `&SUBSETTINGCRS=http://www.opengis.net/def/crs/EPSG/0/25832&SUBSET=${ax}(${eMin},${eMax})&SUBSET=${ay}(${nMin},${nMax})`;
-  const buf = await (await get(url)).arrayBuffer();
-  const tiff = await fromArrayBuffer(buf), img = await tiff.getImage();
-  const [bx0, by0, bx1, by1] = img.getBoundingBox(), w = img.getWidth(), h = img.getHeight();
-  const px = (bx1 - bx0) / w, py = (by1 - by0) / h;
-  const data = (await img.readRasters())[0];
-  console.log(`DGM erhalten: ${w} x ${h} Pixel (${px.toFixed(2)} m)`);
-  const at = (E, N) => {                    // bilinear
-    const u = (E - bx0) / px - 0.5, v = (by1 - N) / py - 0.5, i = Math.floor(u), j = Math.floor(v);
-    const c = (ii, jj) => data[Math.max(0, Math.min(h - 1, jj)) * w + Math.max(0, Math.min(w - 1, ii))];
+  console.log('Achsen:', ax, ay, '· Auszug:', desc.replace(/\s+/g, ' ').slice(0, 400));
+
+  const fmt = formats.find(f => /tif/i.test(f)) || 'image/tiff';
+  const variants = [
+    (e0, e1, n0, n1) => `${WCS}?SERVICE=WCS&REQUEST=GetCoverage&VERSION=2.0.1&COVERAGEID=${id}&FORMAT=${fmt}&SUBSET=${ax}(${e0},${e1})&SUBSET=${ay}(${n0},${n1})`,
+    (e0, e1, n0, n1) => `${WCS}?SERVICE=WCS&REQUEST=GetCoverage&VERSION=2.0.1&COVERAGEID=${id}&FORMAT=${fmt}&SUBSETTINGCRS=http://www.opengis.net/def/crs/EPSG/0/25832&SUBSET=${ax}(${e0},${e1})&SUBSET=${ay}(${n0},${n1})`,
+    (e0, e1, n0, n1) => `${WCS}?SERVICE=WCS&REQUEST=GetCoverage&VERSION=2.0.1&COVERAGEID=${id}&FORMAT=${fmt}&SUBSETTINGCRS=EPSG:25832&SUBSET=${ax}(${e0},${e1})&SUBSET=${ay}(${n0},${n1})`,
+    (e0, e1, n0, n1) => `${WCS}?SERVICE=WCS&REQUEST=GetCoverage&VERSION=1.0.0&COVERAGE=${id}&CRS=EPSG:25832&BBOX=${e0},${n0},${e1},${n1}&WIDTH=${Math.round(e1 - e0)}&HEIGHT=${Math.round(n1 - n0)}&FORMAT=GeoTIFF`,
+  ];
+  // Kacheln à 500 m (der Dienst begrenzt die Größe einer Anfrage)
+  const T = 500, tiles = [];
+  const tryTile = async (e0, e1, n0, n1) => {
+    const errs = [];
+    for (let v = (tryTile.v || 0); v < variants.length; v++) {
+      try {
+        const buf = await (await get(variants[v](e0, e1, n0, n1))).arrayBuffer();
+        const img = await (await fromArrayBuffer(buf)).getImage();
+        tryTile.v = v; return img;
+      } catch (e) { errs.push(`Variante ${v + 1}: ${e.message}`); }
+    }
+    throw new Error('Keine Anfrage-Variante hat funktioniert:\n' + errs.join('\n---\n'));
+  };
+  const cols = Math.ceil((eMax - eMin) / T), rows = Math.ceil((nMax - nMin) / T);
+  console.log(`Lade ${cols * rows} Kacheln …`);
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const e0 = eMin + c * T, n0 = nMin + r * T;
+    const img = await tryTile(e0 - 4, Math.min(eMax, e0 + T) + 4, n0 - 4, Math.min(nMax, n0 + T) + 4);
+    const [bx0, by0, bx1, by1] = img.getBoundingBox(), w = img.getWidth(), h = img.getHeight();
+    tiles.push({ c, r, bx0, by1, w, h, px: (bx1 - bx0) / w, py: (by1 - by0) / h, data: (await img.readRasters())[0] });
+    process.stdout.write(`\r  Kachel ${tiles.length}/${cols * rows}  (Variante ${tryTile.v + 1})`);
+  }
+  console.log('\nDGM erhalten.');
+  const at = (E, N) => {
+    const c = Math.max(0, Math.min(cols - 1, Math.floor((E - eMin) / T))), r = Math.max(0, Math.min(rows - 1, Math.floor((N - nMin) / T)));
+    const t = tiles[r * cols + c];
+    const u = (E - t.bx0) / t.px - 0.5, v = (t.by1 - N) / t.py - 0.5, i = Math.floor(u), j = Math.floor(v);
+    const g = (ii, jj) => t.data[Math.max(0, Math.min(t.h - 1, jj)) * t.w + Math.max(0, Math.min(t.w - 1, ii))];
     const fu = u - i, fv = v - j;
-    return (c(i, j) * (1 - fu) + c(i + 1, j) * fu) * (1 - fv) + (c(i, j + 1) * (1 - fu) + c(i + 1, j + 1) * fu) * fv;
+    return (g(i, j) * (1 - fu) + g(i + 1, j) * fu) * (1 - fv) + (g(i, j + 1) * (1 - fu) + g(i + 1, j + 1) * fu) * fv;
   };
   const q = new Int16Array(nx * nz);        // Dezimeter über Spiel-Nullpunkt
   let mn = 1e9, mx = -1e9;
