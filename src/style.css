@@ -23,5 +23,5 @@ button.sec{background:rgba(255,255,255,.16);color:#fff}
 button:disabled{background:rgba(255,255,255,.08);color:#888;cursor:not-allowed}
 .help{font-size:18px;opacity:.85;line-height:1.5}
 
-#cockpit{position:absolute;left:50%;bottom:0;width:104vw;max-width:none;pointer-events:none;user-select:none;transform-origin:50% 31%;will-change:transform;filter:drop-shadow(0 6px 10px rgba(0,0,0,.35))}
+#cockpit{position:absolute;left:50%;bottom:-19.2vw;width:176vw;max-width:none;pointer-events:none;user-select:none;transform-origin:50% 19.1%;will-change:transform;filter:drop-shadow(0 6px 10px rgba(0,0,0,.35))}
 body.fpv #prof{bottom:auto;top:16px}

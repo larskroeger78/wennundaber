@@ -1050,7 +1050,7 @@ function render(dt,now){
   if(fp){
     camera.rotateZ(-st.lean*0.55);                       // Neigung in Kurven
     const deg=clamp(st.lean*55,-17,17);                 // Lenker dreht mit
-    cockpitEl.style.transform='translate(-50%,'+(30+Math.abs(deg)*0.1)+'%) rotate('+deg.toFixed(2)+'deg)';
+    cockpitEl.style.transform='translate(-50%,'+(18.5+Math.abs(deg)*0.062).toFixed(2)+'%) rotate('+deg.toFixed(2)+'deg)';
   }
   sky.position.copy(camera.position);sky.material.uniforms.time.value=now*0.001;
   const sc=running||st.done?1:3.2;
