@@ -1,4 +1,4 @@
-// Wenn und Aber Bike Crew – Spielcode (Stand Prototyp 0.5).
+// MIWORU by Wenn & Aber Bike Crew – Spielcode (Stand Prototyp 0.6).
 // Noch eine einzige Datei; wird schrittweise in Module aufgeteilt (Strecke, Gelände, Vegetation, Figuren, HUD).
 import * as THREE from 'three';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
@@ -1173,13 +1173,19 @@ function routeBtns(){return '';}   // nur eine Strecke im Spiel
 function menu(title,sub){
   lastMenu=[title,sub];
   ov.style.display='flex';hudBox.style.display=sub?'block':'none';
-  ov.innerHTML='<div class="tag">The Aber Version · Prototyp 0.5</div>'+
-    '<h1>Wenn und Aber<br><em>Bike Crew</em></h1>'+
-    (sub?'<div class="res">'+sub+'</div>':'')+
-    '<div class="tag">'+(ROUTE?RT.label+' · Bergkamen und Umland':TRACK_NAME)+' · '+(TOTAL/1000).toFixed(1).replace('.',',')+' km · '+HM+' Hm</div>'+
-    '<div><button id="go">'+title+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastaturmodus: AN':'Tastaturmodus: AUS')+'</button>'+routeBtns()+'<button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln (D100 / KICKR)')+'</button><button id="clk" class="sec">'+(click.connected?'Zwift Click ✓ ('+click.count+')':'Zwift Click koppeln (experimentell)')+'</button></div>'+
-    '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?'Bluetooth nur in Chrome/Edge (nicht Safari).':'')+(bleMsg?'<br>'+bleMsg:'')+(click.connected&&click.log.length?'<br><small>'+click.log.slice(-3).join('<br>')+'</small>':'')+'</div>'+
-    '<div class="help">↑ treten · ↓ bremsen · +/− Schaltung · Esc Pause/Menü · R neu starten · C Ansicht<br>Lenken und Ausweichen laufen automatisch (Trainer können nicht lenken)<br>Abfahrten sind neutral: Tempo entsteht nur durchs Treten.</div>';
+  const km=(TOTAL/1000).toFixed(1).replace('.',',');
+  ov.innerHTML='<div class="intro">'+
+    '<div class="poster"><img src="'+ASSETS+'ui/miworu.svg" alt="MIWORU"></div>'+
+    '<div class="panel">'+
+      '<div class="by">by Wenn &amp; Aber Bike Crew</div>'+
+      '<h1>MIWORU</h1>'+
+      (sub?'<div class="res">'+sub+'</div>':'')+
+      '<div class="route">'+(ROUTE?RT.label:TRACK_NAME)+'<span>Bergkamen und Umland</span></div>'+
+      '<div class="stats"><div><b>'+km+'</b><i>km</i></div><div><b>'+HM+'</b><i>Höhenmeter</i></div></div>'+
+      '<div class="btns"><button id="go" class="main">'+title+'</button><button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(click.connected?'Zwift Click ✓ ('+click.count+')':'Zwift Click (experimentell)')+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button></div>'+
+      '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?'Bluetooth nur in Chrome/Edge (nicht Safari).':'D100 oder KICKR einschalten, dann „Trainer koppeln“.')+(bleMsg?'<br>'+bleMsg:'')+(click.connected&&click.log.length?'<br><small>'+click.log.slice(-3).join('<br>')+'</small>':'')+'</div>'+
+      '<div class="help keys"><b>↑</b> treten · <b>↓</b> bremsen · <b>+/−</b> Schaltung · <b>Esc</b> Pause · <b>R</b> neu · <b>C</b> Ansicht<br>Lenken und Ausweichen laufen automatisch. Abfahrten sind neutral: Tempo entsteht nur durchs Treten.</div>'+
+    '</div></div>';
   document.getElementById('mode').onclick=()=>{inputMode=inputMode==='keyboard'?'off':'keyboard';menu(title,sub);};
   document.querySelectorAll('[data-route]').forEach(b=>b.onclick=()=>{const r=b.getAttribute('data-route');location.href=location.pathname+(r?'?route='+r:'')+'#go';});
   document.getElementById('trn').onclick=async()=>{bleMsg='';try{await trainer.connect();}catch(e){bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Trainer: '+(e&&e.message||e);}menu(title,sub);};

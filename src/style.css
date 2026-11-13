@@ -13,7 +13,7 @@ html,body{margin:0;height:100%;background:#0b0d0f;color:#fff;font-family:'Barlow
 #mini{left:20px;bottom:20px;width:180px;height:180px;border-radius:50%;border:3px solid rgba(255,255,255,.75);box-shadow:0 4px 14px rgba(0,0,0,.6)}
 #prof{left:50%;bottom:22px;transform:translateX(-50%);width:420px;height:64px;max-width:40vw}
 #off{left:50%;top:22%;transform:translateX(-50%);font-size:24px;font-weight:700;color:#ff8f7a;display:none}
-#overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;gap:12px;padding:0 0 48px 56px;box-sizing:border-box;background:linear-gradient(90deg,rgba(0,0,0,.78) 0%,rgba(0,0,0,.35) 45%,rgba(0,0,0,0) 75%)}
+#overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:3vh 4vw;background:radial-gradient(ellipse at 50% 50%,rgba(0,0,0,.35) 0%,rgba(0,0,0,.72) 100%)}
 #overlay h1{margin:0;font-size:68px;font-weight:800;line-height:.92;text-transform:uppercase;letter-spacing:.01em}
 #overlay h1 em{font-style:normal;color:#f5a524}
 .tag{font-size:20px;letter-spacing:.14em;text-transform:uppercase;opacity:.85}
@@ -25,3 +25,22 @@ button:disabled{background:rgba(255,255,255,.08);color:#888;cursor:not-allowed}
 
 #cockpit{position:absolute;left:50%;bottom:-19.2vw;width:176vw;max-width:none;pointer-events:none;user-select:none;transform-origin:50% 19.1%;will-change:transform;filter:drop-shadow(0 6px 10px rgba(0,0,0,.35))}
 body.fpv #prof{bottom:auto;top:16px}
+
+/* Startscreen MIWORU */
+.intro{display:flex;align-items:center;gap:clamp(24px,4vw,64px);max-width:1180px;width:100%;justify-content:center}
+.poster{flex:0 0 auto;height:min(86vh,820px);aspect-ratio:361.42/547.35;background:#fff;box-shadow:0 24px 70px rgba(0,0,0,.65),0 0 0 1px rgba(255,255,255,.08);transform:rotate(-1.6deg)}
+.poster img{display:block;width:100%;height:100%}
+.panel{display:flex;flex-direction:column;gap:14px;max-width:520px;min-width:0}
+.panel .by{font-size:22px;letter-spacing:.2em;text-transform:uppercase;color:#e14230;font-weight:700}
+.panel h1{margin:0;font-size:clamp(64px,9vw,120px);font-weight:800;line-height:.88;letter-spacing:.02em;text-transform:uppercase}
+.panel .res{font-size:30px;font-weight:700;color:#fff;background:#e14230;display:inline-block;padding:4px 12px;align-self:flex-start}
+.panel .route{font-size:30px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;line-height:1.05}
+.panel .route span{display:block;font-size:20px;font-weight:500;opacity:.8;letter-spacing:.14em}
+.stats{display:flex;gap:28px;border-top:2px solid rgba(255,255,255,.25);border-bottom:2px solid rgba(255,255,255,.25);padding:8px 0}
+.stats b{font-size:54px;font-weight:800;line-height:1}
+.stats i{font-style:normal;font-size:18px;letter-spacing:.14em;text-transform:uppercase;opacity:.8;margin-left:8px}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.btns button{margin:0}
+button.main{background:#e14230;color:#fff;font-size:30px;padding:12px 34px}
+.keys{font-size:17px;opacity:.75}
+@media (max-width:860px){.intro{flex-direction:column;gap:16px}.poster{height:34vh}.panel h1{font-size:56px}.stats b{font-size:38px}}
