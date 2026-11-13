@@ -1101,9 +1101,10 @@ function update(dt){
   const eg=Math.max(0,GR[i]+gear*0.5);          // effektive Steigung inkl. virtueller Schaltung; Abfahrten neutral
   if(tr)trainer.setGrade(eg,dirt?0.012:SURF[i]===1?0.009:0.005);
   const climb=eg/100;            // Abfahrten neutral: zählen wie flach
-  const v=st.v,vs=Math.max(v,1.5);
+  const v=st.v,vs=Math.max(v,0.55);   // kleine Mindestgeschwindigkeit: auch steile Rampen lassen sich aus dem Stand anfahren
   const fres=M*GRAV*((dirt?0.012:SURF[i]===1?0.009:0.005)+climb)+0.5*RHO*CDA*v*v+(down?BRAKE:0);
-  st.v=Math.max(0,v+(st.power/vs-fres)/M*dt);
+  st.v=Math.max(0,v+(Math.min(st.power/vs,420)-fres)/M*dt);   // Zugkraft am Hinterrad gedeckelt (Traktion)
+  if(st.v<0.3&&eg>7&&st.power>15&&st.t-(update.hintT||-9)>7){update.hintT=st.t;toastEl.textContent='Zu steil für diese Leistung · "−" = leichterer Gang';toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),2600);}
   const off=Math.abs(st.x)>HW[i]+0.15;
   if(off)st.v*=Math.max(0,1-1.3*dt);
   const p0=st.pos;st.pos=Math.max(0,st.pos+st.v*dt);st.t+=dt;
