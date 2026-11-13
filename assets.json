@@ -1,0 +1,14 @@
+{
+  "quelle": "Poly Haven (https://polyhaven.com), Lizenz CC0",
+  "aufloesung": "2k",
+  "texturen": [
+    { "id": "asphalt_02", "zweck": "Uphill-Asphalt" },
+    { "id": "forrest_ground_01", "zweck": "Waldboden" },
+    { "id": "forest_ground_04", "zweck": "Trail (Erde, Steine)" },
+    { "id": "tree_bark_03", "zweck": "Baumstämme" }
+  ],
+  "karten": ["Diffuse", "nor_gl", "arm"],
+  "hdri": [
+    { "id": "kloofendal_48d_partly_cloudy_puresky", "zweck": "Himmel und Umgebungslicht" }
+  ]
+}

@@ -18,6 +18,17 @@ Dann die angezeigte Adresse (http://localhost:5173) in Chrome öffnen.
 Steuerung im Tastaturmodus: ↑ treten · ← → lenken · ↓ bremsen · R neu starten.
 Abfahrten sind neutral: Tempo entsteht nur durchs Treten.
 
+## Texturen und Himmel laden
+
+Die Fototexturen und das Himmelspanorama liegen nicht im Repository. Sie kommen von Poly Haven (Lizenz CC0)
+und werden einmalig geladen:
+
+```bash
+npm run assets
+```
+
+Welche Dateien das sind, steht in `assets.json`. Sie landen in `public/assets/`.
+
 ## Aufbau
 
 - `index.html` – Seite mit Canvas und HUD
