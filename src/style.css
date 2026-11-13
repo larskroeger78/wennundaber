@@ -44,3 +44,13 @@ body.fpv #prof{bottom:auto;top:16px}
 button.main{background:#e14230;color:#fff;font-size:30px;padding:12px 34px}
 .keys{font-size:17px;opacity:.75}
 @media (max-width:860px){.intro{flex-direction:column;gap:16px}.poster{height:34vh}.panel h1{font-size:56px}.stats b{font-size:38px}}
+
+#gear{right:24px;bottom:150px;text-align:right;font-weight:800}
+#gear .lbl{font-size:18px;font-weight:600;letter-spacing:.14em;opacity:.85}
+#gear .gn{font-size:58px;line-height:.95;color:#f5a524}
+#gear .gn small{font-size:24px;font-weight:600;color:#fff;opacity:.75;margin-left:4px}
+#gear .bars{display:flex;gap:4px;justify-content:flex-end;align-items:flex-end;height:30px;margin-top:6px}
+#gear .bars i{display:block;width:9px;background:rgba(255,255,255,.35);border-radius:2px}
+#gear .bars i.on{background:#f5a524;box-shadow:0 0 8px rgba(245,165,36,.8)}
+#toast{left:50%;top:34%;transform:translateX(-50%);font-size:46px;font-weight:800;color:#f5a524;opacity:0;transition:opacity .35s;letter-spacing:.05em;white-space:nowrap}
+#toast.on{opacity:1;transition:none}

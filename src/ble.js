@@ -104,36 +104,55 @@ export class Trainer {
 // Ohne offizielle Spezifikation: wir koppeln, senden den RideOn-Handshake und protokollieren die Rohdaten.
 // Erkannte Tastendrücke rufen onShift(+1/-1) auf. Zusätzlich funktionieren die Tasten + / - (oder Bild hoch/runter) im Spiel.
 export class ClickPad {
-  constructor() { this.connected = false; this.log = []; this.onShift = () => {}; this.onChange = () => {}; this.name = ''; this.count = 0; }
+  constructor() { this.connected = false; this.log = []; this.onShift = () => {}; this.onChange = () => {}; this.name = ''; this.count = 0; this.p = 1; this.m = 1; this.last = ''; this.err = ''; }
   async connect() {
     if (!BLE_OK) throw new Error('Kein Web Bluetooth in diesem Browser (Chrome/Edge verwenden).');
-    const SVC = '0000fc82-0000-1000-8000-00805f9b34fb';
-    const dev = await navigator.bluetooth.requestDevice({ filters: [{ services: [SVC] }], optionalServices: [SVC] });
+    const ADV = '0000fc82-0000-1000-8000-00805f9b34fb';          // Werbe-Kennung der Zwift-Controller
+    const ZSV = '00000001-19ca-4651-86e5-fa29dcdd09d1';          // eigentlicher GATT-Dienst (Click / Play / Ride)
+    const dev = await navigator.bluetooth.requestDevice({ filters: [{ services: [ADV] }, { services: [ZSV] }, { namePrefix: 'Zwift' }], optionalServices: [ADV, ZSV] });
     this.name = dev.name || 'Zwift Click';
     dev.addEventListener('gattserverdisconnected', () => { this.connected = false; this.onChange(); });
-    const srv = await dev.gatt.connect(), s = await srv.getPrimaryService(SVC);
+    const srv = await dev.gatt.connect();
+    let s = null;
+    for (const u of [ZSV, ADV]) { try { s = await srv.getPrimaryService(u); if (s) break; } catch (e) { this.err = e.message; } }
+    if (!s) throw new Error('Zwift-Dienst am Gerät nicht gefunden (Click im blauen Koppelmodus?).');
     const chars = await s.getCharacteristics();
     for (const c of chars) {
       if (c.properties.notify || c.properties.indicate) {
         try {
           c.addEventListener('characteristicvaluechanged', e => this._rx(c.uuid, new Uint8Array(e.target.value.buffer)));
           await c.startNotifications();
-        } catch (e) {}
+        } catch (e) { this.err = e.message; }
       }
     }
     const rx = chars.find(c => c.uuid.startsWith('00000003'));
-    if (rx) { try { await rx.writeValueWithoutResponse(new Uint8Array([0x52, 0x69, 0x64, 0x65, 0x4f, 0x6e, 0x01, 0x02])); } catch (e) {} }   // "RideOn" + Version
+    if (rx) { try { await rx.writeValueWithoutResponse(new Uint8Array([0x52, 0x69, 0x64, 0x65, 0x4f, 0x6e, 0x01, 0x02])); } catch (e) { this.err = e.message; } }   // "RideOn" + Version
     this.connected = true; this.onChange();
   }
   _rx(uuid, b) {
     this.count++;
-    const hex = Array.from(b).map(x => x.toString(16).padStart(2, '0')).join(' ');
-    this.log.push(uuid.slice(0, 8) + ': ' + hex); if (this.log.length > 12) this.log.shift();
-    // Unverschlüsselte Button-Meldungen (Typ 0x23): Feld-Tag 0x08 = Status; wir werten Plus/Minus nur aus, wenn das Muster klar ist.
-    if (b[0] === 0x23 && b.length >= 4) {
-      const s = b.slice(1);
-      for (let i = 0; i < s.length - 1; i++) if (s[i] === 0x08 && (s[i + 1] === 0x01 || s[i + 1] === 0x02)) { this.onShift(s[i + 1] === 0x01 ? 1 : -1); break; }
+    this.last = Array.from(b).map(x => x.toString(16).padStart(2, '0')).join(' ');
+    this.log.push(uuid.slice(0, 8) + ': ' + this.last); if (this.log.length > 12) this.log.shift();
+    // Button-Meldung (Typ 0x23, Protobuf): Feld 1 = Plus, Feld 2 = Minus; 0 = gedrückt, 1 = losgelassen (Flanke 1 -> 0 schaltet)
+    if (b[0] === 0x23 && b.length >= 3) {
+      const f = parsePb(b.slice(1));
+      if (f[1] !== undefined) { if (f[1] === 0 && this.p !== 0) this.onShift(1); this.p = f[1]; }
+      if (f[2] !== undefined) { if (f[2] === 0 && this.m !== 0) this.onShift(-1); this.m = f[2]; }
     }
     this.onChange();
   }
+}
+function parsePb(b) {   // minimale Protobuf-Auswertung: nur Varint-Felder (Wire-Typ 0), Rest wird übersprungen
+  const out = {};
+  let i = 0;
+  const varint = () => { let v = 0, sh = 0; while (i < b.length) { const x = b[i++]; v += (x & 0x7f) * Math.pow(2, sh); sh += 7; if (!(x & 0x80)) break; } return v; };
+  while (i < b.length) {
+    const tag = varint(), wt = tag & 7, fn = tag >> 3;
+    if (wt === 0) out[fn] = varint();
+    else if (wt === 2) { const n = varint(); i += n; }
+    else if (wt === 1) i += 8;
+    else if (wt === 5) i += 4;
+    else break;
+  }
+  return out;
 }

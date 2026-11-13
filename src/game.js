@@ -1056,7 +1056,23 @@ const M=95,CDA=0.38,RHO=1.2,GRAV=9.81,PMAX=300,BRAKE=260;
 const keys={};
 let running=false,inputMode='keyboard',st,FPV=true;
 const trainer=new Trainer(),click=new ClickPad();let paused=false,gear=0,bleMsg='',lastMenu=null;   // gear: virtuelle Schaltung = Widerstand in %-Steigung (+/-)
-function shift(d){gear=clamp(gear+d,-6,6);}
+let gearUsed=false,toastT=0;
+const gearEl=document.getElementById('gear'),toastEl=document.getElementById('toast');
+function shift(d){
+  const ng=clamp(gear+d,-6,6);gearUsed=true;
+  const n=ng+7;
+  if(ng===gear){toastEl.textContent=(d>0?'Schwerster Gang · ':'Leichtester Gang · ')+n;}
+  else{gear=ng;SHK.vy+=0.12*d;toastEl.textContent=(d>0?'▲ ':'▼ ')+'Gang '+n+(d>0?' · schwerer':' · leichter');}
+  toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),900);
+}
+function gearHud(){
+  const show=trainer.connected||click.connected||gearUsed;
+  gearEl.style.display=show?'block':'none';
+  if(!show)return;
+  const key=gear+'|'+click.connected;if(gearHud.k===key)return;gearHud.k=key;
+  let bars='';for(let k=0;k<13;k++)bars+='<i class="'+(k===gear+6?'on':'')+'" style="height:'+(8+k*1.8)+'px"></i>';
+  gearEl.innerHTML='<div class="lbl">GANG'+(click.connected?'':' · Tasten +/−')+'</div><div class="gn">'+(gear+7)+'<small>/ 13</small></div><div class="bars">'+bars+'</div>';
+}
 click.onShift=shift;
 const bleChange=()=>{if(trainer.connected)inputMode='trainer';else if(inputMode==='trainer')inputMode='keyboard';if(ov.style.display!=='none'&&lastMenu)menu(lastMenu[0],lastMenu[1]);};
 trainer.onChange=bleChange;click.onChange=bleChange;   // FPV: Cockpit-Ansicht aus Fahrersicht (Taste C wechselt)
@@ -1166,7 +1182,8 @@ function drawHud(){
   const i=Math.min(N-1,Math.floor(st.pos/SEG));
   if(SEC[i]!==lastSec){lastSec=SEC[i];secEl.innerHTML=SECN[lastSec]+'<small>'+PLACE+'</small>';}
   spdEl.firstChild.nodeValue=(st.v*3.6).toFixed(0);
-  subEl.innerHTML='<b>'+Math.round(st.power)+' W</b>'+(gear?' · Gang '+(gear>0?'+':'')+gear:'')+' · '+(GR[i]>=0?'+':'')+GR[i].toFixed(0)+' % · '+(NHN0+PY[i]).toFixed(0)+' m ü. NHN<br>'+(st.pos/1000).toFixed(2)+' / '+(TOTAL/1000).toFixed(2)+' km · '+fmtT(st.t);
+  gearHud();
+  subEl.innerHTML='<b>'+Math.round(st.power)+' W</b>'+' · '+(GR[i]>=0?'+':'')+GR[i].toFixed(0)+' % · '+(NHN0+PY[i]).toFixed(0)+' m ü. NHN<br>'+(st.pos/1000).toFixed(2)+' / '+(TOTAL/1000).toFixed(2)+' km · '+fmtT(st.t);
   mg.clearRect(0,0,180,180);mg.drawImage(miniBase,0,0);
   const mx=90+(PX[i]-Math.cos(HS[i])*st.x-MCX)*MS,my=90+(PZ[i]+Math.sin(HS[i])*st.x-MCZ)*MS;
   mg.save();mg.translate(mx,my);mg.rotate(Math.atan2(Math.cos(HS[i]),Math.sin(HS[i])));
@@ -1191,7 +1208,7 @@ function menu(title,sub){
       '<div class="route">'+(ROUTE?RT.label:TRACK_NAME)+'<span>Bergkamen und Umland</span></div>'+
       '<div class="stats"><div><b>'+km+'</b><i>km</i></div><div><b>'+HM+'</b><i>Höhenmeter</i></div></div>'+
       '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(click.connected?'Zwift Click ✓ ('+click.count+')':'Zwift Click (experimentell)')+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button></div>'+
-      '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?'Bluetooth nur in Chrome/Edge (nicht Safari).':'D100 oder KICKR einschalten, dann „Trainer koppeln“.')+(bleMsg?'<br>'+bleMsg:'')+(click.connected&&click.log.length?'<br><small>'+click.log.slice(-3).join('<br>')+'</small>':'')+'</div>'+
+      '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?'Bluetooth nur in Chrome/Edge (nicht Safari).':'D100 oder KICKR einschalten, dann „Trainer koppeln“.')+(bleMsg?'<br>'+bleMsg:'')+(click.connected?'<br>'+click.name+' verbunden · '+click.count+' Pakete empfangen'+(click.count?'':' – Taste an der Click drücken (+/− schaltet; Tastatur: + / − geht immer)')+(click.log.length?'<br><small>'+click.log.slice(-3).join('<br>')+'</small>':''):'')+'</div>'+
       '<div class="help keys"><b>↑</b> treten · <b>↓</b> bremsen · <b>+/−</b> Schaltung · <b>Esc</b> Pause · <b>R</b> neu · <b>C</b> Ansicht<br>Lenken und Ausweichen laufen automatisch. Abfahrten sind neutral: Tempo entsteht nur durchs Treten.</div>'+
     '</div></div>';
   document.getElementById('mode').onclick=()=>{inputMode=inputMode==='keyboard'?'off':'keyboard';menu(title,sub);};
