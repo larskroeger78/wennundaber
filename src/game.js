@@ -1175,14 +1175,14 @@ function menu(title,sub){
   ov.style.display='flex';hudBox.style.display=sub?'block':'none';
   const km=(TOTAL/1000).toFixed(1).replace('.',',');
   ov.innerHTML='<div class="intro">'+
-    '<div class="poster"><img src="'+ASSETS+'ui/miworu.svg" alt="MIWORU"></div>'+
+    '<div class="poster"><img src="'+ASSETS+'ui/miworu.png" alt="MIWORU"></div>'+
     '<div class="panel">'+
       '<div class="by">by Wenn &amp; Aber Bike Crew</div>'+
       '<h1>MIWORU</h1>'+
       (sub?'<div class="res">'+sub+'</div>':'')+
       '<div class="route">'+(ROUTE?RT.label:TRACK_NAME)+'<span>Bergkamen und Umland</span></div>'+
       '<div class="stats"><div><b>'+km+'</b><i>km</i></div><div><b>'+HM+'</b><i>Höhenmeter</i></div></div>'+
-      '<div class="btns"><button id="go" class="main">'+title+'</button><button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(click.connected?'Zwift Click ✓ ('+click.count+')':'Zwift Click (experimentell)')+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button></div>'+
+      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(click.connected?'Zwift Click ✓ ('+click.count+')':'Zwift Click (experimentell)')+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button></div>'+
       '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?'Bluetooth nur in Chrome/Edge (nicht Safari).':'D100 oder KICKR einschalten, dann „Trainer koppeln“.')+(bleMsg?'<br>'+bleMsg:'')+(click.connected&&click.log.length?'<br><small>'+click.log.slice(-3).join('<br>')+'</small>':'')+'</div>'+
       '<div class="help keys"><b>↑</b> treten · <b>↓</b> bremsen · <b>+/−</b> Schaltung · <b>Esc</b> Pause · <b>R</b> neu · <b>C</b> Ansicht<br>Lenken und Ausweichen laufen automatisch. Abfahrten sind neutral: Tempo entsteht nur durchs Treten.</div>'+
     '</div></div>';
@@ -1191,6 +1191,7 @@ function menu(title,sub){
   document.getElementById('trn').onclick=async()=>{bleMsg='';try{await trainer.connect();}catch(e){bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Trainer: '+(e&&e.message||e);}menu(title,sub);};
   document.getElementById('clk').onclick=async()=>{bleMsg='';try{await click.connect();}catch(e){bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Click: '+(e&&e.message||e);}menu(title,sub);};
   document.getElementById('go').onclick=paused?resume:start;
+  const rst=document.getElementById('rst');if(rst)rst.onclick=start;
 }
 function resume(){paused=false;running=true;ov.style.display='none';hudBox.style.display='block';}
 function start(){paused=false;reset();if(trainer.connected)trainer.setGrade(0,0.005,true);running=true;lastSec=-1;ov.style.display='none';hudBox.style.display='block';}
