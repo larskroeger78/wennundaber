@@ -17,12 +17,12 @@ const bb = `${S.toFixed(5)},${W.toFixed(5)},${N.toFixed(5)},${E.toFixed(5)}`;
 const LANDUSE_OPEN = 'farmland|meadow|grass|orchard|vineyard|allotments|village_green|recreation_ground|farmyard|brownfield|construction|quarry|cemetery';
 const mk = body => `[out:json][timeout:90];(${body});out geom;`;
 const QUERIES = [
-  ['Gebäude', mk(`way["building"](${bb});`)],
-  ['Wald/Flächen', mk(`way["landuse"~"^(forest|residential|industrial|commercial|retail|${LANDUSE_OPEN})$"](${bb});way["natural"~"^(wood|water|scrub|heath|grassland|wetland)$"](${bb});way["leisure"~"^(park|garden|pitch|golf_course)$"](${bb});`)],
-  ['Wasser/Relationen', mk(`way["waterway"~"^(river|canal|stream)$"](${bb});relation["landuse"~"^(forest|residential|industrial|farmland|meadow)$"](${bb});relation["natural"~"^(wood|water)$"](${bb});`)],
+  ['Gebäude', 20, mk(`way["building"](${bb});`)],
+  ['Wald/Flächen', 20, mk(`way["landuse"~"^(forest|residential|industrial|commercial|retail|${LANDUSE_OPEN})$"](${bb});way["natural"~"^(wood|water|scrub|heath|grassland|wetland)$"](${bb});way["leisure"~"^(park|garden|pitch|golf_course)$"](${bb});`)],
+  ['Wasser/Relationen', 0, mk(`way["waterway"~"^(river|canal|stream)$"](${bb});relation["landuse"~"^(forest|residential|industrial|farmland|meadow)$"](${bb});relation["natural"~"^(wood|water)$"](${bb});`)],
 ];
 
-const ALL = '[out:json][timeout:180];(' + QUERIES.map(([, q]) => q.replace(/^\[out:json\]\[timeout:90\];\(/, '').replace(/\);out geom;$/, '')).join('') + ');out geom;';
+const ALL = '[out:json][timeout:180];(' + QUERIES.map(([, , q]) => q.replace(/^\[out:json\]\[timeout:90\];\(/, '').replace(/\);out geom;$/, '')).join('') + ');out geom;';
 
 // Flächenklassen: 1 Wald, 2 offen (Feld/Wiese), 3 Siedlung/Gewerbe, 4 Wasser, 5 Gebüsch, 7 Park/Garten
 function areaClass(t) {
@@ -81,7 +81,7 @@ async function main() {
   if (WANT_QUERY) { console.log('\nIn https://overpass-turbo.eu einfügen → „Ausführen“ → Export → „Rohdaten direkt aus Overpass API“ (JSON) speichern, dann:\n  npm run osm -- --datei=PFAD/export.json\n\n' + ALL + '\n'); return; }
   const data = { elements: [] };
   const off = await elementsOrNull();
-  if (off) data.elements.push(...off); else for (const [name, qq] of QUERIES) { console.log('Teil:', name); const d = await overpass(qq, 5); data.elements.push(...d.elements); await new Promise(r => setTimeout(r, 3000)); }
+  if (off) data.elements.push(...off); else for (const [name, minN, qq] of QUERIES) { console.log('Teil:', name); const d = await overpass(qq, 5, minN); data.elements.push(...d.elements); await new Promise(r => setTimeout(r, 3000)); }
   const buildings = [], areas = [], lines = [];
   for (const el of data.elements) {
     const t = el.tags || {};
@@ -96,6 +96,7 @@ async function main() {
       for (const ring of joinRings(outer)) if (ring.length >= 4) areas.push({ k, p: flat(simplify(ring, 1.2)) });
     }
   }
+  if (!buildings.length) console.log('WARNUNG: 0 Gebäude gefunden – das ist für dieses Gebiet unwahrscheinlich. Bitte noch einmal starten.');
   fs.writeFileSync(OUT, JSON.stringify({ origin: MITT.origin, buildings, areas, lines }));
   const cnt = k => areas.filter(a => a.k === k).length;
   console.log(`Gebäude ${buildings.length}, Wald ${cnt(1)}, offen ${cnt(2)}, Siedlung ${cnt(3)}, Wasser ${cnt(4)} + ${lines.length} Wasserläufe, Park ${cnt(7)}`);

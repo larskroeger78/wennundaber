@@ -14,13 +14,18 @@ const HEAD = {
 };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-export async function overpass(query, rounds = 3) {
+export async function overpass(query, rounds = 3, minElements = 0) {
   for (let round = 0; round < rounds; round++) {
     for (const url of SERVERS) {
       try {
         console.log('  →', new URL(url).host, '…');
         const r = await fetch(url, { method: 'POST', headers: HEAD, body: 'data=' + encodeURIComponent(query), signal: AbortSignal.timeout(45000) });
-        if (r.ok) { console.log('OK von', new URL(url).host); return await r.json(); }
+        if (r.ok) {
+          const j = await r.json(), n = (j.elements || []).length, rem = j.remark || '';
+          if (/error|timed out|out of memory|too many/i.test(rem)) { console.log('   ', new URL(url).host, 'Meldung:', rem.slice(0, 90)); continue; }
+          if (n < minElements) { console.log('   ', new URL(url).host, 'lieferte nur', n, 'Elemente (zu wenig, gibt es hier mehr) – nächster Server'); continue; }
+          console.log('OK von', new URL(url).host, '·', n, 'Elemente'); return j;
+        }
         console.log('   ', new URL(url).host, 'antwortet mit', r.status);
       } catch (e) { console.log('   ', new URL(url).host, 'Fehler:', e.name === 'TimeoutError' ? 'keine Antwort nach 45 s' : (e.cause && e.cause.code) || e.message); }
     }

@@ -67,7 +67,7 @@ async function main() {
   if (WANT_QUERY) { console.log('\nIn https://overpass-turbo.eu einfügen → „Ausführen“ → Export → „Rohdaten direkt aus Overpass API“ (JSON) speichern, dann:\n  npm run surfaces -- --datei=PFAD/export.json\n\n' + q + '\n'); return; }
   console.log('Frage OpenStreetMap ab …');
   const off = await elementsOrNull();
-  const data = off ? { elements: off } : await overpass(q);
+  const data = off ? { elements: off } : await overpass(q, 3, 30);
   const out = assign(data.elements);
   fs.writeFileSync(OUT, JSON.stringify(out));
   const cnt = [0, 1, 2].map(k => out.filter(v => v === k).length * 2);
