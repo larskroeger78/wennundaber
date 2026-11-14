@@ -1071,7 +1071,7 @@ const gearF=()=>(gear<0?Math.pow(1.26,gear):1+gear*0.05)*(diff===1?0.4:1);   // 
 function setDiff(d){diff=d;try{localStorage.setItem('miworu_diff',d);}catch(e){}gearHud.k=null;toastEl.textContent='Schwierigkeit: '+DIFFN[d];toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1200);}
 const gearEl=document.getElementById('gear'),toastEl=document.getElementById('toast');
 function shift(d){
-  const ng=clamp(gear+d,-6,6);gearUsed=true;
+  const ng=clamp(gear+d,-6,5);gearUsed=true;   // 12 Gänge: Stufen -6..5 = Anzeige 1..12
   const n=ng+7;
   if(ng===gear){toastEl.textContent=(d>0?'Schwerster Gang · ':'Leichtester Gang · ')+n;}
   else{gear=ng;SHK.vy+=0.12*d;toastEl.textContent=(d>0?'▲ ':'▼ ')+'Gang '+n+(d>0?' · schwerer':' · leichter');}
@@ -1079,9 +1079,9 @@ function shift(d){
 }
 function gearHud(){
   gearEl.style.display='block';
-  const key=gear+'|'+click.connected+'|'+diff;if(gearHud.k===key)return;gearHud.k=key;
-  let bars='';for(let k=0;k<13;k++)bars+='<i class="'+(k===gear+6?'on':'')+'" style="height:'+(8+k*1.8)+'px"></i>';
-  gearEl.innerHTML='<div class="lbl">GANG · <span class="dif d'+diff+'">'+DIFFN[diff].toUpperCase()+'</span></div><div class="gn">'+(gear+7)+'<small>/ 13</small></div><div class="bars">'+bars+'</div>';
+  const key=gear+'|'+click.connected+'|'+diff+'|'+click.count;if(gearHud.k===key)return;gearHud.k=key;
+  let bars='';for(let k=0;k<12;k++)bars+='<i class="'+(k===gear+6?'on':'')+'" style="height:'+(8+k*1.8)+'px"></i>';
+  gearEl.innerHTML='<div class="lbl">GANG · <span class="dif d'+diff+'">'+DIFFN[diff].toUpperCase()+'</span>'+(click.connected?' · CLICK '+click.count+' Pakete':'')+'</div><div class="gn">'+(gear+7)+'<small>/ 12</small></div><div class="bars">'+bars+'</div>';
 }
 click.onShift=shift;
 const bleChange=()=>{if(trainer.connected)inputMode='trainer';else if(inputMode==='trainer')inputMode='keyboard';if(ov.style.display!=='none'&&lastMenu)menu(lastMenu[0],lastMenu[1]);};
