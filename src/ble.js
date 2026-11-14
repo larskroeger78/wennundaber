@@ -105,7 +105,7 @@ export class Trainer {
 // Erkannte Tastendrücke rufen onShift(+1/-1) auf. Zusätzlich funktionieren die Tasten + / - (oder Bild hoch/runter) im Spiel.
 export class ClickPad {
   // Click v1 = ein Gerät mit + und −. Click v2 = zwei getrennte Geräte (links −, rechts +): beide koppeln, der erste Druck auf den LINKEN legt die Rollen fest.
-  constructor() { this.devs = []; this.log = []; this.onShift = () => {}; this.onChange = () => {}; this.onNote = () => {}; this.onUnknown = () => {}; this.count = 0; this.last = ''; this.err = ''; this.calib = false; this.lastBit = -1; this._solo = { down: 0, role: 0 }; }
+  constructor() { this.devs = []; this.log = []; this.onShift = () => {}; this.onChange = () => {}; this.onNote = () => {}; this.onUnknown = () => {}; this.err = ''; this.calib = false; this.lastBit = -1; this._solo = { down: 0, role: 0 }; }
   get connected() { return this.devs.length > 0; }
   get name() { return this.devs.length > 1 ? this.devs.length + ' Click' : (this.devs[0] ? this.devs[0].name : ''); }
   async connect() {
@@ -138,7 +138,7 @@ export class ClickPad {
   // Behelf fuer den linken (verschluesselten) Click: Plus-Taste kurz = +1 (beim Loslassen), lang halten (>= LONG_MS) = −1
   _press(d, n) {
     this.lastBit = n;
-    if (n !== 12) { this.onUnknown(n); this.onShift(-1); return; }   // andere Taste (z. B. Bit 8) = sofort −1
+    if (n !== 12) { this.onShift(-1); return; }   // andere Taste (z. B. Bit 8) = sofort −1
     clearTimeout(d.ht); d.fired = false;
     d.ht = setTimeout(() => { d.fired = true; this.onShift(-1); }, ClickPad.LONG_MS);
   }
@@ -149,11 +149,6 @@ export class ClickPad {
   }
   _rx(uuid, b, d) {
     d = d || this._solo;
-    this.count++;
-    this.last = Array.from(b).map(x => x.toString(16).padStart(2, '0')).join(' ');
-    const line = (this.devs.length > 1 ? '#' + (this.devs.indexOf(d) + 1) + ' ' : '') + uuid.slice(0, 8) + ': ' + this.last;
-    if (this.log.length && this.log[this.log.length - 1].replace(/ ×\d+$/, '') === line) { const m = / ×(\d+)$/.exec(this.log[this.log.length - 1]); this.log[this.log.length - 1] = line + ' ×' + ((m ? +m[1] : 1) + 1); }
-    else { this.log.push(line); if (this.log.length > 12) this.log.shift(); }
     // Button-Meldung (Typ 0x23, Protobuf): Feld 1 = 32-Bit-Maske, alle Bits 1 = nichts gedrückt, gedrückte Taste = Bit 0 (0x19 = Keepalive)
     if (b[0] === 0x23 && b.length >= 3) {
       const f = parsePb(b.slice(1));

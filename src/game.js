@@ -1149,15 +1149,14 @@ function shift(d){
   else{gear=ng;SHK.vy+=0.12*d;toastEl.textContent=(d>0?'▲ ':'▼ ')+'Gang '+n+(d>0?' · schwerer':' · leichter');}
   toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),900);
 }
-const DEBUG_CLICK=/[?&]debug/.test(location.search);   // ?debug in der URL zeigt die Click-Rohpakete im HUD
 function gearHud(){
   gearEl.style.display='block';
-  const key=gear+'|'+click.connected+'|'+diff+'|'+quality+'|'+click.count+'|'+click.log.slice(-4).join();if(gearHud.k===key)return;gearHud.k=key;
+  const key=gear+'|'+click.connected+'|'+diff+'|'+quality;if(gearHud.k===key)return;gearHud.k=key;
   hintEl.innerHTML='<button type="button" data-act="d1"'+(diff===1?' class="on"':'')+'><b>1</b>Leicht</button><button type="button" data-act="d2"'+(diff===2?' class="on"':'')+'><b>2</b>Normal</button><button type="button" data-act="q"><b>Q</b>Grafik '+QN[quality]+'</button>';
   let bars='';for(let k=0;k<12;k++)bars+='<i class="'+(k===gear+6?'on':'')+'" style="height:'+(8+k*1.8)+'px"></i>';
-  gearEl.innerHTML='<div class="lbl">GANG · <span class="dif d'+diff+'">'+DIFFN[diff].toUpperCase()+'</span>'+(click.connected?' · CLICK '+click.count+' Pakete':'')+'</div>'+(DEBUG_CLICK&&click.connected&&click.log.length?'<div class="hex">'+click.log.slice(-4).join('<br>')+'</div>':'')+'<div class="gn">'+(gear+7)+'<small>/ 12</small></div><div class="bars">'+bars+'</div>';
+  gearEl.innerHTML='<div class="lbl">GANG · <span class="dif d'+diff+'">'+DIFFN[diff].toUpperCase()+'</span>'+(click.connected?' · CLICK ✓':'')+'</div>'+'<div class="gn">'+(gear+7)+'<small>/ 12</small></div><div class="bars">'+bars+'</div>';
 }
-click.onShift=shift;click.onUnknown=n=>{if(DEBUG_CLICK){console.log('Click-Taste Bit',n);}};
+click.onShift=shift;
 click.onNote=t=>{toastEl.textContent=t;toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),3500);};
 const bleChange=()=>{if(trainer.connected)inputMode='trainer';else if(inputMode==='trainer')inputMode='keyboard';if(ov.style.display!=='none'&&lastMenu)menu(lastMenu[0],lastMenu[1]);};
 trainer.onChange=bleChange;click.onChange=bleChange;   // FPV: Cockpit-Ansicht aus Fahrersicht (Taste C wechselt)
@@ -1308,7 +1307,7 @@ function menu(title,sub){
       '<div class="route">'+(ROUTE?RT.label:TRACK_NAME)+'<span>'+(ROUTE&&RT.place?RT.place:'Bergkamen und Umland')+'</span></div>'+
       '<div class="stats"><div><b>'+km+'</b><i>km</i></div><div><b>'+HM+'</b><i>Höhenmeter</i></div></div>'+
       '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(click.connected?'Zwift Click ✓':'Zwift Click koppeln')+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button>'+'<button id="dif" class="sec">Schwierigkeit: '+DIFFN[diff]+'</button><button id="qual" class="sec">Grafik: '+QN[quality]+'</button><button id="gpx" class="sec">GPX-Strecke laden</button><input id="gpxf" type="file" accept=".gpx,.xml,application/gpx+xml" style="display:none"></div>'+mineHtml()+
-      '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?'Bluetooth nur in Chrome/Edge (nicht Safari).':'D100 oder KICKR einschalten, dann „Trainer koppeln“.')+(bleMsg?'<br>'+bleMsg:'')+(click.connected?'<br>'+click.name+' verbunden · '+click.count+' Pakete empfangen'+'<br>Click: kurz drücken = schwerer · gedrückt halten = leichter'+(click.count?'':' – Taste an der Click drücken (+/− schaltet; Tastatur: + / − geht immer)')+(click.log.length?'<br><small>'+click.log.slice(-3).join('<br>')+'</small>':''):'')+'</div>'+
+      '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?'Bluetooth nur in Chrome/Edge (nicht Safari).':'D100 oder KICKR einschalten, dann „Trainer koppeln“.')+(bleMsg?'<br>'+bleMsg:'')+(click.connected?'<br>'+click.name+' verbunden'+'<br>Click: kurz drücken = schwerer · gedrückt halten = leichter':'')+'</div>'+
       '<div class="help keys"><b>↑</b> treten · <b>↓</b> bremsen · <b>+/−</b> Schaltung · <b>1</b>/<b>2</b> Schwierigkeit (Leicht/Normal) · <b>Esc</b> Pause · <b>R</b> neu · <b>C</b> Ansicht<br>Lenken und Ausweichen laufen automatisch. Abfahrten sind neutral: Tempo entsteht nur durchs Treten.</div>'+
     '</div></div>';
   const gpxf=document.getElementById('gpxf');
