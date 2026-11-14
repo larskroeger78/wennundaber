@@ -135,10 +135,17 @@ export class ClickPad {
     this.devs.push(d); this._reset(); this.onChange();
   }
   _reset() { for (const x of this.devs) x.role = 0; this.calib = false; }
+  // Behelf fuer den linken (verschluesselten) Click: Plus-Taste kurz = +1 (beim Loslassen), lang halten (>= LONG_MS) = −1
   _press(d, n) {
     this.lastBit = n;
-    if (n !== 12) this.onUnknown(n);
-    this.onShift(n === 12 ? 1 : -1);   // Bit 12 = +, jedes andere Bit = −
+    if (n !== 12) { this.onUnknown(n); this.onShift(-1); return; }   // andere Taste (z. B. Bit 8) = sofort −1
+    clearTimeout(d.ht); d.fired = false;
+    d.ht = setTimeout(() => { d.fired = true; this.onShift(-1); }, ClickPad.LONG_MS);
+  }
+  _release(d, n) {
+    if (n !== 12) return;
+    clearTimeout(d.ht);
+    if (!d.fired) this.onShift(1);
   }
   _rx(uuid, b, d) {
     d = d || this._solo;
@@ -151,14 +158,15 @@ export class ClickPad {
     if (b[0] === 0x23 && b.length >= 3) {
       const f = parsePb(b.slice(1));
       if (f[1] !== undefined) {
-        const down = (~f[1]) >>> 0, fresh = down & ~d.down;
+        const down = (~f[1]) >>> 0, fresh = down & ~d.down, rel = d.down & ~down;
         d.down = down;
-        for (let n = 0; n < 32; n++) if (fresh & (1 << n)) this._press(d, n);
+        for (let n = 0; n < 32; n++) { if (fresh & (1 << n)) this._press(d, n); if (rel & (1 << n)) this._release(d, n); }
       }
     }
     this.onChange();
   }
 }
+ClickPad.LONG_MS = 450;
 function parsePb(b) {   // minimale Protobuf-Auswertung: nur Varint-Felder (Wire-Typ 0), Rest wird übersprungen
   const out = {};
   let i = 0;
