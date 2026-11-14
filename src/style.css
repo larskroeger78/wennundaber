@@ -56,3 +56,5 @@ button.main{background:#e14230;color:#fff;font-size:30px;padding:12px 34px}
 #toast.on{opacity:1;transition:none}
 #gear .dif{padding:1px 8px;border-radius:4px;background:#2f9e5b;color:#fff;letter-spacing:.1em}
 #gear .dif.d2{background:#c0392b}
+
+#gear .hex{font:500 11px/1.25 ui-monospace,Menlo,monospace;letter-spacing:0;opacity:.8;margin-top:4px;max-width:340px;word-break:break-all;text-shadow:0 1px 3px #000}

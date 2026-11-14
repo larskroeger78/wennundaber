@@ -132,7 +132,9 @@ export class ClickPad {
   _rx(uuid, b) {
     this.count++;
     this.last = Array.from(b).map(x => x.toString(16).padStart(2, '0')).join(' ');
-    this.log.push(uuid.slice(0, 8) + ': ' + this.last); if (this.log.length > 12) this.log.shift();
+    const line = uuid.slice(0, 8) + ': ' + this.last;
+    if (this.log.length && this.log[this.log.length - 1].replace(/ ×\d+$/, '') === line) { const m = / ×(\d+)$/.exec(this.log[this.log.length - 1]); this.log[this.log.length - 1] = line + ' ×' + ((m ? +m[1] : 1) + 1); }
+    else { this.log.push(line); if (this.log.length > 12) this.log.shift(); }
     // Button-Meldung (Typ 0x23, Protobuf): Feld 1 = Plus, Feld 2 = Minus; 0 = gedrückt, 1 = losgelassen (Flanke 1 -> 0 schaltet)
     if (b[0] === 0x23 && b.length >= 3) {
       const f = parsePb(b.slice(1));
