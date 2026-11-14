@@ -12,7 +12,7 @@ import TOUR2 from './routes/tour2.json';
 import { parseGpx, listRoutes, loadRoute, saveRoute, renameRoute, deleteRoute } from './gpx.js';
 const SURF_FILES=import.meta.glob('./routes/*.surf.json',{eager:true});
 // Strecke: Standard ist die Tour vom 5.10.2022 (komoot-GPX); ?route=mittwoch bzw. ?route=halde nur zum Entwickeln
-const ROUTES={mittwoch:{data:MITT1,label:'Mittwochsrunde',surf:'mittwochsrunde',btn:'Mittwochsrunde'},tour2:{data:TOUR2,label:'Tour vom 5.10.2022',surf:'tour2',btn:'Tour 5.10.2022'}};
+const ROUTES={mittwoch:{data:MITT1,label:'Mittwochsrunde',surf:'mittwochsrunde',btn:'Mittwochsrunde'},tour2:{data:TOUR2,label:'MIWORU',surf:'tour2',btn:'MIWORU'}};
 const RKEY=new URLSearchParams(location.search).get('route');
 const GPX_ID=RKEY&&RKEY.indexOf('gpx_')===0?RKEY.slice(4):null,CUSTOM=GPX_ID?loadRoute(GPX_ID):null;   // vom Nutzer hochgeladene GPX-Strecke (nur im Browser gespeichert)
 if(CUSTOM)ROUTES[RKEY]={data:CUSTOM,label:CUSTOM.name||'Eigene Strecke',surf:'__eigene',btn:CUSTOM.name,custom:true,nhn0:CUSTOM.nhn0||0,place:'Eigene GPX-Strecke'};
@@ -1286,7 +1286,7 @@ function routeBtns(){return '';}   // nur eine Strecke im Spiel
 function mineHtml(){   // Streckenliste: feste Strecken + eigene GPX-Strecken (Zusatzstrecken)
   const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const cur=GPX_ID?'gpx_'+GPX_ID:(!ROUTE?'halde':'tour2');
-  const base=[['halde','Halde Großes Holz','Uphill + Trail „Highway“'],['tour2','Tour 5.10.2022','Bergkamen · komoot']];
+  const base=[['tour2','MIWORU','Bergkamen']];
   let h='<div class="mine"><div class="mh">Strecken</div>'+base.map(b=>'<div class="mr'+(b[0]===cur?' cur':'')+'"><span class="mn">'+b[1]+'<small>'+b[2]+'</small></span>'+(b[0]===cur?'<span class="act">aktiv</span>':'<button class="sec" data-route="'+b[0]+'">Fahren</button>')+'</div>').join('');
   const L=listRoutes();
   if(L.length)h+='<div class="mh" style="margin-top:10px">Meine Strecken (GPX)</div>'+L.map(e=>'<div class="mr'+(e.id===GPX_ID?' cur':'')+'"><span class="mn">'+esc(e.name)+'<small>'+String(e.km).replace('.',',')+' km</small></span>'
