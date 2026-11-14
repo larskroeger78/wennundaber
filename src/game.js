@@ -1083,7 +1083,7 @@ function gearHud(){
   let bars='';for(let k=0;k<12;k++)bars+='<i class="'+(k===gear+6?'on':'')+'" style="height:'+(8+k*1.8)+'px"></i>';
   gearEl.innerHTML='<div class="lbl">GANG · <span class="dif d'+diff+'">'+DIFFN[diff].toUpperCase()+'</span>'+(click.connected?' · CLICK '+click.count+' Pakete':'')+'</div>'+(click.connected&&click.log.length?'<div class="hex">'+click.log.slice(-4).join('<br>')+'</div>':'')+'<div class="gn">'+(gear+7)+'<small>/ 12</small></div><div class="bars">'+bars+'</div>';
 }
-click.onShift=shift;
+click.onShift=shift;click.onUnknown=n=>{toastEl.textContent='Click-Taste erkannt: Bit '+n;toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1500);};
 const bleChange=()=>{if(trainer.connected)inputMode='trainer';else if(inputMode==='trainer')inputMode='keyboard';if(ov.style.display!=='none'&&lastMenu)menu(lastMenu[0],lastMenu[1]);};
 trainer.onChange=bleChange;click.onChange=bleChange;   // FPV: Cockpit-Ansicht aus Fahrersicht (Taste C wechselt)
 const cockpitEl=document.getElementById('cockpit');

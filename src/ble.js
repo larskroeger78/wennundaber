@@ -104,7 +104,7 @@ export class Trainer {
 // Ohne offizielle Spezifikation: wir koppeln, senden den RideOn-Handshake und protokollieren die Rohdaten.
 // Erkannte Tastendrücke rufen onShift(+1/-1) auf. Zusätzlich funktionieren die Tasten + / - (oder Bild hoch/runter) im Spiel.
 export class ClickPad {
-  constructor() { this.connected = false; this.log = []; this.onShift = () => {}; this.onChange = () => {}; this.name = ''; this.count = 0; this.p = 1; this.m = 1; this.last = ''; this.err = ''; }
+  constructor() { this.connected = false; this.log = []; this.onShift = () => {}; this.onChange = () => {}; this.name = ''; this.count = 0; this.down = 0; this.lastBit = -1; this.map = { /* Bit -> +1/-1, wird nach Test belegt */ }; this.onUnknown = () => {}; this.last = ''; this.err = ''; }
   async connect() {
     if (!BLE_OK) throw new Error('Kein Web Bluetooth in diesem Browser (Chrome/Edge verwenden).');
     const ADV = '0000fc82-0000-1000-8000-00805f9b34fb';          // Werbe-Kennung der Zwift-Controller
@@ -135,11 +135,18 @@ export class ClickPad {
     const line = uuid.slice(0, 8) + ': ' + this.last;
     if (this.log.length && this.log[this.log.length - 1].replace(/ ×\d+$/, '') === line) { const m = / ×(\d+)$/.exec(this.log[this.log.length - 1]); this.log[this.log.length - 1] = line + ' ×' + ((m ? +m[1] : 1) + 1); }
     else { this.log.push(line); if (this.log.length > 12) this.log.shift(); }
-    // Button-Meldung (Typ 0x23, Protobuf): Feld 1 = Plus, Feld 2 = Minus; 0 = gedrückt, 1 = losgelassen (Flanke 1 -> 0 schaltet)
+    // Button-Meldung (Typ 0x23, Protobuf): Feld 1 = 32-Bit-Maske, alle Bits 1 = nichts gedrückt, gedrückte Taste = Bit 0 (0x19 = Keepalive)
     if (b[0] === 0x23 && b.length >= 3) {
       const f = parsePb(b.slice(1));
-      if (f[1] !== undefined) { if (f[1] === 0 && this.p !== 0) this.onShift(1); this.p = f[1]; }
-      if (f[2] !== undefined) { if (f[2] === 0 && this.m !== 0) this.onShift(-1); this.m = f[2]; }
+      if (f[1] !== undefined) {
+        const down = (~f[1]) >>> 0, fresh = down & ~this.down;
+        this.down = down;
+        for (let n = 0; n < 32; n++) if (fresh & (1 << n)) {
+          this.lastBit = n;
+          const d = this.map[n];
+          if (d) this.onShift(d); else this.onUnknown(n);
+        }
+      }
     }
     this.onChange();
   }
