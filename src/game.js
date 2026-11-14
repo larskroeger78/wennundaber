@@ -333,6 +333,7 @@ function applyQ(){
   resize();
 }
 applyQ();
+function cycleQ(){quality=quality%3+1;try{localStorage.setItem('miworu_q',quality);}catch(_){}applyQ();toastEl.textContent='Grafik: '+QN[quality];toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}
 
 // ================= Himmel =================
 const sky=new THREE.Mesh(new THREE.SphereGeometry(4500,32,16),new THREE.ShaderMaterial({
@@ -1152,7 +1153,7 @@ const DEBUG_CLICK=/[?&]debug/.test(location.search);   // ?debug in der URL zeig
 function gearHud(){
   gearEl.style.display='block';
   const key=gear+'|'+click.connected+'|'+diff+'|'+quality+'|'+click.count+'|'+click.log.slice(-4).join();if(gearHud.k===key)return;gearHud.k=key;
-  hintEl.innerHTML='<span'+(diff===1?' class="on"':'')+'><b>1</b>Leicht</span><span'+(diff===2?' class="on"':'')+'><b>2</b>Normal</span><span><b>Q</b>Grafik '+QN[quality]+'</span>';
+  hintEl.innerHTML='<button type="button" data-act="d1"'+(diff===1?' class="on"':'')+'><b>1</b>Leicht</button><button type="button" data-act="d2"'+(diff===2?' class="on"':'')+'><b>2</b>Normal</button><button type="button" data-act="q"><b>Q</b>Grafik '+QN[quality]+'</button>';
   let bars='';for(let k=0;k<12;k++)bars+='<i class="'+(k===gear+6?'on':'')+'" style="height:'+(8+k*1.8)+'px"></i>';
   gearEl.innerHTML='<div class="lbl">GANG · <span class="dif d'+diff+'">'+DIFFN[diff].toUpperCase()+'</span>'+(click.connected?' · CLICK '+click.count+' Pakete':'')+'</div>'+(DEBUG_CLICK&&click.connected&&click.log.length?'<div class="hex">'+click.log.slice(-4).join('<br>')+'</div>':'')+'<div class="gn">'+(gear+7)+'<small>/ 12</small></div><div class="bars">'+bars+'</div>';
 }
@@ -1167,8 +1168,8 @@ window.addEventListener('keydown',e=>{
   keys[e.key]=true;
   if(e.key==='r'||e.key==='R')start();
   if(e.key==='c'||e.key==='C')FPV=!FPV;
-  if(e.key==='Escape'&&running){running=false;paused=true;trainer.setGrade(0,0.005,true);offEl.style.display='none';menu('Weiterfahren','Pause · '+(st.pos/1000).toFixed(2)+' km · '+fmtT(st.t));}
-  if(e.key==='q'||e.key==='Q'){quality=quality%3+1;try{localStorage.setItem('miworu_q',quality);}catch(_){}applyQ();toastEl.textContent='Grafik: '+QN[quality];toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}
+  if(e.key==='Escape')pauseGame();
+  if(e.key==='q'||e.key==='Q')cycleQ();
   if(e.key==='1')setDiff(1);
   if(e.key==='2')setDiff(2);
   if(e.key==='+'||e.key==='PageUp')shift(1);
@@ -1305,13 +1306,15 @@ function menu(title,sub){
       (sub?'<div class="res">'+sub+'</div>':'')+
       '<div class="route">'+(ROUTE?RT.label:TRACK_NAME)+'<span>'+(ROUTE&&RT.place?RT.place:'Bergkamen und Umland')+'</span></div>'+
       '<div class="stats"><div><b>'+km+'</b><i>km</i></div><div><b>'+HM+'</b><i>Höhenmeter</i></div></div>'+
-      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(click.connected?'Zwift Click ✓ ('+click.count+')':'Zwift Click (experimentell)')+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button>'+'<button id="gpx" class="sec">GPX-Strecke laden</button><input id="gpxf" type="file" accept=".gpx,.xml,application/gpx+xml" style="display:none"></div>'+mineHtml()+
+      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(click.connected?'Zwift Click ✓ ('+click.count+')':'Zwift Click (experimentell)')+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button>'+'<button id="dif" class="sec">Schwierigkeit: '+DIFFN[diff]+'</button><button id="qual" class="sec">Grafik: '+QN[quality]+'</button><button id="gpx" class="sec">GPX-Strecke laden</button><input id="gpxf" type="file" accept=".gpx,.xml,application/gpx+xml" style="display:none"></div>'+mineHtml()+
       '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?'Bluetooth nur in Chrome/Edge (nicht Safari).':'D100 oder KICKR einschalten, dann „Trainer koppeln“.')+(bleMsg?'<br>'+bleMsg:'')+(click.connected?'<br>'+click.name+' verbunden · '+click.count+' Pakete empfangen'+(click.count?'':' – Taste an der Click drücken (+/− schaltet; Tastatur: + / − geht immer)')+(click.log.length?'<br><small>'+click.log.slice(-3).join('<br>')+'</small>':''):'')+'</div>'+
       '<div class="help keys"><b>↑</b> treten · <b>↓</b> bremsen · <b>+/−</b> Schaltung · <b>1</b>/<b>2</b> Schwierigkeit (Leicht/Normal) · <b>Esc</b> Pause · <b>R</b> neu · <b>C</b> Ansicht<br>Lenken und Ausweichen laufen automatisch. Abfahrten sind neutral: Tempo entsteht nur durchs Treten.</div>'+
     '</div></div>';
   const gpxf=document.getElementById('gpxf');
   const go=id=>{const q='?route=gpx_'+id;const same=location.search===q;location.href=location.pathname+q+'#go';if(same)location.reload();};
   document.getElementById('gpx').onclick=()=>gpxf.click();
+  document.getElementById('dif').onclick=()=>{setDiff(diff===1?2:1);menu(title,sub);};
+  document.getElementById('qual').onclick=()=>{cycleQ();menu(title,sub);};
   gpxf.onchange=async()=>{
     const f=gpxf.files&&gpxf.files[0];if(!f)return;
     bleMsg='GPX wird gelesen …';menu(title,sub);
@@ -1333,6 +1336,10 @@ function menu(title,sub){
   document.getElementById('go').onclick=paused?resume:start;
   const rst=document.getElementById('rst');if(rst)rst.onclick=start;
 }
+// Pause + Hauptmenue (Esc oder Menue-Knopf oben rechts, z. B. fuer iPad ohne Tastatur)
+function pauseGame(){if(!running)return;running=false;paused=true;trainer.setGrade(0,0.005,true);offEl.style.display='none';menu('Weiterfahren','Pause · '+(st.pos/1000).toFixed(2)+' km · '+fmtT(st.t));}
+document.getElementById('menuBtn').onclick=pauseGame;
+hintEl.onclick=e=>{const b=e.target.closest('[data-act]');if(!b)return;const a=b.getAttribute('data-act');if(a==='d1')setDiff(1);else if(a==='d2')setDiff(2);else if(a==='q')cycleQ();};
 function resume(){paused=false;running=true;ov.style.display='none';hudBox.style.display='block';}
 function start(){paused=false;reset();if(trainer.connected)trainer.setGrade(0,0.005,true);running=true;lastSec=-1;ov.style.display='none';hudBox.style.display='block';}
 

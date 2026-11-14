@@ -75,3 +75,13 @@ button.main{background:#e14230;color:#fff;font-size:30px;padding:12px 34px}
 .mine .mr.cur .mn{color:#f5a524}
 .mine button{width:auto;padding:6px 12px;font-size:15px;flex:none}
 .mine .act{flex:none;font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:#f5a524;padding:6px 10px}
+
+#menuBtn{position:absolute;right:24px;top:56px;z-index:5;pointer-events:auto;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;
+  font:700 15px/1 'Barlow Condensed',system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#fff;background:rgba(20,20,20,.55);border:1px solid rgba(255,255,255,.5);border-radius:8px;padding:11px 16px;min-height:44px;backdrop-filter:blur(4px)}
+#menuBtn:active{background:rgba(245,165,36,.8);color:#111}
+
+#hint{pointer-events:auto;display:flex;gap:6px;align-items:center;justify-content:flex-end;top:12px}
+#hint button{font:600 12px/1 'Barlow Condensed',system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#fff;background:rgba(20,20,20,.45);border:1px solid rgba(255,255,255,.35);border-radius:7px;padding:8px 10px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+#hint button.on{color:#f5a524;border-color:#f5a524}
+#hint button:active{background:rgba(245,165,36,.8);color:#111}
+@media (pointer:coarse){#hint button{padding:12px 14px;font-size:14px;min-height:44px}#menuBtn{top:72px}}
