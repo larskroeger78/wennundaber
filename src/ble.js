@@ -127,7 +127,7 @@ export class ClickPad {
     }
     const rx = chars.find(c => c.uuid.startsWith('00000003'));
     if (rx) { try { await rx.writeValueWithoutResponse(new Uint8Array([0x52, 0x69, 0x64, 0x65, 0x4f, 0x6e, 0x01, 0x02])); } catch (e) { this.err = e.message; } }   // "RideOn" + Version
-    this.connected = true; this.onChange();
+    this.connected = true; this.t0 = performance.now(); this.onChange();
   }
   _rx(uuid, b) {
     this.count++;
@@ -135,6 +135,12 @@ export class ClickPad {
     const line = uuid.slice(0, 8) + ': ' + this.last;
     if (this.log.length && this.log[this.log.length - 1].replace(/ ×\d+$/, '') === line) { const m = / ×(\d+)$/.exec(this.log[this.log.length - 1]); this.log[this.log.length - 1] = line + ' ×' + ((m ? +m[1] : 1) + 1); }
     else { this.log.push(line); if (this.log.length > 12) this.log.shift(); }
+    // Beobachtet (Zwift Click): Minus kommt als langes Paket 'ff 05 00 fa 05 ...' (enthaelt die Geraetekennung als Text).
+    // Provisorisch als Runterschalten; kurz nach dem Verbinden und bei Wiederholungen < 400 ms ignoriert.
+    if (b[0] === 0xff && b[1] === 0x05 && b.length > 12) {
+      const now = performance.now();
+      if (now - (this.t0 || 0) > 4000 && now - (this.tm || 0) > 400) { this.tm = now; this.onShift(-1); }
+    }
     // Button-Meldung (Typ 0x23, Protobuf): Feld 1 = 32-Bit-Maske, alle Bits 1 = nichts gedrückt, gedrückte Taste = Bit 0 (0x19 = Keepalive)
     if (b[0] === 0x23 && b.length >= 3) {
       const f = parsePb(b.slice(1));
@@ -143,8 +149,9 @@ export class ClickPad {
         this.down = down;
         for (let n = 0; n < 32; n++) if (fresh & (1 << n)) {
           this.lastBit = n;
-          const d = this.map[n];
-          if (d) this.onShift(d); else this.onUnknown(n);
+          // Der Click hat nur zwei Tasten: Bit 12 = Plus, jedes andere neu gedrückte Bit = Minus (Bit 8 gemessen, andere Click-Versionen können abweichen)
+          if (n !== 12) this.onUnknown(n);
+          this.onShift(n === 12 ? 1 : -1);
         }
       }
     }
