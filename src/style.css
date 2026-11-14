@@ -66,3 +66,11 @@ button.main{background:#e14230;color:#fff;font-size:30px;padding:12px 34px}
 #hint .on{color:#f5a524}
 #hint .on b{border-color:#f5a524}
 #hint span{margin-left:12px}
+
+.mine{margin-top:14px;text-align:left}
+.mine .mh{font-size:13px;letter-spacing:.14em;text-transform:uppercase;opacity:.7;margin-bottom:6px}
+.mine .mr{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+.mine .mn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.mine .mn small{margin-left:8px;opacity:.6;font-weight:500}
+.mine .mr.cur .mn{color:#f5a524}
+.mine button{width:auto;padding:6px 12px;font-size:15px;flex:none}

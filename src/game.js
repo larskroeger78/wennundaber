@@ -9,10 +9,14 @@ import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtil
 import { Trainer, ClickPad, BLE_OK } from './ble.js';
 import MITT1 from './routes/mittwochsrunde.json';
 import TOUR2 from './routes/tour2.json';
+import { parseGpx, listRoutes, loadRoute, saveRoute, renameRoute, deleteRoute } from './gpx.js';
 const SURF_FILES=import.meta.glob('./routes/*.surf.json',{eager:true});
 // Strecke: Standard ist die Tour vom 5.10.2022 (komoot-GPX); ?route=mittwoch bzw. ?route=halde nur zum Entwickeln
 const ROUTES={mittwoch:{data:MITT1,label:'Mittwochsrunde',surf:'mittwochsrunde',btn:'Mittwochsrunde'},tour2:{data:TOUR2,label:'Tour vom 5.10.2022',surf:'tour2',btn:'Tour 5.10.2022'}};
-const RKEY=new URLSearchParams(location.search).get('route'),RT=RKEY==='halde'?null:(ROUTES[RKEY]||ROUTES.tour2);   // Standard: die Tour vom 5.10.2022; andere Strecken nur noch per URL (?route=halde|mittwoch) für Entwicklung
+const RKEY=new URLSearchParams(location.search).get('route');
+const GPX_ID=RKEY&&RKEY.indexOf('gpx_')===0?RKEY.slice(4):null,CUSTOM=GPX_ID?loadRoute(GPX_ID):null;   // vom Nutzer hochgeladene GPX-Strecke (nur im Browser gespeichert)
+if(CUSTOM)ROUTES[RKEY]={data:CUSTOM,label:CUSTOM.name||'Eigene Strecke',surf:'__eigene',btn:CUSTOM.name,custom:true,nhn0:CUSTOM.nhn0||0,place:'Eigene GPX-Strecke'};
+const RT=RKEY==='halde'?null:(ROUTES[RKEY]||ROUTES.tour2);   // Standard: die Tour vom 5.10.2022; andere Strecken nur noch per URL (?route=halde|mittwoch) für Entwicklung
 const ROUTE=!!RT,MITT=RT?RT.data:MITT1;
 // Echtes Geländemodell (DGM1 NRW, per npm run terrain erzeugt): Höhenraster in Dezimetern
 const GEL_F=import.meta.glob('./routes/gelaende.json',{eager:true});
@@ -22,7 +26,8 @@ const GEL=(()=>{
   for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
   return {g:g,h:new Int16Array(u.buffer)};
 })();
-const useDem=ROUTE&&!!GEL;
+const CUS=!!RT&&!!RT.custom;   // eigene Strecke: ohne Höhenmodell und ohne OSM-Daten
+const useDem=ROUTE&&!!GEL&&!CUS;
 function demH(x,z){
   const g=GEL.g,u=Math.max(0,Math.min(g.nx-1.001,(x-g.x0)/g.cell)),v=Math.max(0,Math.min(g.nz-1.001,(z-g.z0)/g.cell));
   const i=Math.floor(u),j=Math.floor(v),fu=u-i,fv=v-j,H=GEL.h,o=j*g.nx+i;
@@ -47,10 +52,10 @@ const mix3=(a,b,t)=>[lerp(a[0],b[0],t),lerp(a[1],b[1],t),lerp(a[2],b[2],t)];
 
 // ================= Strecke: Halde Großes Holz =================
 // Kegelförmige Halde: Fuß bei RBASE, Gipfelplateau bei RTOP, 90 m Höhenunterschied (55,8 -> 145,8 m ü. NHN)
-const HTOP=90,RTOP=62,RBASE=340,KR=(RBASE-RTOP)/HTOP,SEG=2,NHN0=55.8;
+const HTOP=90,RTOP=62,RBASE=340,KR=(RBASE-RTOP)/HTOP,SEG=2,NHN0=(RT&&RT.nhn0!==undefined)?RT.nhn0:55.8;
 const TRACK_NAME='Halde Großes Holz · Uphill + Trail „Highway“';
 const SECN=ROUTE?['Asphaltweg','Schotterweg','Trail']:['Anfahrt am Haldenfuß','Uphill · Asphalt','Zwischenplateau · Blauer Leuchtmarker','Uphill · Asphalt','Gipfelplateau · 145,8 m ü. NHN','Trail „Highway“'];
-const PLACE=ROUTE?RT.label+' · Bergkamen':'Halde Großes Holz · Bergkamen';
+const PLACE=ROUTE?RT.label+' · '+(RT.custom?'GPX':(RT.place||'Bergkamen')):'Halde Großes Holz · Bergkamen';
 const coneH=r=>HTOP*clamp((RBASE-r)/(RBASE-RTOP),0,1);
 
 const raw=[];
@@ -225,7 +230,7 @@ function fld(a,x,z){
 function routePresence(x,z){return fld(FG.S2,x,z)/FG.s2m;}
 // Landschaft aus OpenStreetMap (npm run osm -> src/routes/umgebung.json): Wald, Felder, Siedlung, Wasser, Gebäude
 const OSM_F=import.meta.glob('./routes/umgebung.json',{eager:true});
-const OSM=(()=>{const k=Object.keys(OSM_F)[0];return ROUTE&&k?(OSM_F[k].default||OSM_F[k]):null;})();
+const OSM=(()=>{const k=Object.keys(OSM_F)[0];return ROUTE&&!CUS&&k?(OSM_F[k].default||OSM_F[k]):null;})();
 const LUC=4,LW=OSM?Math.ceil((FG.nx-1)*FG.G/LUC)+2:0,LH=OSM?Math.ceil((FG.nz-1)*FG.G/LUC)+2:0;
 const LU=OSM?{K:new Float32Array(LW*LH),FD:new Float32Array(LW*LH),OP:new Float32Array(LW*LH),UR:new Float32Array(LW*LH),WA:new Float32Array(LW*LH),B:new Uint8Array(LW*LH)}:null;
 if(LU){
@@ -1278,6 +1283,12 @@ let HM=90;
 if(ROUTE){HM=0;for(let i=0;i<N;i++)HM+=Math.max(0,PY[i+1]-PY[i]);HM=Math.round(HM/10)*10;}
 const ov=document.getElementById('overlay');
 function routeBtns(){return '';}   // nur eine Strecke im Spiel
+function mineHtml(){
+  const L=listRoutes();if(!L.length)return '';
+  const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  return '<div class="mine"><div class="mh">Meine Strecken</div>'+L.map(e=>'<div class="mr'+(e.id===GPX_ID?' cur':'')+'"><span class="mn">'+esc(e.name)+'<small>'+String(e.km).replace('.',',')+' km</small></span>'
+    +'<button class="sec" data-gpx-go="'+e.id+'">Fahren</button><button class="sec" data-gpx-ren="'+e.id+'" title="Umbenennen">✎</button><button class="sec" data-gpx-del="'+e.id+'" title="Löschen">🗑</button></div>').join('')+'</div>';
+}
 function menu(title,sub){
   lastMenu=[title,sub];
   ov.style.display='flex';hudBox.style.display=sub?'block':'none';
@@ -1288,12 +1299,29 @@ function menu(title,sub){
       '<div class="by">by Wenn &amp; Aber Bike Crew</div>'+
       '<h1>MIWORU</h1>'+
       (sub?'<div class="res">'+sub+'</div>':'')+
-      '<div class="route">'+(ROUTE?RT.label:TRACK_NAME)+'<span>Bergkamen und Umland</span></div>'+
+      '<div class="route">'+(ROUTE?RT.label:TRACK_NAME)+'<span>'+(ROUTE&&RT.place?RT.place:'Bergkamen und Umland')+'</span></div>'+
       '<div class="stats"><div><b>'+km+'</b><i>km</i></div><div><b>'+HM+'</b><i>Höhenmeter</i></div></div>'+
-      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(click.connected?'Zwift Click ✓ ('+click.count+')':'Zwift Click (experimentell)')+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button></div>'+
+      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(click.connected?'Zwift Click ✓ ('+click.count+')':'Zwift Click (experimentell)')+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button>'+(CUS?'<button class="sec" data-route="tour2">Zur Tour 5.10.2022</button>':'')+'<button id="gpx" class="sec">GPX-Strecke laden</button><input id="gpxf" type="file" accept=".gpx,.xml,application/gpx+xml" style="display:none"></div>'+mineHtml()+
       '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?'Bluetooth nur in Chrome/Edge (nicht Safari).':'D100 oder KICKR einschalten, dann „Trainer koppeln“.')+(bleMsg?'<br>'+bleMsg:'')+(click.connected?'<br>'+click.name+' verbunden · '+click.count+' Pakete empfangen'+(click.count?'':' – Taste an der Click drücken (+/− schaltet; Tastatur: + / − geht immer)')+(click.log.length?'<br><small>'+click.log.slice(-3).join('<br>')+'</small>':''):'')+'</div>'+
       '<div class="help keys"><b>↑</b> treten · <b>↓</b> bremsen · <b>+/−</b> Schaltung · <b>1</b>/<b>2</b> Schwierigkeit (Leicht/Normal) · <b>Esc</b> Pause · <b>R</b> neu · <b>C</b> Ansicht<br>Lenken und Ausweichen laufen automatisch. Abfahrten sind neutral: Tempo entsteht nur durchs Treten.</div>'+
     '</div></div>';
+  const gpxf=document.getElementById('gpxf');
+  const go=id=>{const q='?route=gpx_'+id;const same=location.search===q;location.href=location.pathname+q+'#go';if(same)location.reload();};
+  document.getElementById('gpx').onclick=()=>gpxf.click();
+  gpxf.onchange=async()=>{
+    const f=gpxf.files&&gpxf.files[0];if(!f)return;
+    bleMsg='GPX wird gelesen …';menu(title,sub);
+    try{
+      const r=parseGpx(await f.text(),f.name.replace(/\.[^.]+$/,'')),nm=window.prompt('Name der Strecke:',r.name);
+      if(nm===null){bleMsg='';menu(title,sub);return;}
+      go(saveRoute(r,nm||r.name));
+    }catch(e){bleMsg='GPX: '+(e&&e.message||e);menu(title,sub);}
+  };
+  document.querySelectorAll('[data-gpx-go]').forEach(b=>b.onclick=()=>go(b.getAttribute('data-gpx-go')));
+  document.querySelectorAll('[data-gpx-ren]').forEach(b=>b.onclick=()=>{const id=b.getAttribute('data-gpx-ren'),e=listRoutes().find(x=>x.id===id),nm=window.prompt('Neuer Name:',e?e.name:'');if(nm&&nm.trim()){renameRoute(id,nm);menu(title,sub);}});
+  document.querySelectorAll('[data-gpx-del]').forEach(b=>b.onclick=()=>{const id=b.getAttribute('data-gpx-del'),e=listRoutes().find(x=>x.id===id);
+    if(!window.confirm('Strecke „'+(e?e.name:'')+'“ wirklich löschen?'))return;
+    deleteRoute(id);if(GPX_ID===id){location.href=location.pathname+'#go';location.reload();}else menu(title,sub);});
   document.getElementById('mode').onclick=()=>{inputMode=inputMode==='keyboard'?'off':'keyboard';menu(title,sub);};
   document.querySelectorAll('[data-route]').forEach(b=>b.onclick=()=>{const r=b.getAttribute('data-route');location.href=location.pathname+(r?'?route='+r:'')+'#go';});
   document.getElementById('trn').onclick=async()=>{bleMsg='';try{await trainer.connect();}catch(e){bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Trainer: '+(e&&e.message||e);}menu(title,sub);};
