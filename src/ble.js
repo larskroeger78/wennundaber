@@ -104,14 +104,19 @@ export class Trainer {
 // Ohne offizielle Spezifikation: wir koppeln, senden den RideOn-Handshake und protokollieren die Rohdaten.
 // Erkannte Tastendrücke rufen onShift(+1/-1) auf. Zusätzlich funktionieren die Tasten + / - (oder Bild hoch/runter) im Spiel.
 export class ClickPad {
-  constructor() { this.connected = false; this.log = []; this.onShift = () => {}; this.onChange = () => {}; this.name = ''; this.count = 0; this.down = 0; this.lastBit = -1; this.map = { 12: 1, 8: -1 }   /* Bit 12 = Plus (gemessen), Bit 8 = Minus (vermutet) */; this.onUnknown = () => {}; this.last = ''; this.err = ''; }
+  // Click v1 = ein Gerät mit + und −. Click v2 = zwei getrennte Geräte (links −, rechts +): beide koppeln, der erste Druck auf den LINKEN legt die Rollen fest.
+  constructor() { this.devs = []; this.log = []; this.onShift = () => {}; this.onChange = () => {}; this.onNote = () => {}; this.onUnknown = () => {}; this.count = 0; this.last = ''; this.err = ''; this.calib = false; this.lastBit = -1; this._solo = { down: 0, role: 0 }; }
+  get connected() { return this.devs.length > 0; }
+  get name() { return this.devs.length > 1 ? this.devs.length + ' Click' : (this.devs[0] ? this.devs[0].name : ''); }
   async connect() {
     if (!BLE_OK) throw new Error('Kein Web Bluetooth in diesem Browser (Chrome/Edge verwenden).');
+    if (this.devs.length >= 2) throw new Error('Es sind schon zwei Click verbunden.');
     const ADV = '0000fc82-0000-1000-8000-00805f9b34fb';          // Werbe-Kennung der Zwift-Controller
     const ZSV = '00000001-19ca-4651-86e5-fa29dcdd09d1';          // eigentlicher GATT-Dienst (Click / Play / Ride)
     const dev = await navigator.bluetooth.requestDevice({ filters: [{ services: [ADV] }, { services: [ZSV] }, { namePrefix: 'Zwift' }], optionalServices: [ADV, ZSV] });
-    this.name = dev.name || 'Zwift Click';
-    dev.addEventListener('gattserverdisconnected', () => { this.connected = false; this.onChange(); });
+    if (this.devs.some(x => x.id === dev.id)) throw new Error('Dieser Click ist schon verbunden – bitte den anderen wählen.');
+    const d = { id: dev.id, name: dev.name || 'Zwift Click', down: 0, role: 0 };
+    dev.addEventListener('gattserverdisconnected', () => { this.devs = this.devs.filter(x => x !== d); this._reset(); this.onChange(); });
     const srv = await dev.gatt.connect();
     let s = null;
     for (const u of [ZSV, ADV]) { try { s = await srv.getPrimaryService(u); if (s) break; } catch (e) { this.err = e.message; } }
@@ -120,39 +125,43 @@ export class ClickPad {
     for (const c of chars) {
       if (c.properties.notify || c.properties.indicate) {
         try {
-          c.addEventListener('characteristicvaluechanged', e => this._rx(c.uuid, new Uint8Array(e.target.value.buffer)));
+          c.addEventListener('characteristicvaluechanged', e => this._rx(c.uuid, new Uint8Array(e.target.value.buffer), d));
           await c.startNotifications();
         } catch (e) { this.err = e.message; }
       }
     }
     const rx = chars.find(c => c.uuid.startsWith('00000003'));
     if (rx) { try { await rx.writeValueWithoutResponse(new Uint8Array([0x52, 0x69, 0x64, 0x65, 0x4f, 0x6e, 0x01, 0x02])); } catch (e) { this.err = e.message; } }   // "RideOn" + Version
-    this.connected = true; this.t0 = performance.now(); this.onChange();
+    this.devs.push(d); this._reset(); this.onChange();
   }
-  _rx(uuid, b) {
+  _reset() {
+    for (const x of this.devs) x.role = 0;
+    this.calib = this.devs.length === 2;
+    if (this.calib) this.onNote('Zwei Click verbunden: jetzt den LINKEN Click (−) drücken');
+  }
+  _press(d, n) {
+    this.lastBit = n;
+    if (this.devs.length < 2) { if (n !== 12) this.onUnknown(n); this.onShift(n === 12 ? 1 : -1); return; }   // ein Gerät: Bit 12 = +, sonst −
+    if (this.calib) {   // erster Druck: dieses Gerät ist der linke Click (−), das andere der rechte (+)
+      d.role = -1; const o = this.devs.find(x => x !== d); if (o) o.role = 1; this.calib = false;
+      this.onNote('Links = − (runter) · rechts = + (rauf)'); return;
+    }
+    this.onShift(d.role || 1);
+  }
+  _rx(uuid, b, d) {
+    d = d || this._solo;
     this.count++;
     this.last = Array.from(b).map(x => x.toString(16).padStart(2, '0')).join(' ');
-    const line = uuid.slice(0, 8) + ': ' + this.last;
+    const line = (this.devs.length > 1 ? '#' + (this.devs.indexOf(d) + 1) + ' ' : '') + uuid.slice(0, 8) + ': ' + this.last;
     if (this.log.length && this.log[this.log.length - 1].replace(/ ×\d+$/, '') === line) { const m = / ×(\d+)$/.exec(this.log[this.log.length - 1]); this.log[this.log.length - 1] = line + ' ×' + ((m ? +m[1] : 1) + 1); }
     else { this.log.push(line); if (this.log.length > 12) this.log.shift(); }
-    // Beobachtet (Zwift Click): Minus kommt als langes Paket 'ff 05 00 fa 05 ...' (enthaelt die Geraetekennung als Text).
-    // Provisorisch als Runterschalten; kurz nach dem Verbinden und bei Wiederholungen < 400 ms ignoriert.
-    if (b[0] === 0xff && b[1] === 0x05 && b.length > 12) {
-      const now = performance.now();
-      if (now - (this.t0 || 0) > 4000 && now - (this.tm || 0) > 400) { this.tm = now; this.onShift(-1); }
-    }
     // Button-Meldung (Typ 0x23, Protobuf): Feld 1 = 32-Bit-Maske, alle Bits 1 = nichts gedrückt, gedrückte Taste = Bit 0 (0x19 = Keepalive)
     if (b[0] === 0x23 && b.length >= 3) {
       const f = parsePb(b.slice(1));
       if (f[1] !== undefined) {
-        const down = (~f[1]) >>> 0, fresh = down & ~this.down;
-        this.down = down;
-        for (let n = 0; n < 32; n++) if (fresh & (1 << n)) {
-          this.lastBit = n;
-          // Der Click hat nur zwei Tasten: Bit 12 = Plus, jedes andere neu gedrückte Bit = Minus (Bit 8 gemessen, andere Click-Versionen können abweichen)
-          if (n !== 12) this.onUnknown(n);
-          this.onShift(n === 12 ? 1 : -1);
-        }
+        const down = (~f[1]) >>> 0, fresh = down & ~d.down;
+        d.down = down;
+        for (let n = 0; n < 32; n++) if (fresh & (1 << n)) this._press(d, n);
       }
     }
     this.onChange();
