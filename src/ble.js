@@ -110,7 +110,7 @@ export class ClickPad {
   get name() { return this.devs.length > 1 ? this.devs.length + ' Click' : (this.devs[0] ? this.devs[0].name : ''); }
   async connect() {
     if (!BLE_OK) throw new Error('Kein Web Bluetooth in diesem Browser (Chrome/Edge verwenden).');
-    if (this.devs.length >= 2) throw new Error('Es sind schon zwei Click verbunden.');
+    if (this.devs.length >= 1) throw new Error('Der Click ist schon verbunden.');
     const ADV = '0000fc82-0000-1000-8000-00805f9b34fb';          // Werbe-Kennung der Zwift-Controller
     const ZSV = '00000001-19ca-4651-86e5-fa29dcdd09d1';          // eigentlicher GATT-Dienst (Click / Play / Ride)
     const dev = await navigator.bluetooth.requestDevice({ filters: [{ services: [ADV] }, { services: [ZSV] }, { namePrefix: 'Zwift' }], optionalServices: [ADV, ZSV] });
