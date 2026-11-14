@@ -110,7 +110,9 @@ export class ClickPad {
   get name() { return this.devs.length > 1 ? this.devs.length + ' Click' : (this.devs[0] ? this.devs[0].name : ''); }
   async connect() {
     if (!BLE_OK) throw new Error('Kein Web Bluetooth in diesem Browser (Chrome/Edge verwenden).');
-    if (this.devs.length >= 1) throw new Error('Der Click ist schon verbunden.');
+    if (this.devs.some(x => !x.lost)) throw new Error('Der Click ist schon verbunden.');
+    for (const x of this.devs) x.gone = true;
+    this.devs = [];
     const ADV = '0000fc82-0000-1000-8000-00805f9b34fb';          // Werbe-Kennung der Zwift-Controller
     const ZSV = '00000001-19ca-4651-86e5-fa29dcdd09d1';          // eigentlicher GATT-Dienst (Click / Play / Ride)
     const dev = await navigator.bluetooth.requestDevice({ filters: [{ services: [ADV] }, { services: [ZSV] }, { namePrefix: 'Zwift' }], optionalServices: [ADV, ZSV] });
@@ -145,14 +147,18 @@ export class ClickPad {
   async _lost(d) {
     if (!this.devs.includes(d) || d.reconnecting) return;
     d.lost = true; d.reconnecting = true; this.onChange();
-    for (let i = 0; i < 40 && d.lost && this.devs.includes(d); i++) {
-      await new Promise(r => setTimeout(r, Math.min(1000 + i * 500, 5000)));
+    // Sobald der Click wieder funkt (Taste druecken), sofort verbinden
+    try { if (d.dev.watchAdvertisements) { d.dev.addEventListener('advertisementreceived', () => { d.adv = true; }, { once: true }); d.dev.watchAdvertisements().catch(() => {}); } } catch (e) {}
+    while (d.lost && !d.gone && this.devs.includes(d)) {
+      for (let t = 0; t < 30 && !d.adv; t++) await new Promise(r => setTimeout(r, 100));
+      d.adv = false;
       try { await this._setup(d); this.onNote && this.onNote('Click wieder verbunden'); break; } catch (e) { this.err = e.message; }
+      await new Promise(r => setTimeout(r, 1500));
     }
-    d.reconnecting = false;
-    if (d.lost) { this.devs = this.devs.filter(x => x !== d); this._reset(); }
-    this.onChange();
+    d.reconnecting = false; this.onChange();
   }
+  // Abbruch erkennen, auch wenn der Browser das Ereignis nicht liefert
+  watch() { setInterval(() => { for (const d of this.devs) if (!d.lost && d.dev.gatt && !d.dev.gatt.connected) this._lost(d); }, 2000); }
   _reset() { for (const x of this.devs) x.role = 0; this.calib = false; }
   // Behelf fuer den linken (verschluesselten) Click: Plus-Taste kurz = +1 (beim Loslassen), lang halten (>= LONG_MS) = −1
   _press(d, n) {
