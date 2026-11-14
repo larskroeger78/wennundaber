@@ -134,19 +134,11 @@ export class ClickPad {
     if (rx) { try { await rx.writeValueWithoutResponse(new Uint8Array([0x52, 0x69, 0x64, 0x65, 0x4f, 0x6e, 0x01, 0x02])); } catch (e) { this.err = e.message; } }   // "RideOn" + Version
     this.devs.push(d); this._reset(); this.onChange();
   }
-  _reset() {
-    for (const x of this.devs) x.role = 0;
-    this.calib = this.devs.length === 2;
-    if (this.calib) this.onNote('Zwei Click verbunden: jetzt den LINKEN Click (−) drücken');
-  }
+  _reset() { for (const x of this.devs) x.role = 0; this.calib = false; }
   _press(d, n) {
     this.lastBit = n;
-    if (this.devs.length < 2) { if (n !== 12) this.onUnknown(n); this.onShift(n === 12 ? 1 : -1); return; }   // ein Gerät: Bit 12 = +, sonst −
-    if (this.calib) {   // erster Druck: dieses Gerät ist der linke Click (−), das andere der rechte (+)
-      d.role = -1; const o = this.devs.find(x => x !== d); if (o) o.role = 1; this.calib = false;
-      this.onNote('Links = − (runter) · rechts = + (rauf)'); return;
-    }
-    this.onShift(d.role || 1);
+    if (n !== 12) this.onUnknown(n);
+    this.onShift(n === 12 ? 1 : -1);   // Bit 12 = +, jedes andere Bit = −
   }
   _rx(uuid, b, d) {
     d = d || this._solo;
