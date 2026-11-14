@@ -104,7 +104,7 @@ export class Trainer {
 // Ohne offizielle Spezifikation: wir koppeln, senden den RideOn-Handshake und protokollieren die Rohdaten.
 // Erkannte Tastendrücke rufen onShift(+1/-1) auf. Zusätzlich funktionieren die Tasten + / - (oder Bild hoch/runter) im Spiel.
 export class ClickPad {
-  constructor() { this.connected = false; this.log = []; this.onShift = () => {}; this.onChange = () => {}; this.name = ''; this.count = 0; this.down = 0; this.lastBit = -1; this.map = { /* Bit -> +1/-1, wird nach Test belegt */ }; this.onUnknown = () => {}; this.last = ''; this.err = ''; }
+  constructor() { this.connected = false; this.log = []; this.onShift = () => {}; this.onChange = () => {}; this.name = ''; this.count = 0; this.down = 0; this.lastBit = -1; this.map = { 12: 1, 8: -1 }   /* Bit 12 = Plus (gemessen), Bit 8 = Minus (vermutet) */; this.onUnknown = () => {}; this.last = ''; this.err = ''; }
   async connect() {
     if (!BLE_OK) throw new Error('Kein Web Bluetooth in diesem Browser (Chrome/Edge verwenden).');
     const ADV = '0000fc82-0000-1000-8000-00805f9b34fb';          // Werbe-Kennung der Zwift-Controller
