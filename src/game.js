@@ -1283,11 +1283,15 @@ let HM=90;
 if(ROUTE){HM=0;for(let i=0;i<N;i++)HM+=Math.max(0,PY[i+1]-PY[i]);HM=Math.round(HM/10)*10;}
 const ov=document.getElementById('overlay');
 function routeBtns(){return '';}   // nur eine Strecke im Spiel
-function mineHtml(){
-  const L=listRoutes();if(!L.length)return '';
+function mineHtml(){   // Streckenliste: feste Strecken + eigene GPX-Strecken (Zusatzstrecken)
   const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  return '<div class="mine"><div class="mh">Meine Strecken</div>'+L.map(e=>'<div class="mr'+(e.id===GPX_ID?' cur':'')+'"><span class="mn">'+esc(e.name)+'<small>'+String(e.km).replace('.',',')+' km</small></span>'
-    +'<button class="sec" data-gpx-go="'+e.id+'">Fahren</button><button class="sec" data-gpx-ren="'+e.id+'" title="Umbenennen">✎</button><button class="sec" data-gpx-del="'+e.id+'" title="Löschen">🗑</button></div>').join('')+'</div>';
+  const cur=GPX_ID?'gpx_'+GPX_ID:(!ROUTE?'halde':'tour2');
+  const base=[['halde','Halde Großes Holz','Uphill + Trail „Highway“'],['tour2','Tour 5.10.2022','Bergkamen · komoot']];
+  let h='<div class="mine"><div class="mh">Strecken</div>'+base.map(b=>'<div class="mr'+(b[0]===cur?' cur':'')+'"><span class="mn">'+b[1]+'<small>'+b[2]+'</small></span>'+(b[0]===cur?'<span class="act">aktiv</span>':'<button class="sec" data-route="'+b[0]+'">Fahren</button>')+'</div>').join('');
+  const L=listRoutes();
+  if(L.length)h+='<div class="mh" style="margin-top:10px">Meine Strecken (GPX)</div>'+L.map(e=>'<div class="mr'+(e.id===GPX_ID?' cur':'')+'"><span class="mn">'+esc(e.name)+'<small>'+String(e.km).replace('.',',')+' km</small></span>'
+    +(e.id===GPX_ID?'<span class="act">aktiv</span>':'<button class="sec" data-gpx-go="'+e.id+'">Fahren</button>')+'<button class="sec" data-gpx-ren="'+e.id+'" title="Umbenennen">✎</button><button class="sec" data-gpx-del="'+e.id+'" title="Löschen">🗑</button></div>').join('');
+  return h+'</div>';
 }
 function menu(title,sub){
   lastMenu=[title,sub];
@@ -1301,7 +1305,7 @@ function menu(title,sub){
       (sub?'<div class="res">'+sub+'</div>':'')+
       '<div class="route">'+(ROUTE?RT.label:TRACK_NAME)+'<span>'+(ROUTE&&RT.place?RT.place:'Bergkamen und Umland')+'</span></div>'+
       '<div class="stats"><div><b>'+km+'</b><i>km</i></div><div><b>'+HM+'</b><i>Höhenmeter</i></div></div>'+
-      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(click.connected?'Zwift Click ✓ ('+click.count+')':'Zwift Click (experimentell)')+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button>'+(CUS?'<button class="sec" data-route="tour2">Zur Tour 5.10.2022</button>':'')+'<button id="gpx" class="sec">GPX-Strecke laden</button><input id="gpxf" type="file" accept=".gpx,.xml,application/gpx+xml" style="display:none"></div>'+mineHtml()+
+      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(click.connected?'Zwift Click ✓ ('+click.count+')':'Zwift Click (experimentell)')+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button>'+'<button id="gpx" class="sec">GPX-Strecke laden</button><input id="gpxf" type="file" accept=".gpx,.xml,application/gpx+xml" style="display:none"></div>'+mineHtml()+
       '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?'Bluetooth nur in Chrome/Edge (nicht Safari).':'D100 oder KICKR einschalten, dann „Trainer koppeln“.')+(bleMsg?'<br>'+bleMsg:'')+(click.connected?'<br>'+click.name+' verbunden · '+click.count+' Pakete empfangen'+(click.count?'':' – Taste an der Click drücken (+/− schaltet; Tastatur: + / − geht immer)')+(click.log.length?'<br><small>'+click.log.slice(-3).join('<br>')+'</small>':''):'')+'</div>'+
       '<div class="help keys"><b>↑</b> treten · <b>↓</b> bremsen · <b>+/−</b> Schaltung · <b>1</b>/<b>2</b> Schwierigkeit (Leicht/Normal) · <b>Esc</b> Pause · <b>R</b> neu · <b>C</b> Ansicht<br>Lenken und Ausweichen laufen automatisch. Abfahrten sind neutral: Tempo entsteht nur durchs Treten.</div>'+
     '</div></div>';
