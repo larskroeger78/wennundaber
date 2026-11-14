@@ -790,9 +790,9 @@ const DUM=new THREE.Object3D(),TC=new THREE.Color();
     const pud=[],leaves=[];
     for(let i=2;i<N-2;i++){
       const h=HS[i],rx=-Math.cos(h),rz=Math.sin(h),hw=hwOf(i),dirt=!ROUTE||SURF[i]>0;
-      if(dirt&&Math.abs(GR[i])<2.2&&rnd()<0.035){
-        const o=(rnd()*2-1)*hw*0.55,x=PX[i]+rx*o,z=PZ[i]+rz*o,a=0.8+rnd()*1.5;
-        pud.push({x:x,y:gnd(x,z),z:z,a:a,b:a*(0.55+rnd()*0.5),r:-h+(rnd()-0.5)*0.5});
+      if(dirt&&Math.abs(GR[i])<3&&rnd()<0.06){
+        const o=(rnd()*2-1)*hw*0.55,x=PX[i]+rx*o,z=PZ[i]+rz*o,a=0.9+rnd()*1.6;
+        pud.push({x:x,y:gnd(x,z),z:z,a:a,b:a*(0.35+rnd()*0.4),r:-h+(rnd()-0.5)*0.5});
       }
       const nl=dirt?5:2;
       for(let k=0;k<nl;k++){
@@ -801,15 +801,27 @@ const DUM=new THREE.Object3D(),TC=new THREE.Color();
         leaves.push({x:x,y:gnd(x,z)+0.03,z:z,s:0.13+rnd()*0.2,r:rnd()*6.283,t:rnd()});
       }
     }
-    // Pfuetzen: dunkler Schlamm-Rand + spiegelnde Wasserflaeche
-    const cg=new THREE.CircleGeometry(1,28);cg.rotateX(-Math.PI/2);
-    const mudM=new THREE.MeshStandardMaterial({color:0x2b2118,roughness:0.55,transparent:true,opacity:0.6,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-6,polygonOffsetUnits:-6});
-    const watM=new THREE.MeshStandardMaterial({color:0x66707a,roughness:0.02,metalness:0.0,transparent:true,opacity:0.88,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-7,polygonOffsetUnits:-7});
-    watM.envMapIntensity=2.2;watM.userData.keepEnv=true;
-    const mud=new THREE.InstancedMesh(cg,mudM,Math.max(1,pud.length)),wat=new THREE.InstancedMesh(cg,watM,Math.max(1,pud.length));
+    // Pfuetzen: unregelmaessige, weich auslaufende Form; dunkel, Spiegelung entsteht durch den Fresnel-Effekt (flacher Blick = mehr Himmel)
+    const blob=(soft)=>canvasTex(128,128,(g,w,h)=>{
+      g.fillStyle='#000';g.fillRect(0,0,w,h);
+      const ph=[rnd()*6.28,rnd()*6.28,rnd()*6.28,rnd()*6.28];
+      for(let k=0;k<soft;k++){
+        const sc=1-k*(0.42/soft),al=1/soft*(k===0?1.2:1.15);
+        g.fillStyle='rgba(255,255,255,'+Math.min(1,al).toFixed(3)+')';g.beginPath();
+        for(let q=0;q<=64;q++){const t=q/64*6.2832,r=sc*(0.62+0.09*Math.sin(2*t+ph[0])+0.07*Math.sin(3*t+ph[1])+0.05*Math.sin(5*t+ph[2])+0.03*Math.sin(8*t+ph[3]))*w*0.5;
+          const x=w/2+Math.cos(t)*r,y=h/2+Math.sin(t)*r;q?g.lineTo(x,y):g.moveTo(x,y);}
+        g.closePath();g.fill();
+      }
+    });
+    const pg2=new THREE.PlaneGeometry(2,2);pg2.rotateX(-Math.PI/2);
+    const mudT=blob(7),watT=blob(5);mudT.encoding=watT.encoding=THREE.LinearEncoding;
+    const mudM=new THREE.MeshStandardMaterial({color:0x2a2017,roughness:0.6,alphaMap:mudT,transparent:true,opacity:0.7,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-6,polygonOffsetUnits:-6});
+    const watM=new THREE.MeshStandardMaterial({color:0x1f1c18,roughness:0.015,metalness:0.0,alphaMap:watT,transparent:true,opacity:0.93,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-7,polygonOffsetUnits:-7});
+    watM.envMapIntensity=2.4;watM.userData.keepEnv=true;
+    const mud=new THREE.InstancedMesh(pg2,mudM,Math.max(1,pud.length)),wat=new THREE.InstancedMesh(pg2,watM,Math.max(1,pud.length));
     mud.count=wat.count=pud.length;
     pud.forEach((p,i)=>{
-      DUM.rotation.set(0,p.r,0);DUM.position.set(p.x,p.y+0.085,p.z);DUM.scale.set(p.a*1.25,1,p.b*1.25);DUM.updateMatrix();mud.setMatrixAt(i,DUM.matrix);
+      DUM.rotation.set(0,p.r,0);DUM.position.set(p.x,p.y+0.085,p.z);DUM.scale.set(p.a*1.45,1,p.b*1.45);DUM.updateMatrix();mud.setMatrixAt(i,DUM.matrix);
       DUM.position.y=p.y+0.095;DUM.scale.set(p.a,1,p.b);DUM.updateMatrix();wat.setMatrixAt(i,DUM.matrix);
     });
     mud.frustumCulled=wat.frustumCulled=false;mud.renderOrder=2;wat.renderOrder=3;scene.add(mud);scene.add(wat);
@@ -1123,7 +1135,7 @@ const DIFFN={1:'Leicht',2:'Normal'};
 let diff=1;try{const v=+localStorage.getItem('miworu_diff');if(v===1||v===2)diff=v;}catch(e){}   // Schwierigkeit: 1 Leicht (Steigungen zählen 40 %), 2 Normal
 const gearF=()=>(gear<0?Math.pow(1.26,gear):1+gear*0.05)*(diff===1?0.4:1);   // Faktor auf die Steigung: Gang x Schwierigkeit
 function setDiff(d){diff=d;try{localStorage.setItem('miworu_diff',d);}catch(e){}gearHud.k=null;toastEl.textContent='Schwierigkeit: '+DIFFN[d];toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1200);}
-const gearEl=document.getElementById('gear'),toastEl=document.getElementById('toast');
+const gearEl=document.getElementById('gear'),toastEl=document.getElementById('toast'),hintEl=document.getElementById('hint');
 function shift(d){
   const ng=clamp(gear+d,-6,5);gearUsed=true;   // 12 Gänge: Stufen -6..5 = Anzeige 1..12
   const n=ng+7;
@@ -1134,7 +1146,8 @@ function shift(d){
 const DEBUG_CLICK=/[?&]debug/.test(location.search);   // ?debug in der URL zeigt die Click-Rohpakete im HUD
 function gearHud(){
   gearEl.style.display='block';
-  const key=gear+'|'+click.connected+'|'+diff+'|'+click.count+'|'+click.log.slice(-4).join();if(gearHud.k===key)return;gearHud.k=key;
+  const key=gear+'|'+click.connected+'|'+diff+'|'+quality+'|'+click.count+'|'+click.log.slice(-4).join();if(gearHud.k===key)return;gearHud.k=key;
+  hintEl.innerHTML='<span'+(diff===1?' class="on"':'')+'><b>1</b>Leicht</span><span'+(diff===2?' class="on"':'')+'><b>2</b>Normal</span><span><b>Q</b>Grafik '+QN[quality]+'</span>';
   let bars='';for(let k=0;k<12;k++)bars+='<i class="'+(k===gear+6?'on':'')+'" style="height:'+(8+k*1.8)+'px"></i>';
   gearEl.innerHTML='<div class="lbl">GANG · <span class="dif d'+diff+'">'+DIFFN[diff].toUpperCase()+'</span>'+(click.connected?' · CLICK '+click.count+' Pakete':'')+'</div>'+(DEBUG_CLICK&&click.connected&&click.log.length?'<div class="hex">'+click.log.slice(-4).join('<br>')+'</div>':'')+'<div class="gn">'+(gear+7)+'<small>/ 12</small></div><div class="bars">'+bars+'</div>';
 }

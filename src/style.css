@@ -61,3 +61,8 @@ button.main{background:#e14230;color:#fff;font-size:30px;padding:12px 34px}
 
 #glow{position:absolute;inset:0;pointer-events:none;opacity:0;mix-blend-mode:screen;will-change:opacity,background}
 #grain{position:absolute;inset:0;pointer-events:none;opacity:.07;mix-blend-mode:overlay;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .5  0 0 0 0 .5  0 0 0 0 .5  0 0 0 1.6 -.3'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>")}
+#hint{right:24px;top:16px;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;opacity:.75;text-align:right;white-space:nowrap}
+#hint b{display:inline-block;min-width:13px;padding:0 3px;margin-right:4px;text-align:center;border:1px solid rgba(255,255,255,.55);border-radius:3px;font-weight:700}
+#hint .on{color:#f5a524}
+#hint .on b{border-color:#f5a524}
+#hint span{margin-left:12px}
