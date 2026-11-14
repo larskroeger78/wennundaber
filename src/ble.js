@@ -106,7 +106,7 @@ export class Trainer {
 export class ClickPad {
   // Click v1 = ein Gerät mit + und −. Click v2 = zwei getrennte Geräte (links −, rechts +): beide koppeln, der erste Druck auf den LINKEN legt die Rollen fest.
   constructor() { this.devs = []; this.log = []; this.onShift = () => {}; this.onChange = () => {}; this.onNote = () => {}; this.onUnknown = () => {}; this.err = ''; this.calib = false; this.lastBit = -1; this._solo = { down: 0, role: 0 }; }
-  get connected() { return this.devs.length > 0; }
+  get connected() { return this.devs.some(x => !x.lost); }
   get name() { return this.devs.length > 1 ? this.devs.length + ' Click' : (this.devs[0] ? this.devs[0].name : ''); }
   async connect() {
     if (!BLE_OK) throw new Error('Kein Web Bluetooth in diesem Browser (Chrome/Edge verwenden).');
@@ -115,9 +115,14 @@ export class ClickPad {
     const ZSV = '00000001-19ca-4651-86e5-fa29dcdd09d1';          // eigentlicher GATT-Dienst (Click / Play / Ride)
     const dev = await navigator.bluetooth.requestDevice({ filters: [{ services: [ADV] }, { services: [ZSV] }, { namePrefix: 'Zwift' }], optionalServices: [ADV, ZSV] });
     if (this.devs.some(x => x.id === dev.id)) throw new Error('Dieser Click ist schon verbunden – bitte den anderen wählen.');
-    const d = { id: dev.id, name: dev.name || 'Zwift Click', down: 0, role: 0 };
-    dev.addEventListener('gattserverdisconnected', () => { this.devs = this.devs.filter(x => x !== d); this._reset(); this.onChange(); });
-    const srv = await dev.gatt.connect();
+    const d = { id: dev.id, name: dev.name || 'Zwift Click', down: 0, role: 0, dev, lost: false };
+    dev.addEventListener('gattserverdisconnected', () => { clearTimeout(d.ht); d.down = 0; this._lost(d); });
+    await this._setup(d);
+    this.devs.push(d); this._reset(); this.onChange();
+  }
+  async _setup(d) {
+    const ADV = '0000fc82-0000-1000-8000-00805f9b34fb', ZSV = '00000001-19ca-4651-86e5-fa29dcdd09d1';
+    const srv = await d.dev.gatt.connect();
     let s = null;
     for (const u of [ZSV, ADV]) { try { s = await srv.getPrimaryService(u); if (s) break; } catch (e) { this.err = e.message; } }
     if (!s) throw new Error('Zwift-Dienst am Gerät nicht gefunden (Click im blauen Koppelmodus?).');
@@ -125,14 +130,28 @@ export class ClickPad {
     for (const c of chars) {
       if (c.properties.notify || c.properties.indicate) {
         try {
-          c.addEventListener('characteristicvaluechanged', e => this._rx(c.uuid, new Uint8Array(e.target.value.buffer), d));
+          if (!c._h) { c._h = e => this._rx(c.uuid, new Uint8Array(e.target.value.buffer), d); }
+          c.removeEventListener('characteristicvaluechanged', c._h);
+          c.addEventListener('characteristicvaluechanged', c._h);
           await c.startNotifications();
         } catch (e) { this.err = e.message; }
       }
     }
     const rx = chars.find(c => c.uuid.startsWith('00000003'));
     if (rx) { try { await rx.writeValueWithoutResponse(new Uint8Array([0x52, 0x69, 0x64, 0x65, 0x4f, 0x6e, 0x01, 0x02])); } catch (e) { this.err = e.message; } }   // "RideOn" + Version
-    this.devs.push(d); this._reset(); this.onChange();
+    d.lost = false;
+  }
+  // Verbindung weg (Click schlaeft ein / Funkabbruch): automatisch neu verbinden, ohne neues Koppeln
+  async _lost(d) {
+    if (!this.devs.includes(d) || d.reconnecting) return;
+    d.lost = true; d.reconnecting = true; this.onChange();
+    for (let i = 0; i < 40 && d.lost && this.devs.includes(d); i++) {
+      await new Promise(r => setTimeout(r, Math.min(1000 + i * 500, 5000)));
+      try { await this._setup(d); this.onNote && this.onNote('Click wieder verbunden'); break; } catch (e) { this.err = e.message; }
+    }
+    d.reconnecting = false;
+    if (d.lost) { this.devs = this.devs.filter(x => x !== d); this._reset(); }
+    this.onChange();
   }
   _reset() { for (const x of this.devs) x.role = 0; this.calib = false; }
   // Behelf fuer den linken (verschluesselten) Click: Plus-Taste kurz = +1 (beim Loslassen), lang halten (>= LONG_MS) = −1
