@@ -42,7 +42,9 @@ body.fpv #prof{bottom:auto;top:16px}
 .btns{display:flex;flex-wrap:wrap;gap:8px}
 .btns button{margin:0}
 button.main{background:#e14230;color:#fff;font-size:30px;padding:12px 34px}
-.keys{font-size:17px;opacity:.75}
+.keys{font-size:16px;opacity:.85;margin-top:6px}
+.keys div{margin:3px 0}.keys .kh{font-weight:700;letter-spacing:.12em;text-transform:uppercase;opacity:.9}.keys .note{opacity:.7}
+.keys b{display:inline-block;min-width:16px;padding:0 4px;text-align:center;border:1px solid rgba(255,255,255,.5);border-radius:3px}
 @media (max-width:860px){.intro{flex-direction:column;gap:16px}.poster{height:34vh}.panel h1{font-size:56px}.stats b{font-size:38px}}
 
 #gear{right:24px;bottom:150px;text-align:right;font-weight:800}
@@ -56,6 +58,7 @@ button.main{background:#e14230;color:#fff;font-size:30px;padding:12px 34px}
 #toast.on{opacity:1;transition:none}
 #gear .dif{padding:1px 8px;border-radius:4px;background:#2f9e5b;color:#fff;letter-spacing:.1em}
 #gear .dif.d2{background:#c0392b}
+#gear .dif.d3{background:#5b0f0f;box-shadow:0 0 0 1px #ff4d3d}
 
 #gear .hex{font:500 11px/1.25 ui-monospace,Menlo,monospace;letter-spacing:0;opacity:.8;margin-top:4px;max-width:340px;word-break:break-all;text-shadow:0 1px 3px #000}
 
