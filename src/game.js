@@ -331,6 +331,7 @@ scene.add(sun);scene.add(sun.target);
 function resize(){const w=window.innerWidth,h=window.innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
 window.addEventListener('resize',resize);resize();
 // Qualitaetsstufen (Taste Q): Aufloesung, Schattenkarte
+const TILES=[];const TREE_FAR=[0,420,620,900];   // Sichtweite fuer Baum-/Buschkacheln je Qualitaetsstufe (m)
 const QN={1:'Niedrig',2:'Mittel',3:'Hoch'};let quality=2;try{quality=clamp(+localStorage.getItem('miworu_q')||2,1,3);}catch(e){}
 function applyQ(){
   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,[0,1,1.5,2][quality]));
@@ -550,9 +551,21 @@ function forestD(x,z){
     g.attributes.color.needsUpdate=true;
   }
   const tm=new THREE.MeshStandardMaterial({map:texGround,vertexColors:true,roughness:1,metalness:0});
-  applyPhoto(tm,'forrest_ground_01',1.75,1.75,{arm:true,normalScale:1.2,onDiffuse:()=>{g.setAttribute('color',new THREE.BufferAttribute(col2,3));}});
-  const m=new THREE.Mesh(g,tm);
-  m.receiveShadow=true;scene.add(m);
+  // In Kacheln zerlegt (je 40x40 Zellen = 160 m), damit nur sichtbare Gelaendestuecke gezeichnet werden (Frustum-Culling)
+  const CH=40,chunks=[],col2A=new THREE.BufferAttribute(col2,3);
+  for(let cz=0;cz<nz;cz+=CH)for(let cx=0;cx<nx;cx+=CH){
+    const ex=Math.min(nx,cx+CH),ez=Math.min(nz,cz+CH),ia=new Uint32Array((ex-cx)*(ez-cz)*6);let kk=0,y0=1e9,y1=-1e9;
+    for(let iz=cz;iz<ez;iz++)for(let ix=cx;ix<ex;ix++){const a=iz*VX+ix,b=a+1,c2=a+VX,d2=c2+1;ia[kk++]=a;ia[kk++]=c2;ia[kk++]=b;ia[kk++]=b;ia[kk++]=c2;ia[kk++]=d2;}
+    for(let iz=cz;iz<=ez;iz+=4)for(let ix=cx;ix<=ex;ix+=4){const y=pos[(iz*VX+ix)*3+1];if(y<y0)y0=y;if(y>y1)y1=y;}
+    const cg=new THREE.BufferGeometry();cg.setAttribute('position',g.attributes.position);cg.setAttribute('normal',g.attributes.normal);cg.setAttribute('color',g.attributes.color);cg.setAttribute('uv',g.attributes.uv);
+    cg.setIndex(new THREE.BufferAttribute(ia,1));
+    const mx=X0+(cx+ex)/2*G,mz=Z0+(cz+ez)/2*G,my=(y0+y1)/2,rad=Math.hypot((ex-cx)*G/2,(ez-cz)*G/2,(y1-y0)/2+4);
+    cg.boundingSphere=new THREE.Sphere(new THREE.Vector3(mx,my,mz),rad);cg.boundingBox=new THREE.Box3(new THREE.Vector3(X0+cx*G,y0-2,Z0+cz*G),new THREE.Vector3(X0+ex*G,y1+2,Z0+ez*G));
+    chunks.push(cg);
+    const m=new THREE.Mesh(cg,tm);m.receiveShadow=true;scene.add(m);
+  }
+  window.__terrainChunks=chunks.length;
+  applyPhoto(tm,'forrest_ground_01',1.75,1.75,{arm:true,normalScale:1.2,onDiffuse:()=>{chunks.forEach(cg=>cg.setAttribute('color',col2A));}});
 })();
 // Umland: Felder, Kanal
 (function(){
@@ -729,17 +742,18 @@ const DUM=new THREE.Object3D(),TC=new THREE.Color();
       }
     }
   }
-  // Instanzen in Kacheln (300 m) aufteilen: pro Kachel ein Mesh mit eigener Hüllkugel, damit nur Sichtbares gezeichnet wird
+  // Instanzen in Kacheln (150 m) aufteilen: pro Kachel ein Mesh mit eigener Hüllkugel, damit nur Sichtbares gezeichnet wird
   function tiled(items,geo,mat,fill,shadow,depthMat){
-    const T=300,map=new Map();
+    const T=150,map=new Map();
     items.forEach(it=>{const k=Math.floor(it.x/T)+','+Math.floor(it.z/T);let a=map.get(k);if(!a)map.set(k,a=[]);a.push(it);});
     map.forEach((arr,k)=>{
       const kk=k.split(',').map(Number),cx=(kk[0]+0.5)*T,cz=(kk[1]+0.5)*T;
       const g=new THREE.BufferGeometry();g.setIndex(geo.index);for(const n in geo.attributes)g.setAttribute(n,geo.attributes[n]);
-      g.boundingSphere=new THREE.Sphere(new THREE.Vector3(0,30,0),T*0.75+60);
+      g.boundingSphere=new THREE.Sphere(new THREE.Vector3(0,30,0),T*0.75+50);
       const m=new THREE.InstancedMesh(g,mat,arr.length);m.position.set(cx,0,cz);
       arr.forEach((it,i)=>fill(it,i,m,cx,cz));
       m.castShadow=shadow;m.receiveShadow=true;if(depthMat)m.customDepthMaterial=depthMat;m.frustumCulled=true;scene.add(m);
+      TILES.push({m:m,x:cx,z:cz,sh:shadow});
     });
   }
   tiled(trees,foliageGeo,leafMat,(t,i,m,cx,cz)=>{
@@ -1507,8 +1521,14 @@ function render(dt,now){
   const sc=running||st.done?1:3.2;
   sun.shadow.camera.left=-90*sc;sun.shadow.camera.right=90*sc;sun.shadow.camera.top=90*sc;sun.shadow.camera.bottom=-90*sc;sun.shadow.camera.far=520*sc;sun.shadow.camera.updateProjectionMatrix();
   sun.position.copy(ctr).addScaledVector(SUN,220*sc);sun.target.position.copy(ctr);sun.target.updateMatrixWorld();
+  if((tileN++%6)===0)updateTiles(camera.position);
   renderer.render(scene,camera);
   if(running||st.done)drawHud();
+}
+let tileN=0;
+function updateTiles(cp){   // weit entfernte Kacheln nicht zeichnen, Schatten nur im Nahbereich (Schattenkarte deckt nur +-90 m ab)
+  const far=TREE_FAR[quality],far2=(far+130)*(far+130),sh2=(running||st.done?170:520)*(running||st.done?170:520);
+  for(let i=0;i<TILES.length;i++){const T=TILES[i],dx=T.x-cp.x,dz=T.z-cp.z,d2=dx*dx+dz*dz;T.m.visible=d2<far2;if(T.sh)T.m.castShadow=d2<sh2;}
 }
 let last=performance.now();
 function loop(now){
@@ -1516,7 +1536,7 @@ function loop(now){
   update(dt);render(dt,now);
   requestAnimationFrame(loop);
 }
-window.__dbg={scene:scene,SHK:SHK,BUMPS:BUMPS,gnd:gnd,HS:HS,PX:PX,PZ:PZ,HW:HW,KV:KV,ROUTE:ROUTE,SURF:SURF,cam:camera,joggers:joggers,get st(){return st;},set pos(v){st.pos=v;camInit=false;},N:N,TOTAL:TOTAL,iTrail:iTrail,SEC:SEC,PY:PY,GR:GR};
+window.__dbg={renderer:renderer,scene:scene,SHK:SHK,BUMPS:BUMPS,gnd:gnd,HS:HS,PX:PX,PZ:PZ,HW:HW,KV:KV,ROUTE:ROUTE,SURF:SURF,cam:camera,joggers:joggers,get st(){return st;},set pos(v){st.pos=v;camInit=false;},N:N,TOTAL:TOTAL,iTrail:iTrail,SEC:SEC,PY:PY,GR:GR};
 if(SAVED)menu('Weiterfahren bei '+(SAVED.pos/1000).toFixed(2).replace('.',',')+' km','Gespeicherte Fahrt · '+fmtT(SAVED.t));else menu('Start');
 if(location.hash==='#go')start();
 requestAnimationFrame(loop);
