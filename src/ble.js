@@ -159,8 +159,8 @@ export class ClickPad {
     d.reconnecting = false; this.onChange();
   }
   // Abbruch erkennen, auch wenn der Browser das Ereignis nicht liefert
-  // Zusaetzlich alle 20 s ein Lebenszeichen an den Click (Versuch, den Ruhe-Timeout nach ca. 4-5 Minuten zu verhindern)
-  watch() { setInterval(() => { for (const d of this.devs) if (!d.lost && d.rx && d.dev.gatt && d.dev.gatt.connected) d.rx.writeValueWithoutResponse(new Uint8Array([0x52, 0x69, 0x64, 0x65, 0x4f, 0x6e, 0x01, 0x02])).catch(() => {}); }, 20000);
+  // Zusaetzlich alle 3 s RideOn als Lebenszeichen (Click schaltet sonst nach ca. 1 Minute in den Ruhezustand und trennt)
+  watch() { setInterval(() => { for (const d of this.devs) if (!d.lost && d.rx && d.dev.gatt && d.dev.gatt.connected) d.rx.writeValueWithoutResponse(new Uint8Array([0x52, 0x69, 0x64, 0x65, 0x4f, 0x6e, 0x01, 0x02])).catch(() => {}); }, 3000);
   setInterval(() => { for (const d of this.devs) if (!d.lost && d.dev.gatt && !d.dev.gatt.connected) this._lost(d); }, 2000); }
   _reset() { for (const x of this.devs) x.role = 0; this.calib = false; }
   // Behelf fuer den linken (verschluesselten) Click: Plus-Taste kurz = +1 (beim Loslassen), lang halten (>= LONG_MS) = −1
@@ -186,7 +186,6 @@ export class ClickPad {
         for (let n = 0; n < 32; n++) { if (fresh & (1 << n)) this._press(d, n); if (rel & (1 << n)) this._release(d, n); }
       }
     }
-    this.onChange();
   }
 }
 ClickPad.LONG_MS = 450;

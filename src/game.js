@@ -1164,7 +1164,8 @@ function gearHud(){
 click.onShift=shift;click.watch();
 setInterval(()=>{if(trainer.connected&&trainer.dev&&trainer.dev.gatt&&!trainer.dev.gatt.connected){trainer.connected=false;trainer.canControl=false;trainer.power=0;trainer.status='Verbindung verloren';trainer.onChange();}},2000);
 click.onNote=t=>{toastEl.textContent=t;toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),3500);};
-const bleChange=()=>{if(trainer.connected)inputMode='trainer';else if(inputMode==='trainer')inputMode='keyboard';if(ov.style.display!=='none'&&lastMenu)menu(lastMenu[0],lastMenu[1]);};
+let bleKey='';
+const bleChange=()=>{if(trainer.connected)inputMode='trainer';else if(inputMode==='trainer')inputMode='keyboard';const k=trainer.connected+'|'+click.connected+'|'+click.devs.length+'|'+bleMsg;if(k===bleKey)return;bleKey=k;if(ov.style.display!=='none'&&lastMenu)menu(lastMenu[0],lastMenu[1]);};
 trainer.onChange=bleChange;click.onChange=bleChange;   // FPV: Cockpit-Ansicht aus Fahrersicht (Taste C wechselt)
 const cockpitEl=document.getElementById('cockpit'),glowEl=document.getElementById('glow'),_cd=new THREE.Vector3(),_sv=new THREE.Vector3();
 function reset(){SHK.y=SHK.vy=SHK.r=SHK.vr=0;SHK.i=0;st={pos:0,v:0,x:0.4,power:0,t:0,crank:0.6,wheel:0,lean:0,bar:0,pitch:0,done:false};resetJoggers();}
