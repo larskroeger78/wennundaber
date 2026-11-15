@@ -112,7 +112,9 @@ export class ClickPad {
   async connect() {
     this.dbg('Koppeln gestartet');
     if (!BLE_OK) throw new Error('Kein Web Bluetooth in diesem Browser (Chrome/Edge verwenden).');
-    if (this.devs.some(x => !x.lost)) throw new Error('Der Click ist schon verbunden.');
+    // Click v2 besteht aus zwei Haelften: die linke ist der Anker, die rechte haengt per Funk daran und trennt allein nach ca. 1 Minute.
+    // Darum beide koppeln (zweiter Aufruf); geschaltet wird nur ueber die rechte Haelfte.
+    if (this.devs.filter(x => !x.lost).length >= 2) throw new Error('Beide Click-Haelften sind schon verbunden.');
     // Ein bekannter, getrennter Click: erst direkt neu verbinden (alte Sitzung vorher kappen), erst dann Geraeteauswahl
     const old = this.devs.find(x => x.lost);
     if (old) {
@@ -120,9 +122,9 @@ export class ClickPad {
       try { old.dev.gatt.disconnect(); } catch (e) {}
       await new Promise(r => setTimeout(r, 500));
       try { await this._setup(old); this.dbg('direkt wieder verbunden'); this.onChange(); return; } catch (e) { this.dbg('direkt fehlgeschlagen: ' + (e && e.message || e)); }
+      for (const x of this.devs.filter(y => y.lost)) x.gone = true;
+      this.devs = this.devs.filter(x => !x.lost);
     }
-    for (const x of this.devs) x.gone = true;
-    this.devs = [];
     const ADV = '0000fc82-0000-1000-8000-00805f9b34fb';          // Werbe-Kennung der Zwift-Controller
     const ZSV = '00000001-19ca-4651-86e5-fa29dcdd09d1';          // eigentlicher GATT-Dienst (Click / Play / Ride)
     const dev = await navigator.bluetooth.requestDevice({ filters: [{ services: [ADV] }, { services: [ZSV] }, { namePrefix: 'Zwift' }], optionalServices: [ADV, ZSV] });
@@ -198,9 +200,10 @@ export class ClickPad {
   }
   _rx(uuid, b, d) {
     d = d || this._solo;
+    if (b[0] === 0xff && b[1] === 0x03 && !d.anchor) { d.anchor = true; this.dbg('Anker-Haelfte erkannt (verschluesselt) - Tasten dieser Haelfte werden ignoriert'); }
     this.rxN++; this.rxT = Date.now(); if (this.rxN <= 6 || this.rxN % 50 === 0) this.dbg('Paket #' + this.rxN + ' 0x' + b[0].toString(16) + ' len ' + b.length);
     // Button-Meldung (Typ 0x23, Protobuf): Feld 1 = 32-Bit-Maske, alle Bits 1 = nichts gedrückt, gedrückte Taste = Bit 0 (0x19 = Keepalive)
-    if (b[0] === 0x23 && b.length >= 3) {
+    if (b[0] === 0x23 && b.length >= 3 && !d.anchor) {
       const f = parsePb(b.slice(1));
       if (f[1] !== undefined) {
         const down = (~f[1]) >>> 0, fresh = down & ~d.down, rel = d.down & ~down;
