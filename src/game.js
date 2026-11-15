@@ -1306,7 +1306,7 @@ function mineHtml(){   // Streckenliste: feste Strecken + eigene GPX-Strecken (Z
   return h+'</div>';
 }
 function menu(title,sub){
-  lastMenu=[title,sub];
+  lastMenu=[title,sub];menuBtn.style.display='none';
   ov.style.display='flex';hudBox.style.display=sub?'block':'none';
   const km=(TOTAL/1000).toFixed(1).replace('.',',');
   ov.innerHTML='<div class="intro">'+
@@ -1355,15 +1355,15 @@ function menu(title,sub){
 }
 // Pause + Hauptmenue (Esc oder Menue-Knopf oben rechts, z. B. fuer iPad ohne Tastatur)
 function pauseGame(){if(!running)return;running=false;paused=true;trainer.setGrade(0,0.005,true);offEl.style.display='none';menu('Weiterfahren','Pause · '+(st.pos/1000).toFixed(2)+' km · '+fmtT(st.t));}
-document.getElementById('menuBtn').onclick=pauseGame;
+const menuBtn=document.getElementById('menuBtn');menuBtn.onclick=pauseGame;
 hintEl.onclick=e=>{const b=e.target.closest('[data-act]');if(!b)return;const a=b.getAttribute('data-act');if(a==='d1')setDiff(1);else if(a==='d2')setDiff(2);else if(a==='d3')setDiff(3);else if(a==='q')cycleQ();};
-function resume(){paused=false;running=true;ov.style.display='none';hudBox.style.display='block';}
+function resume(){menuBtn.style.display='';paused=false;running=true;ov.style.display='none';hudBox.style.display='block';}
 const PK='miworu_prog_'+RKEY;let SAVED=null;
 try{const o=JSON.parse(localStorage.getItem(PK)||'null');if(o&&o.pos>50&&Date.now()-o.ts<864e5)SAVED=o;}catch(e){}
 setInterval(()=>{if(running&&st.pos>50&&!st.done)try{localStorage.setItem(PK,JSON.stringify({pos:st.pos,t:st.t,ts:Date.now()}));}catch(e){}},2000);
 function clearProg(){SAVED=null;try{localStorage.removeItem(PK);}catch(e){}}
 function startSaved(){const o=SAVED;start();if(o){st.pos=o.pos;st.t=o.t;}}
-function start(){clearProg();paused=false;reset();if(trainer.connected)trainer.setGrade(0,0.005,true);running=true;lastSec=-1;ov.style.display='none';hudBox.style.display='block';}
+function start(){menuBtn.style.display='';clearProg();paused=false;reset();if(trainer.connected)trainer.setGrade(0,0.005,true);running=true;lastSec=-1;ov.style.display='none';hudBox.style.display='block';}
 
 // ================= Kamera & Render =================
 const smp={x:0,y:0,z:0,h:0},smp2={x:0,y:0,z:0,h:0};

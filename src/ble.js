@@ -107,7 +107,7 @@ export class ClickPad {
   // Click v1 = ein Gerät mit + und −. Click v2 = zwei getrennte Geräte (links −, rechts +): beide koppeln, der erste Druck auf den LINKEN legt die Rollen fest.
   constructor() { this.devs = []; this.log = []; this.dlog = []; this.t0 = Date.now(); this.kaOk = 0; this.rxN = 0; this.rxT = 0; this.onShift = () => {}; this.onChange = () => {}; this.onNote = () => {}; this.onUnknown = () => {}; this.err = ''; this.calib = false; this.lastBit = -1; this._solo = { down: 0, role: 0 }; }
   dbg(m) { this.dlog.push(((Date.now() - this.t0) / 1000).toFixed(1).padStart(6) + ' s  ' + m); if (this.dlog.length > 80) this.dlog.shift(); }
-  get connected() { return this.devs.some(x => !x.lost); }
+  get connected() { return this.devs.some(x => !x.lost) && Date.now() - this.rxT < 12000; }   // ohne Antwort/Paket seit 12 s gilt der Click als getrennt
   get name() { return this.devs.length > 1 ? this.devs.length + ' Click' : (this.devs[0] ? this.devs[0].name : ''); }
   async connect() {
     this.dbg('Koppeln gestartet');
@@ -182,7 +182,7 @@ export class ClickPad {
   // Abbruch erkennen, auch wenn der Browser das Ereignis nicht liefert
   // Zusaetzlich alle 3 s RideOn als Lebenszeichen (Click schaltet sonst nach ca. 1 Minute in den Ruhezustand und trennt)
   watch() { setInterval(() => { for (const d of this.devs) if (!d.lost && d.rx && d.dev.gatt && d.dev.gatt.connected) d.rx.writeValueWithoutResponse(new Uint8Array([0x52, 0x69, 0x64, 0x65, 0x4f, 0x6e, 0x01, 0x02])).then(() => { this.kaOk++; if (this.kaOk % 20 === 1) this.dbg('Lebenszeichen #' + this.kaOk + ' ok · Pakete ' + this.rxN); }).catch(e => this.dbg('Lebenszeichen FEHLER: ' + (e && e.message || e))); }, 3000);
-  setInterval(() => { for (const d of this.devs) if (!d.lost && d.dev.gatt && !d.dev.gatt.connected) this._lost(d); }, 2000); }
+  setInterval(() => { for (const d of this.devs) if (!d.lost && d.dev.gatt && !d.dev.gatt.connected) this._lost(d); const c = this.connected; if (c !== this._lastC) { this._lastC = c; this.onChange(); } }, 2000); }
   _reset() { for (const x of this.devs) x.role = 0; this.calib = false; }
   // Behelf fuer den linken (verschluesselten) Click: Plus-Taste kurz = +1 (beim Loslassen), lang halten (>= LONG_MS) = −1
   _press(d, n) {
