@@ -11,7 +11,10 @@
     "surfaces": "node scripts/fetch-surfaces.mjs",
     "osm": "node scripts/fetch-osm.mjs",
     "terrain": "node scripts/fetch-terrain.mjs",
-    "wuppertal": "npm run terrain -- wuppertal && npm run osm -- wuppertal && npm run surfaces -- wuppertal"
+    "wuppertal": "npm run terrain -- wuppertal && npm run osm -- wuppertal && npm run surfaces -- wuppertal",
+    "hagen": "npm run terrain -- hagen && npm run osm -- hagen && npm run surfaces -- hagen",
+    "iserlohn": "npm run terrain -- iserlohn && npm run osm -- iserlohn && npm run surfaces -- iserlohn",
+    "strecken": "npm run wuppertal && npm run hagen && npm run iserlohn"
   },
   "dependencies": {
     "three": "0.128.0"

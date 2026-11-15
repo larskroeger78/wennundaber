@@ -10,10 +10,12 @@ import { Trainer, ClickPad, BLE_OK } from './ble.js';
 import MITT1 from './routes/mittwochsrunde.json';
 import TOUR2 from './routes/tour2.json';
 import WUP from './routes/wuppertal.json';
+import ISE from './routes/iserlohn.json';
+import HAG from './routes/hagen.json';
 import { parseGpx, listRoutes, loadRoute, saveRoute, renameRoute, deleteRoute } from './gpx.js';
 const SURF_FILES=import.meta.glob('./routes/*.surf.json',{eager:true});
 // Strecke: Standard ist die Tour vom 5.10.2022 (komoot-GPX); ?route=mittwoch bzw. ?route=halde nur zum Entwickeln
-const ROUTES={mittwoch:{data:MITT1,label:'Mittwochsrunde',surf:'mittwochsrunde',btn:'Mittwochsrunde'},tour2:{data:TOUR2,label:'MIWORU',surf:'tour2',btn:'MIWORU'},wuppertal:{data:WUP,label:'Wuppertal',surf:'wuppertal',btn:'Wuppertal',nhn0:WUP.nhn0,place:'Wuppertal',dem:'wuppertal'}};
+const ROUTES={mittwoch:{data:MITT1,label:'Mittwochsrunde',surf:'mittwochsrunde',btn:'Mittwochsrunde'},tour2:{data:TOUR2,label:'MIWORU',surf:'tour2',btn:'MIWORU'},wuppertal:{data:WUP,label:'Wuppertal',surf:'wuppertal',btn:'Wuppertal',nhn0:WUP.nhn0,place:'Wuppertal',dem:'wuppertal'},hagen:{data:HAG,label:'Hagen',surf:'hagen',btn:'Hagen',nhn0:HAG.nhn0,place:'Hagen',dem:'hagen'},iserlohn:{data:ISE,label:'Iserlohn',surf:'iserlohn',btn:'Iserlohn',nhn0:ISE.nhn0,place:'Iserlohn',dem:'iserlohn'}};
 const RKEY=new URLSearchParams(location.search).get('route');
 const GPX_ID=RKEY&&RKEY.indexOf('gpx_')===0?RKEY.slice(4):null,CUSTOM=GPX_ID?loadRoute(GPX_ID):null;   // vom Nutzer hochgeladene GPX-Strecke (nur im Browser gespeichert)
 if(CUSTOM)ROUTES[RKEY]={data:CUSTOM,label:CUSTOM.name||'Eigene Strecke',surf:'__eigene',btn:CUSTOM.name,custom:true,nhn0:CUSTOM.nhn0||0,place:'Eigene GPX-Strecke'};
@@ -1300,8 +1302,8 @@ const ov=document.getElementById('overlay');
 function routeBtns(){return '';}   // nur eine Strecke im Spiel
 function mineHtml(){   // Streckenliste: feste Strecken + eigene GPX-Strecken (Zusatzstrecken)
   const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const cur=GPX_ID?'gpx_'+GPX_ID:(!ROUTE?'halde':(RKEY==='wuppertal'?'wuppertal':'tour2'));
-  const base=[['tour2','MIWORU','Bergkamen'],['wuppertal','Wuppertal','Wuppertal']];
+  const cur=GPX_ID?'gpx_'+GPX_ID:(!ROUTE?'halde':(ROUTES[RKEY]&&!ROUTES[RKEY].custom?RKEY:'tour2'));
+  const base=[['tour2','MIWORU','Bergkamen'],['wuppertal','Wuppertal','Wuppertal'],['hagen','Hagen','Hagen'],['iserlohn','Iserlohn','Iserlohn']];
   let h='<div class="mine"><div class="mh">Strecken</div>'+base.map(b=>'<div class="mr'+(b[0]===cur?' cur':'')+'"><span class="mn">'+b[1]+'<small>'+b[2]+'</small></span>'+(b[0]===cur?'<span class="act">aktiv</span>':'<button class="sec" data-route="'+b[0]+'">Fahren</button>')+'</div>').join('');
   const L=listRoutes();
   if(L.length)h+='<div class="mh" style="margin-top:10px">Meine Strecken (GPX)</div>'+L.map(e=>'<div class="mr'+(e.id===GPX_ID?' cur':'')+'"><span class="mn">'+esc(e.name)+'<small>'+String(e.km).replace('.',',')+' km</small></span>'
