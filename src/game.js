@@ -1266,6 +1266,10 @@ const miniBase=document.createElement('canvas');miniBase.width=miniBase.height=1
   });
   if(!ROUTE){g.fillStyle='#ffd24a';g.beginPath();g.arc(90,90,3,0,7);g.fill();}
 })();
+// Klick/Ziehen im Hoehenprofil: an diese Stelle der Strecke springen
+{const jump=e=>{if(!running)return;const r=prof.getBoundingClientRect();const f=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));st.pos=Math.min(TOTAL-10,f*N*SEG);st.x=Math.max(-1,Math.min(1,st.x));resetJoggers();lastSec=-1;};
+let dr=false;prof.addEventListener('pointerdown',e=>{dr=true;try{prof.setPointerCapture(e.pointerId);}catch(_){}jump(e);e.preventDefault();});
+prof.addEventListener('pointermove',e=>{if(dr)jump(e);});prof.addEventListener('pointerup',()=>{dr=false;});prof.addEventListener('pointercancel',()=>{dr=false;});}
 const profBase=document.createElement('canvas');profBase.width=420;profBase.height=64;
 const profY=i=>58-(PY[i]/HTOP)*50;
 (function(){
