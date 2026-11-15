@@ -110,6 +110,7 @@ export class ClickPad {
   get connected() { return this.devs.some(x => !x.lost); }
   get name() { return this.devs.length > 1 ? this.devs.length + ' Click' : (this.devs[0] ? this.devs[0].name : ''); }
   async connect() {
+    this.dbg('Koppeln gestartet');
     if (!BLE_OK) throw new Error('Kein Web Bluetooth in diesem Browser (Chrome/Edge verwenden).');
     if (this.devs.some(x => !x.lost)) throw new Error('Der Click ist schon verbunden.');
     for (const x of this.devs) x.gone = true;
