@@ -153,7 +153,14 @@ export class ClickPad {
     }
     const rx = chars.find(c => c.uuid.startsWith('00000003'));
     d.rx = rx;
-    if (rx) { try { await rx.writeValueWithoutResponse(new Uint8Array([0x52, 0x69, 0x64, 0x65, 0x4f, 0x6e, 0x01, 0x02])); } catch (e) { this.err = e.message; } }   // "RideOn" + Version
+    if (rx) {
+      // Aktivierungsfolge wie bei funktionierenden Fremd-Implementierungen: RideOn, dann zwei kurze Steuerbefehle (00 08 00, 00 08 10)
+      for (const m of [[0x52, 0x69, 0x64, 0x65, 0x4f, 0x6e, 0x01, 0x02], [0x00, 0x08, 0x00], [0x00, 0x08, 0x10]]) {
+        try { await rx.writeValueWithoutResponse(new Uint8Array(m)); } catch (e) { this.err = e.message; this.dbg('Aktivierung FEHLER: ' + e.message); }
+        await new Promise(r => setTimeout(r, 120));
+      }
+      this.dbg('Aktivierungsfolge gesendet (RideOn + 2 Steuerbefehle)');
+    }
     d.lost = false;
   }
   // Verbindung weg (Click schlaeft ein / Funkabbruch): automatisch neu verbinden, ohne neues Koppeln
