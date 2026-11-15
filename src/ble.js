@@ -113,6 +113,14 @@ export class ClickPad {
     this.dbg('Koppeln gestartet');
     if (!BLE_OK) throw new Error('Kein Web Bluetooth in diesem Browser (Chrome/Edge verwenden).');
     if (this.devs.some(x => !x.lost)) throw new Error('Der Click ist schon verbunden.');
+    // Ein bekannter, getrennter Click: erst direkt neu verbinden (alte Sitzung vorher kappen), erst dann Geraeteauswahl
+    const old = this.devs.find(x => x.lost);
+    if (old) {
+      this.dbg('direktes Neuverbinden (ohne Auswahl)');
+      try { old.dev.gatt.disconnect(); } catch (e) {}
+      await new Promise(r => setTimeout(r, 500));
+      try { await this._setup(old); this.dbg('direkt wieder verbunden'); this.onChange(); return; } catch (e) { this.dbg('direkt fehlgeschlagen: ' + (e && e.message || e)); }
+    }
     for (const x of this.devs) x.gone = true;
     this.devs = [];
     const ADV = '0000fc82-0000-1000-8000-00805f9b34fb';          // Werbe-Kennung der Zwift-Controller
@@ -157,6 +165,8 @@ export class ClickPad {
     while (d.lost && !d.gone && this.devs.includes(d)) {
       for (let t = 0; t < 30 && !d.adv; t++) await new Promise(r => setTimeout(r, 100));
       d.adv = false;
+      try { d.dev.gatt.disconnect(); } catch (e) {}
+      await new Promise(r => setTimeout(r, 400));
       try { await this._setup(d); this.dbg('wieder verbunden'); this.onNote && this.onNote('Click wieder verbunden'); break; } catch (e) { this.err = e.message; this.dbg('Neuverbinden fehlgeschlagen: ' + e.message); }
       await new Promise(r => setTimeout(r, 1500));
     }
