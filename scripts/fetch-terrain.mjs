@@ -4,12 +4,13 @@
 import fs from 'node:fs';
 import { fromArrayBuffer } from 'geotiff';
 
-const MITT = JSON.parse(fs.readFileSync(new URL('../src/routes/mittwochsrunde.json', import.meta.url), 'utf8'));
-const OUT = new URL('../src/routes/gelaende.json', import.meta.url);
+const NAME = process.argv[2] || 'mittwochsrunde';            // npm run terrain [-- wuppertal]
+const MITT = JSON.parse(fs.readFileSync(new URL(`../src/routes/${NAME}.json`, import.meta.url), 'utf8'));
+const OUT = new URL(NAME === 'mittwochsrunde' ? '../src/routes/gelaende.json' : `../src/routes/${NAME}.gelaende.json`, import.meta.url);
 const WCS = 'https://www.wcs.nrw.de/geobasis/wcs_nw_dgm';
 const [LAT0, LON0] = MITT.origin;
 const CELL = 4;                         // Rastergröße im Spiel in Metern
-const NHN0 = 55.8;                      // gleicher Höhen-Nullpunkt wie im Spiel
+const NHN0 = MITT.nhn0 !== undefined ? MITT.nhn0 : 55.8;                      // gleicher Höhen-Nullpunkt wie im Spiel
 const KX = 111320 * Math.cos(LAT0 * Math.PI / 180), KY = 111320;
 
 // WGS84/ETRS89 → UTM Zone 32 (EPSG:25832)

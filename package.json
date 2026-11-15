@@ -10,7 +10,8 @@
     "assets": "node scripts/fetch-assets.mjs",
     "surfaces": "node scripts/fetch-surfaces.mjs",
     "osm": "node scripts/fetch-osm.mjs",
-    "terrain": "node scripts/fetch-terrain.mjs"
+    "terrain": "node scripts/fetch-terrain.mjs",
+    "wuppertal": "npm run terrain -- wuppertal && npm run osm -- wuppertal && npm run surfaces -- wuppertal"
   },
   "dependencies": {
     "three": "0.128.0"

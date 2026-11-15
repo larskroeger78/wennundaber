@@ -1,12 +1,14 @@
 import { overpass, WANT_QUERY, elementsOrNull } from './overpass.mjs';
 // Lädt Gebäude, Wald, Felder, Siedlungen und Gewässer aus OpenStreetMap (Overpass-API) für das Spielgebiet
-// und schreibt src/routes/umgebung.json (Koordinaten im Spielsystem: x = Ost, z = -Nord, in Metern).
+// und schreibt src/routes/' + OUT.pathname.split('/').pop() + ' (Koordinaten im Spielsystem: x = Ost, z = -Nord, in Metern).
 // Aufruf: npm run osm   (Node 18+, Internet nötig). Daten © OpenStreetMap-Mitwirkende (ODbL).
 import fs from 'node:fs';
 
-const OUT = new URL('../src/routes/umgebung.json', import.meta.url);
-const MITT = JSON.parse(fs.readFileSync(new URL('../src/routes/mittwochsrunde.json', import.meta.url), 'utf8'));
-const GEL = JSON.parse(fs.readFileSync(new URL('../src/routes/gelaende.json', import.meta.url), 'utf8'));
+const NAME = process.argv.slice(2).find(a => !a.startsWith('--')) || 'mittwochsrunde';   // npm run osm [-- wuppertal]
+const STD = NAME === 'mittwochsrunde';
+const OUT = new URL(STD ? '../src/routes/umgebung.json' : `../src/routes/${NAME}.umgebung.json`, import.meta.url);
+const MITT = JSON.parse(fs.readFileSync(new URL(`../src/routes/${NAME}.json`, import.meta.url), 'utf8'));
+const GEL = JSON.parse(fs.readFileSync(new URL(STD ? '../src/routes/gelaende.json' : `../src/routes/${NAME}.gelaende.json`, import.meta.url), 'utf8'));
 const [LAT0, LON0] = MITT.origin;
 const KX = 111320 * Math.cos(LAT0 * Math.PI / 180), KY = 111320;
 // Gebiet = Höhenmodell (plus 100 m Rand)
@@ -90,7 +92,7 @@ async function main() {
   console.log('Frage Overpass ab …', bb);
   if (WANT_QUERY) { console.log('\nIn https://overpass-turbo.eu einfügen → „Ausführen“ → Export → „Rohdaten direkt aus Overpass API“ (JSON) speichern, dann:\n  npm run osm -- --datei=PFAD/export.json\n\n' + ALL + '\n'); return; }
   const data = { elements: [] };
-  const CACHE = new URL('./osm-roh.json', import.meta.url);
+  const CACHE = new URL(STD ? './osm-roh.json' : `./osm-roh-${NAME}.json`, import.meta.url);
   let off = await elementsOrNull();
   if (!off && process.argv.includes('--cache')) { off = JSON.parse(fs.readFileSync(CACHE, 'utf8')).elements; console.log('Rohdaten aus scripts/osm-roh.json:', off.length, 'Elemente'); }
   if (off) data.elements.push(...off); else for (const [name, minN, qq] of QUERIES) { console.log('Teil:', name); const d = await overpass(qq, 5, minN); data.elements.push(...d.elements); await new Promise(r => setTimeout(r, 3000)); }
@@ -113,6 +115,6 @@ async function main() {
   fs.writeFileSync(OUT, JSON.stringify({ origin: MITT.origin, buildings, areas, lines }));
   const cnt = k => areas.filter(a => a.k === k).length;
   console.log(`Gebäude ${buildings.length}, Wald ${cnt(1)}, offen ${cnt(2)}, Siedlung ${cnt(3)}, Wasser ${cnt(4)} + ${lines.length} Wasserläufe, Park ${cnt(7)}`);
-  console.log('→ src/routes/umgebung.json (', (fs.statSync(OUT).size / 1024).toFixed(0), 'kB ). Danach: git add -A && git commit && git push');
+  console.log('→ src/routes/' + OUT.pathname.split('/').pop() + ' (', (fs.statSync(OUT).size / 1024).toFixed(0), 'kB ). Danach: git add -A && git commit && git push');
 }
 main().catch(e => { console.error(e.message); process.exit(1); });
