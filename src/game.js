@@ -1101,24 +1101,82 @@ function updateJoggers(dt){
 
 // ================= Gebäude und Gewässer (OpenStreetMap) =================
 if(OSM){
-  const wallC=[0xd9d2c3,0xcfc5b0,0xbfa58a,0xa8523f,0xe6e0d4,0xb8b2a8,0xc9b79a].map(c=>new THREE.Color(c)),roofC=[0x6b3b2e,0x4a4a4e,0x7a4a38,0x555a5e,0x5e3a33].map(c=>new THREE.Color(c));
-  const geos=[];
+  // --- Fassaden- und Dachtexturen (im Code erzeugt, Kachel = 5 m breit x 6 m hoch bzw. 1,6 m Ziegelreihen) ---
+  const mkTex=(w,h,draw)=>{const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);const tx=new THREE.CanvasTexture(c);tx.wrapS=tx.wrapT=THREE.RepeatWrapping;tx.anisotropy=4;tx.encoding=THREE.sRGBEncoding;return tx;};
+  const noise=(x,w,h,n,a)=>{for(let i=0;i<n;i++){const v=Math.random()<0.5?0:255;x.fillStyle='rgba('+v+','+v+','+v+','+(Math.random()*a)+')';x.fillRect(Math.random()*w,Math.random()*h,1+Math.random()*2,1+Math.random()*2);}};
+  const facadeTex=mkTex(256,256,(x,w,h)=>{
+    x.fillStyle='#f3efe6';x.fillRect(0,0,w,h);noise(x,w,h,2600,0.07);
+    for(let f=0;f<2;f++){const cy=h*(f?0.25:0.75),ww=w*0.26,wh=h*0.2,cx=w*0.5;     // zwei Geschosse, je ein Fenster pro 5 m
+      x.fillStyle='#d8d2c6';x.fillRect(cx-ww/2-5,cy-wh/2-5,ww+10,wh+10+4);            // Laibung
+      const gr=x.createLinearGradient(0,cy-wh/2,0,cy+wh/2);gr.addColorStop(0,'#6f8aa3');gr.addColorStop(0.55,'#2d3c4b');gr.addColorStop(1,'#1d2733');
+      x.fillStyle=gr;x.fillRect(cx-ww/2,cy-wh/2,ww,wh);
+      x.fillStyle='#f6f4ee';x.fillRect(cx-ww/2,cy-wh/2,ww,3);x.fillRect(cx-ww/2,cy+wh/2-3,ww,3);x.fillRect(cx-ww/2,cy-wh/2,3,wh);x.fillRect(cx+ww/2-3,cy-wh/2,3,wh);x.fillRect(cx-1.5,cy-wh/2,3,wh);x.fillRect(cx-ww/2,cy-2,ww,4);   // Rahmen + Kreuz
+      x.fillStyle='rgba(255,255,255,0.22)';x.beginPath();x.moveTo(cx-ww/2+3,cy+wh/2-3);x.lineTo(cx-ww/2+3,cy-wh/2+3);x.lineTo(cx-ww*0.1,cy-wh/2+3);x.closePath();x.fill();   // Spiegelung
+      x.fillStyle='#bdb6a8';x.fillRect(cx-ww/2-8,cy+wh/2+4,ww+16,5);}                // Fensterbank
+    x.fillStyle='rgba(0,0,0,0.10)';x.fillRect(0,h-6,w,6);x.fillRect(0,h*0.5-2,w,3);     // Sockel + Geschossfuge
+  });
+  const roofTex=mkTex(128,128,(x,w,h)=>{
+    x.fillStyle='#fff';x.fillRect(0,0,w,h);const rows=8,rh=h/rows;
+    for(let r=0;r<rows;r++){for(let c=0;c<8;c++){const ox=(r%2)*w/16,v=200+Math.random()*55|0;x.fillStyle='rgb('+v+','+(v-8)+','+(v-14)+')';x.fillRect(c*w/8+ox,r*rh,w/8-1.5,rh-1);}
+      x.fillStyle='rgba(0,0,0,0.35)';x.fillRect(0,r*rh+rh-2,w,2);}
+    noise(x,w,h,900,0.12);
+  });
+  const wallC=[0xf0eadc,0xe6dccb,0xd6c3a6,0xc2674f,0xefe9de,0xcfc9bf,0xdcc9a6,0xe9d9b8].map(c=>new THREE.Color(c)),roofC=[0xb5593f,0x9a4a38,0x6a6f75,0x5c5a60,0xa8664a,0x7a3f31].map(c=>new THREE.Color(c));
+  const wallG=[],roofG=[];
+  const uvWall=(g,plain)=>{const p=g.attributes.position,nr=g.attributes.normal,uv=new Float32Array(p.count*2);
+    for(let v=0;v<p.count;v++){
+      if(plain||Math.abs(nr.getY(v))>0.5){uv[v*2]=0.03;uv[v*2+1]=0.03;continue;}   // Dachflaechen/Kappen: neutraler Fleck der Fassadentextur
+      const nx=nr.getX(v),nz=nr.getZ(v),tx=-nz,tz=nx;uv[v*2]=(p.getX(v)*tx+p.getZ(v)*tz)/5;uv[v*2+1]=p.getY(v)/6;}
+    g.setAttribute('uv',new THREE.BufferAttribute(uv,2));};
+  const tint=(g,col,sh)=>{const n=g.attributes.position.count,cl=new Float32Array(n*3);for(let v=0;v<n;v++){cl[v*3]=col.r*sh;cl[v*3+1]=col.g*sh;cl[v*3+2]=col.b*sh;}g.setAttribute('color',new THREE.BufferAttribute(cl,3));};
   OSM.buildings.forEach(b=>{
     const n=b.p.length/2;if(n<3)return;
     let gmin=1e9,gmax=-1e9,area=0;
     for(let a=0;a<n;a++){const x=b.p[a*2],z=b.p[a*2+1],g=gnd(x,z);gmin=Math.min(gmin,g);gmax=Math.max(gmax,g);const a2=(a+1)%n;area+=b.p[a*2]*b.p[a2*2+1]-b.p[a2*2]*b.p[a*2+1];}
-    if(Math.abs(area)/2<12)return;
+    area=Math.abs(area)/2;if(area<12)return;
+    const wc=wallC[(rnd()*wallC.length)|0],rc=b.r?new THREE.Color(0x5d6b6a):roofC[(rnd()*roofC.length)|0],sh=0.92+rnd()*0.14;
+    // kleinste umschliessende Rechteck-Ausrichtung (fuer Satteldach)
+    let best=null;
+    for(let a=0;a<n;a++){const a2=(a+1)%n,dx=b.p[a2*2]-b.p[a*2],dz=b.p[a2*2+1]-b.p[a*2+1],l=Math.hypot(dx,dz);if(l<0.5)continue;const ux=dx/l,uz=dz/l;
+      let u0=1e9,u1=-1e9,v0=1e9,v1=-1e9;for(let k=0;k<n;k++){const px=b.p[k*2],pz=b.p[k*2+1],uu=px*ux+pz*uz,vv=-px*uz+pz*ux;u0=Math.min(u0,uu);u1=Math.max(u1,uu);v0=Math.min(v0,vv);v1=Math.max(v1,vv);}
+      const A=(u1-u0)*(v1-v0);if(!best||A<best.A)best={A,ux,uz,u0,u1,v0,v1};}
+    const gable=!b.r&&best&&n<=10&&area<420&&b.h<14&&area/best.A>0.78&&Math.min(best.u1-best.u0,best.v1-best.v0)>3.2;
+    let top;                                       // Traufhoehe
+    if(gable){
+      const L=best.u1-best.u0,W=best.v1-best.v0,longU=L>=W,half=Math.min(L,W)/2,ridge=Math.min(half*0.62,4.4),eave=Math.max(2.7,b.h-ridge*0.55),oh=0.4;
+      top=gmax+eave;
+      // lokales Rechteck: Achse e1 (laenger) = Firstrichtung
+      const ux=best.ux,uz=best.uz,vx=-uz,vz=ux,cu=(best.u0+best.u1)/2,cv=(best.v0+best.v1)/2;
+      const e1=longU?[ux,uz]:[vx,vz],e2=longU?[vx,vz]:[ux,uz],c1=longU?cu:cv,c2=longU?cv:cu,h1=(longU?L:W)/2+oh,h2=(longU?W:L)/2+oh;
+      const toXZ=(s,t)=>[e1[0]*(c1+s)+e2[0]*(c2+t),e1[1]*(c1+s)+e2[1]*(c2+t)];
+      const yE=top,yR=top+ridge;
+      const V=(s,t,y)=>{const q=toXZ(s,t);return [q[0],y,q[1]];};
+      // zwei Dachflaechen (Dreiecke) mit Dachziegel-UV (Meter / 1,6 bzw. Hangweite)
+      const slope=Math.hypot(h2,ridge),roofPos=[],roofUV=[];
+      const quad=(A,B,C,D,uA,vA,uB,vB,uC,vC,uD,vD)=>{roofPos.push(...A,...B,...C,...A,...C,...D);roofUV.push(uA,vA,uB,vB,uC,vC,uA,vA,uC,vC,uD,vD);};
+      quad(V(-h1,-h2,yE),V(h1,-h2,yE),V(h1,0,yR),V(-h1,0,yR),-h1/1.6,0,h1/1.6,0,h1/1.6,slope/1.6,-h1/1.6,slope/1.6);
+      quad(V(h1,h2,yE),V(-h1,h2,yE),V(-h1,0,yR),V(h1,0,yR),-h1/1.6,0,h1/1.6,0,h1/1.6,slope/1.6,-h1/1.6,slope/1.6);
+      const rg=new THREE.BufferGeometry();rg.setAttribute('position',new THREE.Float32BufferAttribute(roofPos,3));rg.setAttribute('uv',new THREE.Float32BufferAttribute(roofUV,2));rg.computeVertexNormals();
+      tint(rg,rc,sh);roofG.push(rg);
+      // Giebeldreiecke (Wandmaterial) an beiden Stirnseiten
+      const gp=[];[-1,1].forEach(sg=>{const A=V(sg*(h1-oh),-(h2-oh),yE),B=V(sg*(h1-oh),h2-oh,yE),C=V(sg*(h1-oh),0,yR-0.0);gp.push(...(sg>0?[A,B,C]:[B,A,C]).flat());});
+      const gg=new THREE.BufferGeometry();gg.setAttribute('position',new THREE.Float32BufferAttribute(gp,3));gg.computeVertexNormals();
+      uvWall(gg,false);tint(gg,wc,sh);wallG.push(gg);
+      // Schornstein auf manchen Daechern
+      if(rnd()<0.45){const cs=(rnd()-0.5)*h1*1.2,q=toXZ(cs,0.35*h2),ch=new THREE.BoxGeometry(0.6,1.7,0.6).toNonIndexed();ch.translate(q[0],yR-ridge*0.12+0.6,q[1]);uvWall(ch,true);tint(ch,new THREE.Color(0x8a5a48),1);wallG.push(ch);}
+    }else top=gmax+b.h;
+    // Wandkoerper (Grundriss extrudiert) + Flachdach-Kappe
     const shp=new THREE.Shape();for(let a=0;a<n;a++){const x=b.p[a*2],y=-b.p[a*2+1];a?shp.lineTo(x,y):shp.moveTo(x,y);}
-    const dep=(gmax-gmin)+b.h+0.4,g=new THREE.ExtrudeGeometry(shp,{depth:dep,bevelEnabled:false});
+    const dep=(top-gmin)+0.4,g=new THREE.ExtrudeGeometry(shp,{depth:dep,bevelEnabled:false});
     g.rotateX(-Math.PI/2);g.translate(0,gmin-0.4,0);
-    const wc=wallC[(rnd()*wallC.length)|0],rc=b.r?new THREE.Color(0x5d6b6a):roofC[(rnd()*roofC.length)|0],nr=g.attributes.normal,cl=new Float32Array(nr.count*3),sh=0.9+rnd()*0.2;
-    for(let v=0;v<nr.count;v++){const c=nr.getY(v)>0.5?rc:wc;cl[v*3]=c.r*sh;cl[v*3+1]=c.g*sh;cl[v*3+2]=c.b*sh;}
-    g.setAttribute('color',new THREE.BufferAttribute(cl,3));g.deleteAttribute('uv');geos.push(g);
+    uvWall(g,false);tint(g,wc,sh);
+    if(!gable){   // Flachdach: Kappe dunkler (Bitumen/Kies)
+      const nr=g.attributes.normal,cl=g.attributes.color,cc=new THREE.Color(b.r?0x5d6b6a:0x5f5c59);for(let v=0;v<nr.count;v++)if(nr.getY(v)>0.5){cl.setXYZ(v,cc.r*sh,cc.g*sh,cc.b*sh);}
+    }
+    wallG.push(g);
   });
-  if(geos.length){
-    const mg=BufferGeometryUtils.mergeBufferGeometries(geos),m=new THREE.Mesh(mg,new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.9,metalness:0}));
-    m.castShadow=true;m.receiveShadow=true;m.frustumCulled=false;scene.add(m);
-  }
+  const addMesh=(arr,map)=>{if(!arr.length)return;const mg=BufferGeometryUtils.mergeBufferGeometries(arr);const m=new THREE.Mesh(mg,new THREE.MeshStandardMaterial({map:map,vertexColors:true,roughness:0.88,metalness:0,side:THREE.DoubleSide}));m.castShadow=true;m.receiveShadow=true;m.frustumCulled=false;scene.add(m);};
+  addMesh(wallG,facadeTex);addMesh(roofG,roofTex);
   const wm=new THREE.MeshStandardMaterial({color:0x35607a,roughness:0.18,metalness:0.1,transparent:true,opacity:0.92,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
   OSM.areas.forEach(a=>{
     if(a.k!==4)return;const n=a.p.length/2;if(n<4)return;
