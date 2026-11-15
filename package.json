@@ -14,7 +14,8 @@
     "wuppertal": "npm run terrain -- wuppertal && npm run osm -- wuppertal && npm run surfaces -- wuppertal",
     "hagen": "npm run terrain -- hagen && npm run osm -- hagen && npm run surfaces -- hagen",
     "iserlohn": "npm run terrain -- iserlohn && npm run osm -- iserlohn && npm run surfaces -- iserlohn",
-    "strecken": "npm run wuppertal && npm run hagen && npm run iserlohn"
+    "hemer": "npm run terrain -- hemer && npm run osm -- hemer && npm run surfaces -- hemer",
+    "strecken": "npm run wuppertal && npm run hagen && npm run iserlohn && npm run hemer"
   },
   "dependencies": {
     "three": "0.128.0"
