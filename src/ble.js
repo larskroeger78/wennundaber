@@ -105,7 +105,8 @@ export class Trainer {
 // Erkannte Tastendrücke rufen onShift(+1/-1) auf. Zusätzlich funktionieren die Tasten + / - (oder Bild hoch/runter) im Spiel.
 export class ClickPad {
   // Click v1 = ein Gerät mit + und −. Click v2 = zwei getrennte Geräte (links −, rechts +): beide koppeln, der erste Druck auf den LINKEN legt die Rollen fest.
-  constructor() { this.devs = []; this.log = []; this.onShift = () => {}; this.onChange = () => {}; this.onNote = () => {}; this.onUnknown = () => {}; this.err = ''; this.calib = false; this.lastBit = -1; this._solo = { down: 0, role: 0 }; }
+  constructor() { this.devs = []; this.log = []; this.dlog = []; this.t0 = Date.now(); this.kaOk = 0; this.rxN = 0; this.rxT = 0; this.onShift = () => {}; this.onChange = () => {}; this.onNote = () => {}; this.onUnknown = () => {}; this.err = ''; this.calib = false; this.lastBit = -1; this._solo = { down: 0, role: 0 }; }
+  dbg(m) { this.dlog.push(((Date.now() - this.t0) / 1000).toFixed(1).padStart(6) + ' s  ' + m); if (this.dlog.length > 80) this.dlog.shift(); }
   get connected() { return this.devs.some(x => !x.lost); }
   get name() { return this.devs.length > 1 ? this.devs.length + ' Click' : (this.devs[0] ? this.devs[0].name : ''); }
   async connect() {
@@ -118,8 +119,10 @@ export class ClickPad {
     const dev = await navigator.bluetooth.requestDevice({ filters: [{ services: [ADV] }, { services: [ZSV] }, { namePrefix: 'Zwift' }], optionalServices: [ADV, ZSV] });
     if (this.devs.some(x => x.id === dev.id)) throw new Error('Dieser Click ist schon verbunden – bitte den anderen wählen.');
     const d = { id: dev.id, name: dev.name || 'Zwift Click', down: 0, role: 0, dev, lost: false };
-    dev.addEventListener('gattserverdisconnected', () => { clearTimeout(d.ht); d.down = 0; this._lost(d); });
+    dev.addEventListener('gattserverdisconnected', () => { this.dbg('GETRENNT (gattserverdisconnected) · KA ok ' + this.kaOk + ' · letztes Paket vor ' + ((Date.now() - this.rxT) / 1000).toFixed(0) + ' s'); clearTimeout(d.ht); d.down = 0; this._lost(d); });
+    this.dbg('Geraet gewaehlt: ' + d.name);
     await this._setup(d);
+    this.dbg('verbunden, Dienste/Benachrichtigungen aktiv');
     this.devs.push(d); this._reset(); this.onChange();
   }
   async _setup(d) {
@@ -147,20 +150,20 @@ export class ClickPad {
   // Verbindung weg (Click schlaeft ein / Funkabbruch): automatisch neu verbinden, ohne neues Koppeln
   async _lost(d) {
     if (!this.devs.includes(d) || d.reconnecting) return;
-    d.lost = true; d.reconnecting = true; this.onChange();
+    this.dbg('Verbindung weg -> versuche neu zu verbinden'); d.lost = true; d.reconnecting = true; this.onChange();
     // Sobald der Click wieder funkt (Taste druecken), sofort verbinden
     try { if (d.dev.watchAdvertisements) { d.dev.addEventListener('advertisementreceived', () => { d.adv = true; }, { once: true }); d.dev.watchAdvertisements().catch(() => {}); } } catch (e) {}
     while (d.lost && !d.gone && this.devs.includes(d)) {
       for (let t = 0; t < 30 && !d.adv; t++) await new Promise(r => setTimeout(r, 100));
       d.adv = false;
-      try { await this._setup(d); this.onNote && this.onNote('Click wieder verbunden'); break; } catch (e) { this.err = e.message; }
+      try { await this._setup(d); this.dbg('wieder verbunden'); this.onNote && this.onNote('Click wieder verbunden'); break; } catch (e) { this.err = e.message; this.dbg('Neuverbinden fehlgeschlagen: ' + e.message); }
       await new Promise(r => setTimeout(r, 1500));
     }
     d.reconnecting = false; this.onChange();
   }
   // Abbruch erkennen, auch wenn der Browser das Ereignis nicht liefert
   // Zusaetzlich alle 3 s RideOn als Lebenszeichen (Click schaltet sonst nach ca. 1 Minute in den Ruhezustand und trennt)
-  watch() { setInterval(() => { for (const d of this.devs) if (!d.lost && d.rx && d.dev.gatt && d.dev.gatt.connected) d.rx.writeValueWithoutResponse(new Uint8Array([0x52, 0x69, 0x64, 0x65, 0x4f, 0x6e, 0x01, 0x02])).catch(() => {}); }, 3000);
+  watch() { setInterval(() => { for (const d of this.devs) if (!d.lost && d.rx && d.dev.gatt && d.dev.gatt.connected) d.rx.writeValueWithoutResponse(new Uint8Array([0x52, 0x69, 0x64, 0x65, 0x4f, 0x6e, 0x01, 0x02])).then(() => { this.kaOk++; if (this.kaOk % 20 === 1) this.dbg('Lebenszeichen #' + this.kaOk + ' ok · Pakete ' + this.rxN); }).catch(e => this.dbg('Lebenszeichen FEHLER: ' + (e && e.message || e))); }, 3000);
   setInterval(() => { for (const d of this.devs) if (!d.lost && d.dev.gatt && !d.dev.gatt.connected) this._lost(d); }, 2000); }
   _reset() { for (const x of this.devs) x.role = 0; this.calib = false; }
   // Behelf fuer den linken (verschluesselten) Click: Plus-Taste kurz = +1 (beim Loslassen), lang halten (>= LONG_MS) = −1
@@ -177,6 +180,7 @@ export class ClickPad {
   }
   _rx(uuid, b, d) {
     d = d || this._solo;
+    this.rxN++; this.rxT = Date.now(); if (this.rxN <= 6 || this.rxN % 50 === 0) this.dbg('Paket #' + this.rxN + ' 0x' + b[0].toString(16) + ' len ' + b.length);
     // Button-Meldung (Typ 0x23, Protobuf): Feld 1 = 32-Bit-Maske, alle Bits 1 = nichts gedrückt, gedrückte Taste = Bit 0 (0x19 = Keepalive)
     if (b[0] === 0x23 && b.length >= 3) {
       const f = parsePb(b.slice(1));

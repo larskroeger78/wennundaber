@@ -88,3 +88,5 @@ button.main{background:#e14230;color:#fff;font-size:30px;padding:12px 34px}
 #hint button.on{color:#f5a524;border-color:#f5a524}
 #hint button:active{background:rgba(245,165,36,.8);color:#111}
 @media (pointer:coarse){#hint button{padding:12px 14px;font-size:14px;min-height:44px}#menuBtn{top:72px}}
+
+.clog{font:11px/1.35 ui-monospace,Menlo,monospace;text-align:left;white-space:pre-wrap;opacity:.8;margin:8px 0 0;padding:6px 8px;background:rgba(0,0,0,.35);border-radius:6px;max-height:190px;overflow:auto}
