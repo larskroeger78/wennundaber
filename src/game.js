@@ -332,10 +332,13 @@ scene.add(sun);scene.add(sun.target);
 function resize(){const w=window.innerWidth,h=window.innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
 window.addEventListener('resize',resize);resize();
 // Qualitaetsstufen (Taste Q): Aufloesung, Schattenkarte
-const TILES=[];const TREE_FAR=[0,420,620,900];   // Sichtweite fuer Baum-/Buschkacheln je Qualitaetsstufe (m)
+const TILES=[];const TREE_FAR=[0,300,560,950];let GRS=null;   // Sichtweite fuer Baum-/Buschkacheln je Qualitaetsstufe (m)
 const QN={1:'Niedrig',2:'Mittel',3:'Hoch'};let quality=2;try{quality=clamp(+localStorage.getItem('miworu_q')||2,1,3);}catch(e){}
 function applyQ(){
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,[0,1,1.5,2][quality]));
+  const dpr=window.devicePixelRatio||1;
+  renderer.setPixelRatio([0,Math.min(dpr,0.7),Math.min(dpr,1.25),Math.max(Math.min(dpr,2),1.5)][quality]);   // Niedrig bewusst weich, Hoch mit Supersampling
+  scene.fog.density=[0,0.0009,0.00055,0.0004][quality];                                                        // Niedrig: naeher Dunst, spart Fernsicht
+  sun.castShadow=quality>1;if(GRS)GRS.visible=quality>1;                                                       // Niedrig: keine Schatten, kein Gras
   const sz=[0,1024,2048,4096][quality];
   if(sun.shadow.mapSize.x!==sz){sun.shadow.mapSize.set(sz,sz);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null;}}
   resize();
@@ -811,7 +814,7 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
     DUM.rotation.set(0,rnd()*6.283,0);DUM.position.set(t.x,t.y,t.z);DUM.scale.set(t.w,t.h,t.w);DUM.updateMatrix();grs.setMatrixAt(i,DUM.matrix);
     grs.setColorAt(i,TC.setRGB(0.5+t.dry*0.4,0.55+t.dry*0.25,0.4+t.dry*0.08));
   });
-  grs.receiveShadow=true;grs.frustumCulled=false;scene.add(grs);
+  grs.receiveShadow=true;grs.frustumCulled=false;scene.add(grs);GRS=grs;grs.visible=quality>1;
   // Bergab: Untergrund wird wurzelig und steinig (je steiler, desto mehr), Wurzeln queren den Weg, Steine liegen drauf und daneben
   {
     const rootG=new THREE.CylinderGeometry(0.45,1,1,7);rootG.rotateZ(Math.PI/2);
@@ -1384,15 +1387,18 @@ const miniBase=document.createElement('canvas');miniBase.width=miniBase.height=1
 let dr=false;prof.addEventListener('pointerdown',e=>{dr=true;try{prof.setPointerCapture(e.pointerId);}catch(_){}jump(e);e.preventDefault();});
 prof.addEventListener('pointermove',e=>{if(dr)jump(e);});prof.addEventListener('pointerup',()=>{dr=false;});prof.addEventListener('pointercancel',()=>{dr=false;});}
 const profBase=document.createElement('canvas');profBase.width=420;profBase.height=64;
-const profY=i=>58-(PY[i]/HTOP)*50;
+let pMin=1e9,pMax=-1e9;for(let i=0;i<N;i++){if(PY[i]<pMin)pMin=PY[i];if(PY[i]>pMax)pMax=PY[i];}
+const profY=i=>58-((PY[i]-pMin)/Math.max(20,pMax-pMin))*50;   // Hoehenprofil an die Strecke angepasst, nichts wird abgeschnitten
 (function(){
   const g=profBase.getContext('2d');
   g.fillStyle='rgba(0,0,0,0.35)';g.fillRect(0,0,420,64);
-  surfRuns((sf,a,b)=>{
-    g.fillStyle=SURFFILL[sf];g.beginPath();g.moveTo(a/N*420,62);
-    for(let i=a;i<=b;i+=4)g.lineTo(i/N*420,profY(i));
-    g.lineTo(b/N*420,profY(b));g.lineTo(b/N*420,62);g.closePath();g.fill();
-  });
+  const RGB=[[230,230,230,0.8],[217,194,122,0.85],[245,165,36,0.9]],ST=Math.max(1,Math.floor(N/420));
+  for(let i=0;i<N;i+=ST){   // Spaltenweise: Untergrundfarbe, steile Abfahrten zunehmend rot
+    let st=0,n=0;for(let k=Math.max(0,i-7);k<Math.min(N,i+ST+7);k++){st+=GR[k];n++;}st=Math.max(0,Math.min(1,(-st/n-6)/6));   // ab ~6 % bergab rot, voll bei ~12 %
+    const c=RGB[SURF[Math.min(N-1,i)]||0]||RGB[0],r=Math.round(c[0]+(214-c[0])*st),gg=Math.round(c[1]+(40-c[1])*st),b=Math.round(c[2]+(34-c[2])*st);
+    g.fillStyle='rgba('+r+','+gg+','+b+','+(c[3]+(0.95-c[3])*st)+')';
+    const x0=i/N*420,y=profY(Math.min(N-1,i+(ST>>1)));g.fillRect(x0,y,ST/N*420+0.6,62-y);
+  }
 })();
 let lastSec=-1;
 function drawHud(){
