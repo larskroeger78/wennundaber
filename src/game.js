@@ -59,7 +59,7 @@ const mix3=(a,b,t)=>[lerp(a[0],b[0],t),lerp(a[1],b[1],t),lerp(a[2],b[2],t)];
 const HTOP=90,RTOP=62,RBASE=340,KR=(RBASE-RTOP)/HTOP,SEG=2,NHN0=(RT&&RT.nhn0!==undefined)?RT.nhn0:55.8;
 const TRACK_NAME='Halde Großes Holz · Uphill + Trail „Highway“';
 const SECN=ROUTE?['Asphaltweg','Schotterweg','Trail']:['Anfahrt am Haldenfuß','Uphill · Asphalt','Zwischenplateau · Blauer Leuchtmarker','Uphill · Asphalt','Gipfelplateau · 145,8 m ü. NHN','Trail „Highway“'];
-const PLACE=ROUTE?RT.label+' · '+(RT.custom?'GPX':(RT.place||'Bergkamen')):'Halde Großes Holz · Bergkamen';
+const PLACE=ROUTE?RT.label+(((RT.custom?'GPX':(RT.place||'Bergkamen'))===RT.label)?'':' · '+(RT.custom?'GPX':(RT.place||'Bergkamen'))):'Halde Großes Holz · Bergkamen';
 const coneH=r=>HTOP*clamp((RBASE-r)/(RBASE-RTOP),0,1);
 
 const raw=[];
