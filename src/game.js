@@ -646,6 +646,38 @@ const trunkGeo=new THREE.CylinderGeometry(0.6,1,1,6,1,true);trunkGeo.translate(0
 const trunkMat=new THREE.MeshLambertMaterial({color:C(0x6a5f52)});
 applyPhoto(trunkMat,'tree_bark_03',2,7,{normal:false,color:new THREE.Color(0.75,0.72,0.7)});
 const DUM=new THREE.Object3D(),TC=new THREE.Color();
+// Baumart je Strecke: Wuppertal/Hagen/Iserlohn dichte Fichten (Nadelwald), Bergkamen Birken; andere Strecken wie bisher
+const SPEC=(RT&&['wuppertal','hagen','iserlohn'].indexOf(RT.dem)>=0)?'fir':(RT===ROUTES.tour2?'birch':null);
+const firGeo=(function(){
+  const pos=[],nrm=[],uv=[],S=7,T=4;
+  for(let i=0;i<T;i++){
+    const yb=i*0.22,hh=0.4,r=0.5*(1-i*0.19),ph=i*0.9;
+    for(let k=0;k<S;k++){
+      const a0=ph+k/S*6.2832,a1=ph+(k+1)/S*6.2832,am=(a0+a1)/2;
+      const P=[[Math.cos(a0)*r,yb,Math.sin(a0)*r],[Math.cos(a1)*r,yb,Math.sin(a1)*r],[Math.cos(am)*r*0.04,yb+hh,Math.sin(am)*r*0.04]];
+      const U=[[k/S,0],[(k+1)/S,0],[(k+0.5)/S,1]];
+      for(let q=0;q<3;q++){pos.push(P[q][0],P[q][1],P[q][2]);uv.push(U[q][0]*2,U[q][1]+i*0.3);
+        const nx=q<2?Math.cos(q?a1:a0):Math.cos(am),nz=q<2?Math.sin(q?a1:a0):Math.sin(am),ny=q<2?0.55:0.9;const l=Math.hypot(nx,ny,nz);nrm.push(nx/l,ny/l,nz/l);}
+    }
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(nrm,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+  return g;
+})();
+const texFir=canvasTex(128,128,(g,w,h)=>{
+  g.fillStyle='#3c6530';g.fillRect(0,0,w,h);
+  for(let i=0;i<520;i++){const x=rnd()*w,y=rnd()*h,l=6+rnd()*14,an=Math.PI/2+(rnd()-0.5)*1.6;
+    g.strokeStyle='hsl('+(100+rnd()*28)+','+(28+rnd()*22)+'%,'+(14+rnd()*22)+'%)';g.lineWidth=1+rnd()*1.5;
+    g.beginPath();g.moveTo(x,y);g.lineTo(x+Math.cos(an)*l,y+Math.sin(an)*l);g.stroke();}
+},true);
+const texBirch=canvasTex(64,128,(g,w,h)=>{
+  g.fillStyle='#e4e1d8';g.fillRect(0,0,w,h);
+  for(let i=0;i<34;i++){const y=rnd()*h,x=rnd()*w,ww=5+rnd()*22;g.fillStyle='rgba(28,26,24,'+(0.5+rnd()*0.4)+')';g.fillRect(x,y,ww,1.5+rnd()*3.5);}
+  for(let i=0;i<40;i++){g.fillStyle='rgba(120,115,105,0.22)';g.fillRect(rnd()*w,rnd()*h,2+rnd()*8,1+rnd()*2);}
+},true);
+texBirch.repeat.set(1,3);
+const firMat=new THREE.MeshLambertMaterial({map:texFir,side:THREE.DoubleSide});
+const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
 
 (function plant(){
   const trees=[],bushes=[],tufts=[];
@@ -657,8 +689,11 @@ const DUM=new THREE.Object3D(),TC=new THREE.Color();
   }
   function addTree(x,z,scale){
     let H=(7+rnd()*7)*scale,cw=(3.6+rnd()*3.4)*scale,ch=H*(0.5+rnd()*0.18);
+    if(SPEC==='fir'){H=(15+rnd()*11)*scale;cw=(3.2+rnd()*2.0)*scale;ch=H*(0.84+rnd()*0.08);}
+    else if(SPEC==='birch'){H=(9+rnd()*6)*scale;cw=(2.8+rnd()*2.2)*scale;ch=H*(0.5+rnd()*0.15);}
+    if(SPEC==='fir'&&nearest(allHash,x,z)&&nD<10)cw*=0.7;
     if(nearest(allHash,x,z)&&(ROUTE?SURF[nI]===2:nI>=iTrail-3)&&nD<8){H=Math.max(H,9+rnd()*3);ch=Math.min(ch,H-4.8);}
-    trees.push({x:x,y:gnd(x,z)-0.2,z:z,H:H,cw:cw,ch:ch,rad:0.11+rnd()*0.14,rot:rnd()*6.283});
+    trees.push({x:x,y:gnd(x,z)-0.2,z:z,H:H,cw:cw,ch:ch,rad:(SPEC==='birch'?0.07+rnd()*0.07:SPEC==='fir'?0.16+rnd()*0.12:0.11+rnd()*0.14),rot:rnd()*6.283});
   }
   if(!ROUTE)for(let gx=-560;gx<=560;gx+=7)for(let gz=-560;gz<=560;gz+=7){
     const x=gx+(rnd()-0.5)*6,z=gz+(rnd()-0.5)*6,r=Math.hypot(x,z);
@@ -728,7 +763,7 @@ const DUM=new THREE.Object3D(),TC=new THREE.Color();
       for(let k=0;k<5;k++){
         if(rnd()<0.2)continue;
         const o=(HW[i]+1.8+Math.pow(rnd(),1.5)*75)*(rnd()<0.5?-1:1),x=PX[i]+rx*o+(rnd()-0.5)*3,z=PZ[i]+rz*o+(rnd()-0.5)*3;
-        if(rnd()>forestD(x,z)*1.5||!clearOf(x,z,0.3))continue;
+        if(rnd()>forestD(x,z)*(SPEC==='fir'?2.1:1.5)||!clearOf(x,z,SPEC==='fir'?1.4:0.3))continue;
         addTree(x,z,0.85+rnd()*0.3);
       }
       if(rnd()<0.4){
@@ -756,13 +791,15 @@ const DUM=new THREE.Object3D(),TC=new THREE.Color();
       TILES.push({m:m,x:cx,z:cz,sh:shadow});
     });
   }
-  tiled(trees,foliageGeo,leafMat,(t,i,m,cx,cz)=>{
+  tiled(trees,SPEC==='fir'?firGeo:foliageGeo,SPEC==='fir'?firMat:leafMat,(t,i,m,cx,cz)=>{
     DUM.rotation.set(0,t.rot,0);DUM.position.set(t.x-cx,t.y+t.H-t.ch,t.z-cz);DUM.scale.set(t.cw,t.ch,t.cw);DUM.updateMatrix();m.setMatrixAt(i,DUM.matrix);
-    const tb=0.8+rnd()*0.45;m.setColorAt(i,TC.setRGB(tb*(0.85+rnd()*0.35),tb,tb*(0.7+rnd()*0.25)));
-  },true,leafDepth);
-  tiled(trees,trunkGeo,trunkMat,(t,i,m,cx,cz)=>{
+    if(SPEC==='fir'){const tb=1.1+rnd()*0.6;m.setColorAt(i,TC.setRGB(tb*(0.85+rnd()*0.2),tb,tb*(0.8+rnd()*0.2)));}
+    else if(SPEC==='birch'){const tb=0.95+rnd()*0.4;m.setColorAt(i,TC.setRGB(tb*1.08,tb*1.12,tb*0.6));}
+    else{const tb=0.8+rnd()*0.45;m.setColorAt(i,TC.setRGB(tb*(0.85+rnd()*0.35),tb,tb*(0.7+rnd()*0.25)));}
+  },true,SPEC==='fir'?null:leafDepth);
+  tiled(trees,trunkGeo,SPEC==='birch'?birchTrunkMat:trunkMat,(t,i,m,cx,cz)=>{
     DUM.rotation.set(0,t.rot,0);DUM.position.set(t.x-cx,t.y,t.z-cz);DUM.scale.set(t.rad,t.H-t.ch*0.45,t.rad);DUM.updateMatrix();m.setMatrixAt(i,DUM.matrix);
-    const tg=0.65+rnd()*0.6;m.setColorAt(i,TC.setRGB(tg,tg*0.97,tg*0.92));
+    const tg=SPEC==='birch'?0.85+rnd()*0.25:0.65+rnd()*0.6;m.setColorAt(i,TC.setRGB(tg,tg*0.97,tg*0.92));
   },true,null);
   tiled(bushes,foliageGeo,leafMat,(b,i,m,cx,cz)=>{
     DUM.rotation.set(0,rnd()*6.283,0);DUM.position.set(b.x-cx,b.y,b.z-cz);DUM.scale.set(b.w,b.h,b.w);DUM.updateMatrix();m.setMatrixAt(i,DUM.matrix);
