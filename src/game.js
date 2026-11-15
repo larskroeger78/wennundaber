@@ -1168,7 +1168,7 @@ setInterval(()=>{const e=document.getElementById('clog');if(e)e.textContent='Cli
 let logFile=null,logN=-1;
 setInterval(async()=>{if(!logFile||logN===click.dlog.length+':'+click.rxN)return;const k=click.dlog.length+':'+click.rxN;try{const w=await logFile.createWritable();await w.write('Click-Protokoll '+new Date().toISOString()+'\n'+click.dlog.join('\n')+'\n');await w.close();logN=k;}catch(e){}},2000);
 let bleKey='';
-const bleChange=()=>{if(trainer.connected)inputMode='trainer';else if(inputMode==='trainer')inputMode='keyboard';const ck=click.connected+'|'+click.devs.length;if(bleKey.indexOf(ck)<0&&bleMsg.indexOf('Click')===0)bleMsg='';const k=trainer.connected+'|'+ck+'|'+bleMsg;if(k===bleKey)return;bleKey=k;if(ov.style.display!=='none'&&lastMenu)menu(lastMenu[0],lastMenu[1]);};
+const bleChange=()=>{if(trainer.connected)inputMode='trainer';else if(inputMode==='trainer')inputMode='keyboard';const ck=click.connected+'|'+click.devs.length;if(bleKey.indexOf(ck)<0&&bleMsg.indexOf('Click')===0)bleMsg='';const k=trainer.connected+'|'+ck+'|'+bleMsg;if(k===bleKey)return;bleKey=k;if(ov.style.display!=='none'&&lastMenu&&!helpOpen)menu(lastMenu[0],lastMenu[1]);};
 trainer.onChange=bleChange;click.onChange=bleChange;   // FPV: Cockpit-Ansicht aus Fahrersicht (Taste C wechselt)
 const cockpitEl=document.getElementById('cockpit'),glowEl=document.getElementById('glow'),_cd=new THREE.Vector3(),_sv=new THREE.Vector3();
 function reset(){SHK.y=SHK.vy=SHK.r=SHK.vr=0;SHK.i=0;st={pos:0,v:0,x:0.4,power:0,t:0,crank:0.6,wheel:0,lean:0,bar:0,pitch:0,done:false};resetJoggers();}
@@ -1309,8 +1309,25 @@ function mineHtml(){   // Streckenliste: feste Strecken + eigene GPX-Strecken (Z
     +(e.id===GPX_ID?'<span class="act">aktiv</span>':'<button class="sec" data-gpx-go="'+e.id+'">Fahren</button>')+'<button class="sec" data-gpx-ren="'+e.id+'" title="Umbenennen">✎</button><button class="sec" data-gpx-del="'+e.id+'" title="Löschen">🗑</button></div>').join('');
   return h+'</div>';
 }
+let helpOpen=false;
+function showHelp(){
+  helpOpen=true;ov.style.display='flex';
+  ov.innerHTML='<div class="intro"><div class="panel">'+
+    '<div class="by">by Wenn &amp; Aber Bike Crew</div><h1>So fährst du</h1>'+
+    '<div class="help keys">'+
+    '<div><b>↑</b> treten &nbsp;·&nbsp; <b>↓</b> bremsen &nbsp;·&nbsp; mit Trainer: einfach treten</div>'+
+    '<div><b>+</b> / <b>−</b> (oder Bild↑/↓): Gang schwerer / leichter</div>'+
+    '<div>Zwift Click (rechts): <b>+</b> kurz drücken = schwerer · gedrückt halten oder andere Taste = leichter</div>'+
+    '<div><b>1</b> Leicht (Steigungen nur 40 %) · <b>2</b> Normal · <b>3</b> Hardcore (Steigungen 150 %) · auch oben rechts antippbar</div>'+
+    '<div><b>Q</b> Grafik: Niedrig / Mittel / Hoch · <b>C</b> Ansicht (Cockpit/Außen) · <b>R</b> Neustart · <b>Esc</b> Pause und Menü</div>'+
+    '<div>Ins <b>Höhenprofil</b> klicken oder ziehen: an diese Stelle der Strecke springen</div>'+
+    '<div class="note">Lenken und Ausweichen laufen automatisch. Abfahrten sind neutral: Tempo entsteht nur durchs Treten.</div></div>'+
+    '<div class="btns"><button id="hback" class="main">← Zurück</button></div>'+
+  '</div></div>';
+  document.getElementById('hback').onclick=()=>{helpOpen=false;if(lastMenu)menu(lastMenu[0],lastMenu[1]);};
+}
 function menu(title,sub){
-  lastMenu=[title,sub];menuBtn.style.display='none';
+  helpOpen=false;lastMenu=[title,sub];menuBtn.style.display='none';
   ov.style.display='flex';hudBox.style.display=sub?'block':'none';
   const km=(TOTAL/1000).toFixed(1).replace('.',',');
   ov.innerHTML='<div class="intro">'+
@@ -1321,14 +1338,8 @@ function menu(title,sub){
       (sub?'<div class="res">'+sub+'</div>':'')+
       '<div class="route">'+(ROUTE?RT.label:TRACK_NAME)+'<span>'+(ROUTE&&RT.place?RT.place:'Bergkamen und Umland')+'</span></div>'+
       '<div class="stats"><div><b>'+km+'</b><i>km</i></div><div><b>'+HM+'</b><i>Höhenmeter</i></div></div>'+
-      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused||SAVED?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(click.connected?'Zwift Click: verbunden ✓':(click.devs.length?'Zwift Click: getrennt – neu koppeln':'Zwift Click koppeln'))+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button>'+'<button id="dif" class="sec">Schwierigkeit: '+DIFFN[diff]+'</button><button id="qual" class="sec">Grafik: '+QN[quality]+'</button><button id="gpx" class="sec">GPX-Strecke laden</button><input id="gpxf" type="file" accept=".gpx,.xml,application/gpx+xml" style="display:none"></div>'+mineHtml()+
+      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused||SAVED?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(click.connected?'Zwift Click: verbunden ✓':(click.devs.length?'Zwift Click: getrennt – neu koppeln':'Zwift Click koppeln'))+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button>'+'<button id="dif" class="sec">Schwierigkeit: '+DIFFN[diff]+'</button><button id="qual" class="sec">Grafik: '+QN[quality]+'</button><button id="gpx" class="sec">GPX-Strecke laden</button><button id="hlp" class="sec">So fährst du</button><input id="gpxf" type="file" accept=".gpx,.xml,application/gpx+xml" style="display:none"></div>'+mineHtml()+
       '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?'Bluetooth nur in Chrome/Edge (nicht Safari).':'D100 oder KICKR einschalten, dann „Trainer koppeln“.')+(bleMsg?'<br>'+bleMsg:'')+((click.devs.length||click.dlog.length)?'<pre id="clog" class="clog"></pre>'+(window.showSaveFilePicker?'<button id="clogsave" class="sec" style="margin-top:6px">'+(logFile?'Protokoll-Datei aktiv ✓':'Protokoll in Datei schreiben')+'</button>':''):'')+(click.connected?'<br>'+click.name+' verbunden'+'<br>Click: kurz drücken = schwerer · gedrückt halten = leichter':'')+'</div>'+
-      '<div class="help keys"><div class="kh">So fährst du</div>'+
-      '<div><b>↑</b> treten &nbsp;·&nbsp; <b>↓</b> bremsen &nbsp;·&nbsp; mit Trainer: einfach treten</div>'+
-      '<div><b>+</b> / <b>−</b> (oder Bild↑/↓) Gang schwerer / leichter · Zwift Click: kurz drücken = schwerer, gedrückt halten = leichter</div>'+
-      '<div><b>1</b> Leicht (Steigungen nur 40 %) · <b>2</b> Normal · <b>3</b> Hardcore (Steigungen 150 %) · auch oben rechts antippbar</div>'+
-      '<div><b>Q</b> Grafik: Niedrig / Mittel / Hoch · <b>C</b> Ansicht (Cockpit/Außen) · <b>R</b> Neustart · <b>Esc</b> Pause und Menü</div>'+
-      '<div class="note">Lenken und Ausweichen laufen automatisch. Abfahrten sind neutral: Tempo entsteht nur durchs Treten.</div></div>'+
     '</div></div>';
   const gpxf=document.getElementById('gpxf');
   const go=id=>{const q='?route=gpx_'+id;const same=location.search===q;location.href=location.pathname+q+'#go';if(same)location.reload();};
@@ -1352,6 +1363,7 @@ function menu(title,sub){
   document.getElementById('mode').onclick=()=>{inputMode=inputMode==='keyboard'?'off':'keyboard';menu(title,sub);};
   document.querySelectorAll('[data-route]').forEach(b=>b.onclick=()=>{const r=b.getAttribute('data-route');location.href=location.pathname+(r?'?route='+r:'')+'#go';});
   document.getElementById('trn').onclick=async()=>{bleMsg='';try{await trainer.connect();}catch(e){bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Trainer: '+(e&&e.message||e);}menu(title,sub);};
+  document.getElementById('hlp').onclick=showHelp;
   const cs=document.getElementById('clogsave');if(cs)cs.onclick=async()=>{try{logFile=await window.showSaveFilePicker({suggestedName:'click-log.txt'});logN=-1;cs.textContent='Protokoll-Datei aktiv ✓';}catch(e){}};
   document.getElementById('clk').onclick=async()=>{bleMsg='';try{await click.connect();}catch(e){click.dbg('Koppeln fehlgeschlagen: '+(e&&e.name||'')+' '+(e&&e.message||e));bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Click: '+(e&&e.message||e);}menu(title,sub);};
   document.getElementById('go').onclick=paused?resume:(SAVED?startSaved:start);
