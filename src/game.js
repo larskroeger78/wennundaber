@@ -239,6 +239,9 @@ function routePresence(x,z){return fld(FG.S2,x,z)/FG.s2m;}
 // Landschaft aus OpenStreetMap (npm run osm -> src/routes/umgebung.json): Wald, Felder, Siedlung, Wasser, Gebäude
 const OSM_F=import.meta.glob('./routes/*umgebung.json',{eager:true});
 const OSM=(()=>{const k=DATA_KEY(OSM_F,0,'umgebung.json');return ROUTE&&!CUS&&k?(OSM_F[k].default||OSM_F[k]):null;})();
+// Amtliche 3D-Gebaeude LoD2 (npm run lod2 -- <strecke>): echte Dachformen und Hoehen, ersetzen die OSM-Gebaeude
+const LOD2_F=import.meta.glob('./routes/*.lod2.json',{eager:true});
+const LOD2=(()=>{const k=DATA_KEY(LOD2_F,0,'lod2.json');return ROUTE&&!CUS&&OSM&&k?(LOD2_F[k].default||LOD2_F[k]):null;})();
 const LUC=4,LW=OSM?Math.ceil((FG.nx-1)*FG.G/LUC)+2:0,LH=OSM?Math.ceil((FG.nz-1)*FG.G/LUC)+2:0;
 const LU=OSM?{K:new Float32Array(LW*LH),FD:new Float32Array(LW*LH),OP:new Float32Array(LW*LH),UR:new Float32Array(LW*LH),WA:new Float32Array(LW*LH),B:new Uint8Array(LW*LH)}:null;
 if(LU){
@@ -1213,7 +1216,42 @@ if(OSM){
       const nx=nr.getX(v),nz=nr.getZ(v),tx=-nz,tz=nx;uv[v*2]=(p.getX(v)*tx+p.getZ(v)*tz)/5;uv[v*2+1]=p.getY(v)/6;}
     g.setAttribute('uv',new THREE.BufferAttribute(uv,2));};
   const tint=(g,col,sh)=>{const n=g.attributes.position.count,cl=new Float32Array(n*3);for(let v=0;v<n;v++){cl[v*3]=col.r*sh;cl[v*3+1]=col.g*sh;cl[v*3+2]=col.b*sh;}g.setAttribute('color',new THREE.BufferAttribute(cl,3));};
-  OSM.buildings.forEach(b=>{
+  const buildLod2=()=>{
+    const wP=[],wC=[],rP=[],rC=[],rU=[];
+    const triOf=V=>{
+      const n=V.length;let nx=0,ny=0,nz=0;
+      for(let i=0;i<n;i++){const a=V[i],b=V[(i+1)%n];nx+=(a[1]-b[1])*(a[2]+b[2]);ny+=(a[2]-b[2])*(a[0]+b[0]);nz+=(a[0]-b[0])*(a[1]+b[1]);}
+      const l=Math.hypot(nx,ny,nz)||1;let t;
+      if(n===3)t=[[0,1,2]];else if(n===4)t=[[0,1,2],[0,2,3]];
+      else{const ax=Math.abs(nx),ay=Math.abs(ny),az=Math.abs(nz);
+        const pr=ay>=ax&&ay>=az?V.map(v=>new THREE.Vector2(v[0],v[2])):ax>=az?V.map(v=>new THREE.Vector2(v[1],v[2])):V.map(v=>new THREE.Vector2(v[0],v[1]));
+        t=THREE.ShapeUtils.triangulateShape(pr,[]);}
+      return {t:t,n:[nx/l,ny/l,nz/l]};
+    };
+    const pushT=(arr,carr,V,t,col,sh)=>{t.forEach(tr=>tr.forEach(k=>{arr.push(V[k][0],V[k][1],V[k][2]);carr.push(col.r*sh,col.g*sh,col.b*sh);}));};
+    const flatC=new THREE.Color(0x5f5c59);
+    LOD2.b.forEach(poly=>{
+      const wc=wallC[(rnd()*wallC.length)|0],rc=roofC[(rnd()*roofC.length)|0],sh=0.92+rnd()*0.14;
+      poly.forEach(f=>{
+        const k=f[0],q=f[1],n=q.length/3,V=[];
+        for(let i=0;i<n;i++)V.push([q[i*3],q[i*3+1]-NHN0,q[i*3+2]]);
+        if(k==='g'){   // Grundriss: Sockelwaende bis unter das Gelaende, damit nichts schwebt
+          for(let i=0;i<n;i++){const a=V[i],b=V[(i+1)%n],lo=Math.min(gnd(a[0],a[2]),gnd(b[0],b[2]),a[1],b[1])-0.6;
+            const Q=[[a[0],a[1],a[2]],[b[0],b[1],b[2]],[b[0],lo,b[2]],[a[0],lo,a[2]]];pushT(wP,wC,Q,[[0,1,2],[0,2,3]],wc,sh*0.97);}
+          return;
+        }
+        const T=triOf(V);
+        if(k==='w'){pushT(wP,wC,V,T.t,wc,sh);return;}
+        if(Math.abs(T.n[1])>0.97){pushT(wP,wC,V,T.t,flatC,sh);return;}   // Flachdach: dunkle Kappe
+        // geneigte Dachflaeche: Ziegel-UV entlang Traufe (u) und Hang (v)
+        const hl=Math.hypot(T.n[0],T.n[2])||1,tx=-T.n[2]/hl,tz=T.n[0]/hl,sx=T.n[1]*T.n[0]/hl,sz=T.n[1]*T.n[2]/hl,sy=-hl;
+        T.t.forEach(tr=>tr.forEach(i=>{const v=V[i];rP.push(v[0],v[1],v[2]);rC.push(rc.r*sh,rc.g*sh,rc.b*sh);rU.push((v[0]*tx+v[2]*tz)/1.6,(v[0]*sx+v[1]*sy+v[2]*sz)/1.6);}));
+      });
+    });
+    if(wP.length){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(wP,3));g.setAttribute('color',new THREE.Float32BufferAttribute(wC,3));g.computeVertexNormals();uvWall(g,false);wallG.push(g);}
+    if(rP.length){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(rP,3));g.setAttribute('color',new THREE.Float32BufferAttribute(rC,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(rU,2));g.computeVertexNormals();roofG.push(g);}
+  };
+  if(LOD2)buildLod2();else OSM.buildings.forEach(b=>{
     const n=b.p.length/2;if(n<3)return;
     let gmin=1e9,gmax=-1e9,area=0;
     for(let a=0;a<n;a++){const x=b.p[a*2],z=b.p[a*2+1],g=gnd(x,z);gmin=Math.min(gmin,g);gmax=Math.max(gmax,g);const a2=(a+1)%n;area+=b.p[a*2]*b.p[a2*2+1]-b.p[a2*2]*b.p[a*2+1];}
