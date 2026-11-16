@@ -15,7 +15,9 @@
     "hagen": "npm run terrain -- hagen && npm run osm -- hagen && npm run surfaces -- hagen",
     "iserlohn": "npm run terrain -- iserlohn && npm run osm -- iserlohn && npm run surfaces -- iserlohn",
     "hemer": "npm run terrain -- hemer && npm run osm -- hemer && npm run surfaces -- hemer",
-    "strecken": "npm run wuppertal && npm run hagen && npm run iserlohn && npm run hemer"
+    "miworu": "npm run terrain -- miworu && npm run osm -- miworu && npm run surfaces -- miworu",
+    "buellberg": "npm run terrain -- buellberg && npm run osm -- buellberg && npm run surfaces -- buellberg",
+    "strecken": "npm run miworu && npm run hagen && npm run iserlohn && npm run hemer && npm run buellberg"
   },
   "dependencies": {
     "three": "0.128.0"
