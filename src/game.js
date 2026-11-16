@@ -240,6 +240,9 @@ function routePresence(x,z){return fld(FG.S2,x,z)/FG.s2m;}
 // Luftbilder (DOP): kommen asynchron; Gelaende- und Dachfarben werden danach nachgefaerbt
 const DOP_J=import.meta.glob('./routes/*.dop.json',{eager:true}),DOP_I=import.meta.glob('./routes/*.dop-*.jpg',{eager:true,query:'?url',import:'default'});
 const DOPHOOK=[];let dopAt=()=>null;
+const CAN_F=import.meta.glob('./routes/*.canopy.json',{eager:true});
+const CAN=(()=>{const k=Object.keys(CAN_F).find(k=>k.split('/').pop()===((RT&&RT.dem)?RT.dem+'.canopy.json':'canopy.json'));if(!(RT&&!RT.custom&&k))return null;
+  const j=CAN_F[k].default||CAN_F[k],bin=atob(j.t),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return new Int16Array(u.buffer);})();   // Baeume aus Laserscan: x,z,Hoehe,Kronenradius (dm)
 const OSM_F=import.meta.glob('./routes/*umgebung.json',{eager:true});
 const OSM=(()=>{const k=DATA_KEY(OSM_F,0,'umgebung.json');return ROUTE&&!CUS&&k?(OSM_F[k].default||OSM_F[k]):null;})();
 // Amtliche 3D-Gebaeude LoD2 (npm run lod2 -- <strecke>): echte Dachformen und Hoehen, ersetzen die OSM-Gebaeude
@@ -735,7 +738,16 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
     if(!clearOf(x,z,0))continue;
     addTree(x,z,1);
   }
-  if(ROUTE&&LU){       // Wälder aus OpenStreetMap auch abseits der Strecke
+  if(ROUTE&&CAN){      // echte Baeume (DOM-DGM): Position, Hoehe, Kronenradius wie im Laserscan
+    for(let i=0;i<CAN.length;i+=4){
+      const x=CAN[i]/10,z=CAN[i+1]/10,h=CAN[i+2]/10,r=CAN[i+3]/10;
+      if(!clearOf(x,z,h<6?0.6:0.3))continue;
+      if(h<5.5){if(rnd()<0.85)bushes.push({x:x,y:gnd(x,z)-0.1,z:z,w:Math.max(0.9,r*1.7),h:Math.max(0.7,h*0.75)});continue;}
+      const ch=h*(0.5+rnd()*0.15);
+      trees.push({x:x,y:gnd(x,z)-0.2,z:z,H:h,cw:Math.max(1.6,r*1.55),ch:Math.min(ch,h-2.2),rad:0.07+rnd()*0.07,rot:rnd()*6.283});
+    }
+  }
+  if(ROUTE&&LU&&!CAN){       // Wälder aus OpenStreetMap auch abseits der Strecke
     for(let gx=FG.ox+20;gx<FG.ox+(FG.nx-1)*FG.G-20;gx+=7)for(let gz=FG.oz+20;gz<FG.oz+(FG.nz-1)*FG.G-20;gz+=7){
       const x=gx+(rnd()-0.5)*6,z=gz+(rnd()-0.5)*6,f=lu(LU.FD,x,z);
       if(f<0.15||rnd()>Math.min(1,f*1.1))continue;
@@ -794,8 +806,7 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
       for(let k=0;k<5;k++){
         if(rnd()<0.2)continue;
         const o=(HW[i]+1.8+Math.pow(rnd(),1.5)*75)*(rnd()<0.5?-1:1),x=PX[i]+rx*o+(rnd()-0.5)*3,z=PZ[i]+rz*o+(rnd()-0.5)*3;
-        if(rnd()>forestD(x,z)*(SPEC==='fir'?2.1:1.5)||!clearOf(x,z,SPEC==='fir'?1.4:0.3))continue;
-        addTree(x,z,0.85+rnd()*0.3);
+        if(!CAN&&!(rnd()>forestD(x,z)*(SPEC==='fir'?2.1:1.5)||!clearOf(x,z,SPEC==='fir'?1.4:0.3)))addTree(x,z,0.85+rnd()*0.3);
       }
       if(rnd()<0.4){
         const o=(HW[i]+1.3+rnd()*7)*(rnd()<0.5?-1:1),x=PX[i]+rx*o,z=PZ[i]+rz*o;
