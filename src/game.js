@@ -237,6 +237,9 @@ function fld(a,x,z){
 }
 function routePresence(x,z){return fld(FG.S2,x,z)/FG.s2m;}
 // Landschaft aus OpenStreetMap (npm run osm -> src/routes/umgebung.json): Wald, Felder, Siedlung, Wasser, Gebäude
+// Luftbilder (DOP): kommen asynchron; Gelaende- und Dachfarben werden danach nachgefaerbt
+const DOP_J=import.meta.glob('./routes/*.dop.json',{eager:true}),DOP_I=import.meta.glob('./routes/*.dop-*.jpg',{eager:true,query:'?url',import:'default'});
+const DOPHOOK=[];let dopAt=()=>null;
 const OSM_F=import.meta.glob('./routes/*umgebung.json',{eager:true});
 const OSM=(()=>{const k=DATA_KEY(OSM_F,0,'umgebung.json');return ROUTE&&!CUS&&k?(OSM_F[k].default||OSM_F[k]):null;})();
 // Amtliche 3D-Gebaeude LoD2 (npm run lod2 -- <strecke>): echte Dachformen und Hoehen, ersetzen die OSM-Gebaeude
@@ -506,7 +509,7 @@ function forestD(x,z){
 (function buildTerrain(){
   const G=4,X0=ROUTE?FG.ox:-660,Z0=ROUTE?FG.oz:-660;
   const nx=ROUTE?Math.floor((FG.nx-1)*FG.G/G):330,nz=ROUTE?Math.floor((FG.nz-1)*FG.G/G):330,VX=nx+1,VZ=nz+1;
-  const pos=new Float32Array(VX*VZ*3),col=new Float32Array(VX*VZ*3),col2=new Float32Array(VX*VZ*3),uv=new Float32Array(VX*VZ*2);
+  const dopM=new Float32Array(VX*VZ).fill(1),pos=new Float32Array(VX*VZ*3),col=new Float32Array(VX*VZ*3),col2=new Float32Array(VX*VZ*3),uv=new Float32Array(VX*VZ*2);
   let p=0,q=0,u=0;
   for(let iz=0;iz<VZ;iz++){
     for(let ix=0;ix<VX;ix++){
@@ -515,6 +518,7 @@ function forestD(x,z){
       const found=nI>=0&&nD<OUTR[nI]+4,d=nD,i=nI;
       pos[p++]=x;pos[p++]=h;pos[p++]=z;
       uv[u++]=x/7;uv[u++]=z/7;
+      if(found&&d<HW[i]+3)dopM[iz*VX+ix]=0;
       let c=mix3(cGrassA,cGrassB,fbm(x/22+1,z/22+4));
       if(ROUTE){
         c=mix3(c,cDry,0.3*fbm(x/40+8,z/40)+0.35*sstep(38,64,h));
@@ -558,6 +562,7 @@ function forestD(x,z){
     const nr=g.attributes.normal.array;
     for(let v=0;v<VX*VZ;v++){
       const ny=nr[v*3+1],t=sstep(0.93,0.8,ny)*0.7*(0.6+0.8*fbm(pos[v*3]/3,pos[v*3+2]/3));
+      dopM[v]=Math.min(dopM[v],1-Math.min(1,t*2));
       if(t<=0.01)continue;
       const e=mix3([col[v*3],col[v*3+1],col[v*3+2]],cDirt,Math.min(1,t));
       col[v*3]=e[0];col[v*3+1]=e[1];col[v*3+2]=e[2];
@@ -568,6 +573,17 @@ function forestD(x,z){
   const tm=new THREE.MeshStandardMaterial({map:texGround,vertexColors:true,roughness:1,metalness:0});
   // In Kacheln zerlegt (je 40x40 Zellen = 160 m), damit nur sichtbare Gelaendestuecke gezeichnet werden (Frustum-Culling)
   const CH=40,chunks=[],col2A=new THREE.BufferAttribute(col2,3);
+  DOPHOOK.push(()=>{   // Luftbild: Farbton vom Foto, Helligkeit/Struktur bleiben vom Spiel
+    for(let v=0;v<VX*VZ;v++){
+      if(dopM[v]<=0.02)continue;
+      const s=dopAt(pos[v*3],pos[v*3+2],2);if(!s)continue;
+      const lt=0.3*col[v*3]+0.59*col[v*3+1]+0.11*col[v*3+2],ld=0.3*s[0]+0.59*s[1]+0.11*s[2]+1e-3,k=Math.max(0.6,Math.min(1.6,lt/ld));
+      const e=mix3([col[v*3],col[v*3+1],col[v*3+2]],[s[0]*k,s[1]*k,s[2]*k],0.55*dopM[v]);
+      col[v*3]=e[0];col[v*3+1]=e[1];col[v*3+2]=e[2];
+      col2[v*3]=Math.min(1.6,e[0]/0.50);col2[v*3+1]=Math.min(1.6,e[1]/0.42);col2[v*3+2]=Math.min(1.6,e[2]/0.20);
+    }
+    g.attributes.color.needsUpdate=true;col2A.needsUpdate=true;
+  });
   for(let cz=0;cz<nz;cz+=CH)for(let cx=0;cx<nx;cx+=CH){
     const ex=Math.min(nx,cx+CH),ez=Math.min(nz,cz+CH),ia=new Uint32Array((ex-cx)*(ez-cz)*6);let kk=0,y0=1e9,y1=-1e9;
     for(let iz=cz;iz<ez;iz++)for(let ix=cx;ix<ex;ix++){const a=iz*VX+ix,b=a+1,c2=a+VX,d2=c2+1;ia[kk++]=a;ia[kk++]=c2;ia[kk++]=b;ia[kk++]=b;ia[kk++]=c2;ia[kk++]=d2;}
@@ -1217,7 +1233,7 @@ if(OSM){
     g.setAttribute('uv',new THREE.BufferAttribute(uv,2));};
   const tint=(g,col,sh)=>{const n=g.attributes.position.count,cl=new Float32Array(n*3);for(let v=0;v<n;v++){cl[v*3]=col.r*sh;cl[v*3+1]=col.g*sh;cl[v*3+2]=col.b*sh;}g.setAttribute('color',new THREE.BufferAttribute(cl,3));};
   const buildLod2=()=>{
-    const wP=[],wC=[],rP=[],rC=[],rU=[];
+    const wP=[],wC=[],rP=[],rC=[],rU=[],rB=[];
     const triOf=V=>{
       const n=V.length;let nx=0,ny=0,nz=0;
       for(let i=0;i<n;i++){const a=V[i],b=V[(i+1)%n];nx+=(a[1]-b[1])*(a[2]+b[2]);ny+=(a[2]-b[2])*(a[0]+b[0]);nz+=(a[0]-b[0])*(a[1]+b[1]);}
@@ -1231,7 +1247,7 @@ if(OSM){
     const pushT=(arr,carr,V,t,col,sh)=>{t.forEach(tr=>tr.forEach(k=>{arr.push(V[k][0],V[k][1],V[k][2]);carr.push(col.r*sh,col.g*sh,col.b*sh);}));};
     const flatC=new THREE.Color(0x5f5c59);
     LOD2.b.forEach(poly=>{
-      const wc=wallC[(rnd()*wallC.length)|0],rc=roofC[(rnd()*roofC.length)|0],sh=0.92+rnd()*0.14;
+      const wc=wallC[(rnd()*wallC.length)|0],rc=roofC[(rnd()*roofC.length)|0],sh=0.92+rnd()*0.14,rb={a:rC.length,b:0,pts:[],sh:sh};
       poly.forEach(f=>{
         const k=f[0],q=f[1],n=q.length/3,V=[];
         for(let i=0;i<n;i++)V.push([q[i*3],q[i*3+1]-NHN0,q[i*3+2]]);
@@ -1245,11 +1261,20 @@ if(OSM){
         if(Math.abs(T.n[1])>0.97){pushT(wP,wC,V,T.t,flatC,sh);return;}   // Flachdach: dunkle Kappe
         // geneigte Dachflaeche: Ziegel-UV entlang Traufe (u) und Hang (v)
         const hl=Math.hypot(T.n[0],T.n[2])||1,tx=-T.n[2]/hl,tz=T.n[0]/hl,sx=T.n[1]*T.n[0]/hl,sz=T.n[1]*T.n[2]/hl,sy=-hl;
-        T.t.forEach(tr=>tr.forEach(i=>{const v=V[i];rP.push(v[0],v[1],v[2]);rC.push(rc.r*sh,rc.g*sh,rc.b*sh);rU.push((v[0]*tx+v[2]*tz)/1.6,(v[0]*sx+v[1]*sy+v[2]*sz)/1.6);}));
+        rb.pts.push(V[0][0],V[0][2]);T.t.forEach(tr=>tr.forEach(i=>{const v=V[i];rP.push(v[0],v[1],v[2]);rC.push(rc.r*sh,rc.g*sh,rc.b*sh);rU.push((v[0]*tx+v[2]*tz)/1.6,(v[0]*sx+v[1]*sy+v[2]*sz)/1.6);}));
       });
+      rb.b=rC.length;if(rb.b>rb.a)rB.push(rb);
     });
     if(wP.length){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(wP,3));g.setAttribute('color',new THREE.Float32BufferAttribute(wC,3));g.computeVertexNormals();uvWall(g,false);wallG.push(g);}
-    if(rP.length){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(rP,3));g.setAttribute('color',new THREE.Float32BufferAttribute(rC,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(rU,2));g.computeVertexNormals();roofG.push(g);}
+    if(rP.length){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(rP,3));g.setAttribute('color',new THREE.Float32BufferAttribute(rC,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(rU,2));g.computeVertexNormals();roofG.push(g);
+      DOPHOOK.push(()=>{   // Dachfarbe je Gebaeude aus dem Luftbild
+        const ca=g.attributes.color,arr=ca.array;
+        rB.forEach(r=>{let R=0,G=0,B=0,c=0;
+          for(let i=0;i<r.pts.length;i+=2){const s=dopAt(r.pts[i],r.pts[i+1],1);if(s){R+=s[0];G+=s[1];B+=s[2];c++;}}
+          if(!c)return;R/=c;G/=c;B/=c;const m=Math.max(R,G,B,0.01),lift=Math.min(1.5,0.5/m*0.9+0.4);   // Schattenseiten im Foto etwas aufhellen
+          for(let i=r.a;i<r.b;i+=3){arr[i]=Math.min(1,R*lift)*r.sh;arr[i+1]=Math.min(1,G*lift)*r.sh;arr[i+2]=Math.min(1,B*lift)*r.sh;}
+        });ca.needsUpdate=true;
+      });}
   };
   if(LOD2)buildLod2();else OSM.buildings.forEach(b=>{
     const n=b.p.length/2;if(n<3)return;
@@ -1638,6 +1663,22 @@ let tileN=0;
 function updateTiles(cp){   // weit entfernte Kacheln nicht zeichnen, Schatten nur im Nahbereich (Schattenkarte deckt nur +-90 m ab)
   const far=TREE_FAR[quality],far2=(far+130)*(far+130),sh2=(running||st.done?170:520)*(running||st.done?170:520);
   for(let i=0;i<TILES.length;i++){const T=TILES[i],dx=T.x-cp.x,dz=T.z-cp.z,d2=dx*dx+dz*dz;T.m.visible=d2<far2;if(T.sh)T.m.castShadow=d2<sh2;}
+}
+{   // Luftbilder laden und in den Spielfarben verwenden
+  const dk=DATA_KEY(DOP_J,0,'dop.json');
+  if(dk&&ROUTE&&!CUS&&DOPHOOK.length){
+    const M=DOP_J[dk].default||DOP_J[dk],res=M.res||1,ids=M.tiles.map(t=>{const k=Object.keys(DOP_I).find(q=>q.split('/').pop()===t.f);return k?DOP_I[k]:null;});
+    const E0=Math.min(...M.tiles.map(t=>t.e0)),E1=Math.max(...M.tiles.map(t=>t.e0+t.w*res)),N1=Math.max(...M.tiles.map(t=>t.n1)),N0=Math.min(...M.tiles.map(t=>t.n1-t.h*res));
+    const W=Math.ceil((E1-E0)/res),H=Math.ceil((N1-N0)/res),cv=document.createElement('canvas');cv.width=W;cv.height=H;const cx=cv.getContext('2d',{willReadFrequently:true});
+    Promise.all(M.tiles.map((t,i)=>new Promise(ok=>{if(!ids[i])return ok();const im=new Image();im.onload=()=>{cx.drawImage(im,Math.round((t.e0-E0)/res),Math.round((N1-t.n1)/res),t.w,t.h);ok();};im.onerror=()=>ok();im.src=ids[i];}))).then(()=>{
+      let D;try{D=cx.getImageData(0,0,W,H).data;}catch(e){return;}
+      const a=M.aff;
+      dopAt=(x,z,r)=>{const E=a.E0+a.ex*x+a.ez*z,N=a.N0+a.nx*x+a.nz*z,px=Math.round((E-E0)/res),py=Math.round((N1-N)/res);
+        let R=0,G=0,B=0,c=0;for(let j=-r;j<=r;j++)for(let i=-r;i<=r;i++){const X=px+i,Y=py+j;if(X<0||Y<0||X>=W||Y>=H)continue;const o=(Y*W+X)*4;if(D[o+3]<250)continue;R+=D[o];G+=D[o+1];B+=D[o+2];c++;}
+        return c?[R/c/255,G/c/255,B/c/255]:null;};
+      DOPHOOK.forEach(f=>{try{f();}catch(e){console.warn('DOP',e);}});
+    });
+  }
 }
 let last=performance.now();
 function loop(now){
