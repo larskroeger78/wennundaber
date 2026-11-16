@@ -488,7 +488,7 @@ function textTex(txt,bg,fg){
 }
 
 // ================= Gelände =================
-const cGrassA=L3(0x5f7d34),cGrassB=L3(0x84903f),cDry=L3(0xa39a5c),cForest=L3(0x3d4a25),cGravel=L3(0x837c6d),cDirt=L3(0x5c4730),cRough=L3(0x2b2019),cField=L3(0x6d8a3e),cUrban=L3(0x8f9180),cWater=L3(0x3b5f70);
+const cGrassA=L3(0x5f7d34),cGrassB=L3(0x84903f),cDry=L3(0xa39a5c),cForest=L3(0x3d4a25),cGravel=L3(0x837c6d),cDirt=L3(0x5c4730),cRough=L3(0x2b2019),cLitter=L3(0x4b3a22),cSoil=L3(0x6a4f33),cStoneG=L3(0x77726a),cField=L3(0x6d8a3e),cUrban=L3(0x8f9180),cWater=L3(0x3b5f70);
 function forestD(x,z){
   if(ROUTE){
     let f=sstep(0.05,0.2,routePresence(x,z))*(sstep(0.26,0.42,fbm(x/90+3,z/90+9))*0.7+0.3);
@@ -528,7 +528,14 @@ function forestD(x,z){
         else if(ROUTE&&SURF[i]===1)c=mix3(c,cDirt,(1-sstep(HW[i],HW[i]+2.2,d))*0.55);
         else c=mix3(c,cGravel,(1-sstep(HW[i]+0.4,HW[i]+2.8,d))*0.9);
       }
-      if(found&&STEEP[i]>0.02)c=mix3(c,cRough,STEEP[i]*(1-sstep(HW[i]*0.9,HW[i]+3.4,d))*(0.75+0.25*fbm(x/1.6,z/1.6)));
+      if(found&&STEEP[i]>0.02){   // steile Abfahrt: Laubstreu, nackte Erde, Steinflecken statt einheitlich dunkel
+        const wR=STEEP[i]*(1-sstep(HW[i]*0.9,HW[i]+3.4,d));
+        const n1=fbm(x/0.8+5,z/0.8),n2=fbm(x/2.4,z/2.4+7),n3=fbm(x/0.35,z/0.35);
+        let b=mix3(cLitter,cSoil,sstep(0.35,0.62,n2));
+        b=mix3(b,cStoneG,sstep(0.52,0.68,n1)*0.85);
+        const k=0.78+0.5*n3;b=[b[0]*k,b[1]*k,b[2]*k];
+        c=mix3(c,b,Math.min(1,wR*(0.8+0.3*n2)));
+      }
       col2[q]=Math.min(1.6,c[0]/0.50);col2[q+1]=Math.min(1.6,c[1]/0.42);col2[q+2]=Math.min(1.6,c[2]/0.20);
       col[q++]=c[0];col[q++]=c[1];col[q++]=c[2];
     }
@@ -818,8 +825,27 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
   grs.receiveShadow=true;grs.frustumCulled=false;scene.add(grs);GRS=grs;grs.visible=quality>1;
   // Bergab: Untergrund wird wurzelig und steinig (je steiler, desto mehr), Wurzeln queren den Weg, Steine liegen drauf und daneben
   {
-    const rootG=new THREE.CylinderGeometry(0.45,1,1,7);rootG.rotateZ(Math.PI/2);
-    const stoneG=new THREE.DodecahedronGeometry(1,0);
+    const rootG=(function(){   // knorrige Wurzel: taucht an beiden Enden in den Boden, in der Mitte gewoelbt, unregelmaessig dick
+      const SG=10,RD=7,pos=[],uv=[],idx=[];
+      for(let a=0;a<=SG;a++){
+        const t=a/SG,x=t-0.5,pr=Math.pow(Math.sin(Math.PI*Math.min(0.98,Math.max(0.02,t))),0.55);
+        const cy=-1.15+1.7*Math.pow(Math.sin(Math.PI*t),0.8)+0.25*Math.sin(t*11),cz=0.45*Math.sin(t*7.3+1.3)+0.3*Math.sin(t*3.1);
+        const bulge=1+0.35*Math.sin(t*19+0.7)+0.25*Math.sin(t*6);
+        for(let b=0;b<=RD;b++){
+          const ang=b/RD*6.2832,rr=pr*bulge*(0.85+0.3*Math.sin(ang*3+t*9));
+          pos.push(x,cy+Math.sin(ang)*rr*1.05,cz+Math.cos(ang)*rr);uv.push(t*3,b/RD);
+        }
+      }
+      for(let a=0;a<SG;a++)for(let b=0;b<RD;b++){const i0=a*(RD+1)+b,i1=i0+RD+1;idx.push(i0,i1,i0+1,i1,i1+1,i0+1);}
+      const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(idx);g.computeVertexNormals();return g;
+    })();
+    const barkTex=canvasTex(128,64,(g,w,h)=>{g.fillStyle='#5a4631';g.fillRect(0,0,w,h);
+      for(let i=0;i<260;i++){const x=rnd()*w,y=rnd()*h,l=8+rnd()*26;g.strokeStyle='hsl('+(24+rnd()*10)+','+(22+rnd()*18)+'%,'+(10+rnd()*24)+'%)';g.lineWidth=1+rnd()*1.6;g.beginPath();g.moveTo(x,y);g.lineTo(x+l,y+(rnd()-0.5)*3);g.stroke();}
+      for(let i=0;i<40;i++){g.fillStyle='rgba(70,95,45,'+(0.12+rnd()*0.2)+')';g.fillRect(rnd()*w,rnd()*h,3+rnd()*9,2+rnd()*4);}   // Moos
+    },true);
+    const stoneG=(function(){const g=new THREE.DodecahedronGeometry(1,0),p=g.attributes.position;
+      for(let i=0;i<p.count;i++){const x=p.getX(i),y=p.getY(i),z=p.getZ(i),h=Math.sin(Math.round(x*7)*12.9898+Math.round(y*7)*78.233+Math.round(z*7)*37.719)*43758.5453,f=0.82+0.36*(h-Math.floor(h));p.setXYZ(i,x*f,y*f*0.85,z*f);}
+      g.computeVertexNormals();return g;})();
     const roots=[],stones=[];
     for(let i=(ROUTE?0:iTrail);i<N;i++){
       if(ROUTE&&SURF[i]===0)continue;
@@ -840,14 +866,14 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
         const hw=HW[i]*(ROUTE?[1,1.5,1.7][SURF[i]]:1.7),o=(rnd()*2-1)*hw*(rnd()<0.7?0.95:1.6),x=PX[i]+rx*o+Math.sin(h)*(rnd()-0.5)*SEG,z=PZ[i]+rz*o+Math.cos(h)*(rnd()-0.5)*SEG;
         const w=0.05+Math.pow(rnd(),2.4)*0.17;
         if(w>0.07)BUMPS.push({s:i*SEG+(rnd()-0.5)*SEG*0.8,o0:o-0.3-w,o1:o+0.3+w,a:0.15+w*3});
-        stones.push({x:x,y:gnd(x,z)+w*0.18,z:z,w:w,hh:w*(0.45+rnd()*0.35),t:rnd()});
+        stones.push({x:x,y:gnd(x,z)+w*0.08,z:z,w:w,hh:w*(0.45+rnd()*0.35),t:rnd()});
       }
     }
-    const rm=new THREE.InstancedMesh(rootG,new THREE.MeshStandardMaterial({roughness:1,color:0xffffff}),Math.max(1,roots.length));rm.count=roots.length;
-    roots.forEach((r,i)=>{DUM.rotation.set(0,r.a,0);DUM.position.set(r.x,r.y,r.z);DUM.scale.set(r.L,r.r,r.r);DUM.updateMatrix();rm.setMatrixAt(i,DUM.matrix);rm.setColorAt(i,TC.setRGB(0.055+r.t*0.06,0.04+r.t*0.035,0.027+r.t*0.02));});
+    const rm=new THREE.InstancedMesh(rootG,new THREE.MeshStandardMaterial({roughness:1,color:0xffffff,map:barkTex,side:THREE.DoubleSide}),Math.max(1,roots.length));rm.count=roots.length;
+    roots.forEach((r,i)=>{DUM.rotation.set(0,r.a,0);DUM.position.set(r.x,r.y,r.z);DUM.scale.set(r.L,r.r,r.r);DUM.updateMatrix();rm.setMatrixAt(i,DUM.matrix);rm.setColorAt(i,TC.setRGB(0.36+r.t*0.4,0.32+r.t*0.32,0.28+r.t*0.24));});
     rm.castShadow=false;rm.receiveShadow=true;rm.frustumCulled=false;scene.add(rm);
     const sm=new THREE.InstancedMesh(stoneG,new THREE.MeshStandardMaterial({roughness:0.95,color:0xffffff,flatShading:true}),Math.max(1,stones.length));sm.count=stones.length;
-    stones.forEach((r,i)=>{DUM.rotation.set(rnd()*0.6,rnd()*6.283,rnd()*0.6);DUM.position.set(r.x,r.y,r.z);DUM.scale.set(r.w,r.hh,r.w*(0.7+rnd()*0.5));DUM.updateMatrix();sm.setMatrixAt(i,DUM.matrix);const c=0.12+r.t*0.13;sm.setColorAt(i,TC.setRGB(c*1.05,c*0.95,c*0.8));});
+    stones.forEach((r,i)=>{DUM.rotation.set(rnd()*0.6,rnd()*6.283,rnd()*0.6);DUM.position.set(r.x,r.y,r.z);DUM.scale.set(r.w,r.hh,r.w*(0.7+rnd()*0.5));DUM.updateMatrix();sm.setMatrixAt(i,DUM.matrix);const c=0.14+r.t*0.2,q=(r.t*977)%1;sm.setColorAt(i,q<0.2?TC.setRGB(c*0.7,c*0.9,c*0.55):q<0.45?TC.setRGB(c*1.15,c*0.95,c*0.72):TC.setRGB(c*1.05,c*1.02,c*0.95));});
     sm.castShadow=true;sm.receiveShadow=true;sm.frustumCulled=false;scene.add(sm);
     BUMPS.sort((a,b)=>a.s-b.s);
     window.__rs={roots:roots.length,stones:stones.length};
