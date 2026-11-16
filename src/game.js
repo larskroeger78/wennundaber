@@ -240,6 +240,7 @@ function routePresence(x,z){return fld(FG.S2,x,z)/FG.s2m;}
 // Luftbilder (DOP): kommen asynchron; Gelaende- und Dachfarben werden danach nachgefaerbt
 const DOP_J=import.meta.glob('./routes/*.dop.json',{eager:true}),DOP_I=import.meta.glob('./routes/*.dop-*.jpg',{eager:true,query:'?url',import:'default'});
 const DOPHOOK=[];let dopAt=()=>null;
+const OBJ_F=import.meta.glob('./routes/*.objekte.json',{eager:true});
 const CAN_F=import.meta.glob('./routes/*.canopy.json',{eager:true});
 const CAN=(()=>{const k=Object.keys(CAN_F).find(k=>k.split('/').pop()===((RT&&RT.dem)?RT.dem+'.canopy.json':'canopy.json'));if(!(RT&&!RT.custom&&k))return null;
   const j=CAN_F[k].default||CAN_F[k],bin=atob(j.t),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return new Int16Array(u.buffer);})();   // Baeume aus Laserscan: x,z,Hoehe,Kronenradius (dm)
@@ -1674,6 +1675,65 @@ let tileN=0;
 function updateTiles(cp){   // weit entfernte Kacheln nicht zeichnen, Schatten nur im Nahbereich (Schattenkarte deckt nur +-90 m ab)
   const far=TREE_FAR[quality],far2=(far+130)*(far+130),sh2=(running||st.done?170:520)*(running||st.done?170:520);
   for(let i=0;i<TILES.length;i++){const T=TILES[i],dx=T.x-cp.x,dz=T.z-cp.z,d2=dx*dx+dz*dz;T.m.visible=d2<far2;if(T.sh)T.m.castShadow=d2<sh2;}
+}
+{   // Kleinobjekte aus OpenStreetMap: Zaeune, Mauern, Hecken, Leitplanken, Laternen, Baenke, Wegweiser, Masten, Stromleitungen
+  const ok=Object.keys(OBJ_F).find(k=>k.split('/').pop()===((RT&&RT.dem)?RT.dem+'.objekte.json':'objekte.json'));
+  if(ok&&ROUTE&&!CUS){
+    const O=OBJ_F[ok].default||OBJ_F[ok],P=[],Cc=[],Nn=[];
+    const ca=new THREE.Color(),lp=[];
+    // Quader (Mitte, Groesse, Drehung um Y, Farbe) in einen gemeinsamen Puffer
+    const box=(cx,cy,cz,sx,sy,sz,ry,hex,sh)=>{
+      ca.setHex(hex);const c=Math.cos(ry),s=Math.sin(ry),r=ca.r*(sh||1),g=ca.g*(sh||1),b=ca.b*(sh||1);
+      const F=[[[1,0,0],[[.5,-.5,-.5],[.5,.5,-.5],[.5,.5,.5],[.5,-.5,.5]]],[[-1,0,0],[[-.5,-.5,.5],[-.5,.5,.5],[-.5,.5,-.5],[-.5,-.5,-.5]]],[[0,1,0],[[-.5,.5,-.5],[-.5,.5,.5],[.5,.5,.5],[.5,.5,-.5]]],[[0,-1,0],[[-.5,-.5,.5],[-.5,-.5,-.5],[.5,-.5,-.5],[.5,-.5,.5]]],[[0,0,1],[[.5,-.5,.5],[.5,.5,.5],[-.5,.5,.5],[-.5,-.5,.5]]],[[0,0,-1],[[-.5,-.5,-.5],[-.5,.5,-.5],[.5,.5,-.5],[.5,-.5,-.5]]]];
+      F.forEach(f=>{const nx=f[0][0]*c+f[0][2]*s,nz=-f[0][0]*s+f[0][2]*c;
+        [0,1,2,0,2,3].forEach(i=>{const v=f[1][i],lx=v[0]*sx,lz=v[2]*sz;P.push(cx+lx*c+lz*s,cy+v[1]*sy,cz-lx*s+lz*c);Nn.push(nx,f[0][1],nz);Cc.push(r,g,b);});});
+    };
+    const G=(x,z)=>gnd(x,z);
+    const post=(x,z,h,w,hex)=>box(x,G(x,z)+h/2,z,w,h,w,0,hex);
+    O.nodes.forEach(n=>{const k=n[0],x=n[1],z=n[2],y=G(x,z),hh=n[3]||0,rot=rnd()*6.283;
+      if(k==='lamp'){post(x,z,5.2,0.14,0x4a4d52);box(x+0.45,y+5.2,z,1.0,0.12,0.2,rot,0x4a4d52);box(x+0.9,y+5.1,z,0.5,0.12,0.3,rot,0xfff2c0,1.4);}
+      else if(k==='bench'){box(x,y+0.45,z,1.7,0.07,0.5,rot,0x8a6a45);box(x-0.2*Math.sin(rot),y+0.8,z-0.2*Math.cos(rot),1.7,0.45,0.06,rot,0x8a6a45);post(x+0.7*Math.cos(rot),z-0.7*Math.sin(rot),0.45,0.1,0x3a3a3a);post(x-0.7*Math.cos(rot),z+0.7*Math.sin(rot),0.45,0.1,0x3a3a3a);}
+      else if(k==='table'){box(x,y+0.76,z,2.0,0.06,0.8,rot,0x8a6a45);box(x,y+0.45,z+0.0,2.0,0.06,1.7,rot,0x8a6a45,0.9);post(x,z,0.7,0.12,0x5a4a35);}
+      else if(k==='sign'){post(x,z,2.1,0.12,0x6a4a2e);box(x,y+1.9,z,0.9,0.5,0.06,rot,0xe8e2c8);}
+      else if(k==='pole'){post(x,z,9.5,0.28,0x5b4636);box(x,y+9.2,z,2.2,0.12,0.12,rot,0x5b4636);}
+      else if(k==='pylon'){const h=hh||34;[[1,1],[1,-1],[-1,1],[-1,-1]].forEach(a=>box(x+a[0]*1.6,y+h*0.35,z+a[1]*1.6,0.3,h*0.7,0.3,0,0x8b9097));box(x,y+h*0.7,z,5,0.4,5,0,0x8b9097);post(x,z,h,0.5,0x8b9097);box(x,y+h*0.85,z,9,0.3,0.3,rot,0x8b9097);box(x,y+h*0.95,z,6,0.3,0.3,rot,0x8b9097);}
+      else if(k==='mast'){post(x,z,hh||24,0.5,0xb9bcc0);}
+      else if(k==='chimney'){post(x,z,hh||30,2.6,0xb7a99a);}
+      else if(k==='bollard'){post(x,z,0.9,0.18,0xd8d8d0);}
+      else if(k==='gate'){post(x,z,1.2,0.14,0x6b6b6b);}
+      else if(k==='shelter'){box(x,y+2.2,z,3.4,0.15,2.4,rot,0x6a4a2e);[[-1.5,-1],[1.5,-1],[-1.5,1],[1.5,1]].forEach(a=>post(x+a[0]*Math.cos(rot)+a[1]*Math.sin(rot),z-a[0]*Math.sin(rot)+a[1]*Math.cos(rot),2.2,0.14,0x6a4a2e));}
+      else if(k==='bin'){post(x,z,0.9,0.4,0x3d5a45);}
+    });
+    const hedge=[];
+    O.lines.forEach(L=>{const k=L[0],q=L[1];
+      for(let i=0;i+3<q.length;i+=2){
+        const ax=q[i],az=q[i+1],bx=q[i+2],bz=q[i+3],dx=bx-ax,dz=bz-az,len=Math.hypot(dx,dz);if(len<0.3||len>400)continue;
+        const ry=Math.atan2(dx,dz)-Math.PI/2;
+        if(k==='line'){lp.push([ax,az,bx,bz]);continue;}
+        const stp=k==='hedge'?1.2:k==='wall'?2.5:3;
+        const n=Math.max(1,Math.round(len/stp));
+        for(let j=0;j<n;j++){
+          const t0=j/n,t1=(j+1)/n,x0=ax+dx*t0,z0=az+dz*t0,x1=ax+dx*t1,z1=az+dz*t1,xm=(x0+x1)/2,zm=(z0+z1)/2,yg=Math.max(G(x0,z0),G(x1,z1)),sl=len/n+0.05;
+          if(k==='fence'){post(x0,z0,1.15,0.09,0x6b563c);box(xm,G(xm,zm)+0.95,zm,sl,0.07,0.03,ry,0x8a7350);box(xm,G(xm,zm)+0.6,zm,sl,0.07,0.03,ry,0x8a7350);}
+          else if(k==='rail'){post(x0,z0,0.75,0.1,0x8b9097);box(xm,G(xm,zm)+0.62,zm,sl,0.28,0.05,ry,0xb9bcc0);}
+          else if(k==='wall'){box(xm,yg-0.25+0.55,zm,sl,1.1,0.4,ry,0x8a8379,0.9+rnd()*0.2);}
+          else if(k==='hedge'){hedge.push([xm,G(xm,zm),zm,sl,ry]);}
+        }
+      }
+    });
+    if(window.__counts)window.__counts.objV=P.length/3;
+    if(P.length){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(Nn,3));g.setAttribute('color',new THREE.Float32BufferAttribute(Cc,3));
+      g.computeBoundingSphere();const m=new THREE.Mesh(g,new THREE.MeshLambertMaterial({vertexColors:true}));m.castShadow=false;m.receiveShadow=true;scene.add(m);}
+    if(hedge.length){   // Hecken: dichte Gruenquader mit Blatttextur
+      const hg=new THREE.BoxGeometry(1,1,1),hm=new THREE.MeshLambertMaterial({map:(()=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.fillStyle='#35592a';g.fillRect(0,0,64,64);for(let i=0;i<260;i++){g.fillStyle='hsl('+(85+Math.random()*35)+','+(35+Math.random()*25)+'%,'+(14+Math.random()*24)+'%)';g.beginPath();g.arc(Math.random()*64,Math.random()*64,1+Math.random()*3,0,6.3);g.fill();}const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.encoding=THREE.sRGBEncoding;return t;})(),color:0x9fb08a});
+      const im=new THREE.InstancedMesh(hg,hm,hedge.length),D=new THREE.Object3D();
+      hedge.forEach((h,i)=>{const hh=1.3+rnd()*0.7;D.position.set(h[0],h[1]+hh/2,h[2]);D.rotation.set(0,h[4],0);D.scale.set(h[3]+0.1,hh,0.9+rnd()*0.4);D.updateMatrix();im.setMatrixAt(i,D.matrix);});
+      im.castShadow=false;im.frustumCulled=false;scene.add(im);}
+    if(lp.length){   // Stromleitungen: durchhaengende Seile zwischen den Masten
+      const pts=[];lp.forEach(l=>{const h0=9,sag=0.8;let px=l[0],pz=l[1],py=G(px,pz)+h0;for(let i=1;i<=4;i++){const t=i/4,x=l[0]+(l[2]-l[0])*t,z=l[1]+(l[3]-l[1])*t,y=G(x,z)+h0-Math.sin(t*Math.PI)*sag;pts.push(px,py,pz,x,y,z);px=x;py=y;pz=z;}});
+      const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));g.computeBoundingSphere();
+      scene.add(new THREE.LineSegments(g,new THREE.LineBasicMaterial({color:0x2a2c2e})));}
+  }
 }
 {   // Luftbilder laden und in den Spielfarben verwenden
   const dk=DATA_KEY(DOP_J,0,'dop.json');
