@@ -1658,12 +1658,13 @@ function update(dt){
   const tr=inputMode==='trainer'&&trainer.connected;
   if(tr)st.power+=(trainer.power-st.power)*Math.min(1,dt*6);else st.power+=((up?PMAX:0)-st.power)*Math.min(1,dt*2.5);
   const gf=gearF();   // Gang x Schwierigkeit: Normal: leichtester Gang x0,25, schwerster x1,3; Leicht: alles x0,4
-  const eg=Math.max(0,GR[i]>0?GR[i]*gf+Math.max(0,gear)*0.15:Math.max(0,gear)*0.15*(GR[i]>-2?1:0));   // Abfahrten neutral
-  if(tr)trainer.setGrade(eg,dirt?0.012:SURF[i]===1?0.009:0.005);
+  const eg=Math.max(0,(GR[i]>0?GR[i]*gf+Math.max(0,gear)*0.15:Math.max(0,gear)*0.15*(GR[i]>-2?1:0))+(GR[i]>-2?(diff===3?0.8:diff===4?0.5:0):0));   // Abfahrten neutral; Hardcore/Eskalation auch auf flachen Stuecken mit etwas Grundlast
+  if(tr)trainer.setGrade(eg,(dirt?0.012:SURF[i]===1?0.009:0.005)*(diff===1?0.5:1));
   const climb=eg/100;            // Abfahrten neutral: zählen wie flach
   const v=st.v,vs=Math.max(v,0.55);   // kleine Mindestgeschwindigkeit: auch steile Rampen lassen sich aus dem Stand anfahren
   const fres=M*GRAV*((dirt?0.012:SURF[i]===1?0.009:0.005)+climb)+0.5*RHO*CDA*v*v+(down?BRAKE:0);
-  st.v=Math.max(0,v+(Math.min(st.power/vs,420)-fres)/M*dt);   // Zugkraft am Hinterrad gedeckelt (Traktion)
+  const pf=[1,1.6,1,0.85,0.83][diff]||1;   // Schwierigkeit wirkt auf jeder Strecke: Leicht 1,6x Wirkung der Watt, Normal 1,0x (realistisch), Hardcore 0,85x, Eskalation 0,83x (20 % haerter)
+  st.v=Math.max(0,v+(Math.min(st.power*pf/vs,420)-fres)/M*dt);   // Zugkraft am Hinterrad gedeckelt (Traktion)
   if(st.v<0.3&&eg>7&&st.power>15&&st.t-(update.hintT||-9)>7){update.hintT=st.t;toastEl.textContent='Zu steil für diese Leistung · "−" = leichterer Gang';toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),2600);}
   const off=Math.abs(st.x)>HW[i]+0.15;
   if(off)st.v*=Math.max(0,1-1.3*dt);
@@ -1793,7 +1794,7 @@ function showHelp(){
     '<div><b>↑</b> treten &nbsp;·&nbsp; <b>↓</b> bremsen &nbsp;·&nbsp; mit Trainer: einfach treten</div>'+
     '<div><b>+</b> / <b>−</b> (oder Bild↑/↓): Gang schwerer / leichter</div>'+
     '<div>Zwift Click (rechts): <b>+</b> kurz drücken = schwerer · gedrückt halten oder andere Taste = leichter</div>'+
-    '<div><b>1</b> Leicht (Steigungen nur 40 %) · <b>2</b> Normal · <b>3</b> Hardcore (Steigungen 150 %) · <b>4</b> Eskalation (20 % härter als realistisch) · auch oben rechts antippbar</div>'+
+    '<div><b>1</b> Leicht (1,6x Wirkung deiner Watt, Steigungen nur 40 %) · <b>2</b> Normal · <b>3</b> Hardcore (Steigungen 150 %, 0,85x Watt) · <b>4</b> Eskalation (20 % härter als realistisch) · auch oben rechts antippbar</div>'+
     '<div><b>Q</b> Grafik: Niedrig / Mittel / Hoch · <b>C</b> Ansicht (Cockpit/Außen) · <b>R</b> Neustart · <b>Esc</b> Pause und Menü</div>'+
     '<div><b>Gruppenfahrt</b>: im Menü einen Gruppencode eingeben (alle Freunde denselben, dieselbe Strecke wählen). Mitfahrer erscheinen als farbige Punkte, in Minikarte und Profil immer.</div>'+
     '<div>Ins <b>Höhenprofil</b> klicken oder ziehen: an diese Stelle der Strecke springen</div>'+
