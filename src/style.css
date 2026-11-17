@@ -21,28 +21,28 @@ html,body{margin:0;height:100%;background:#0b0d0f;color:#fff;font-family:'Barlow
 button{font-family:inherit;font-size:20px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:10px 20px;border:0;border-radius:4px;background:#f5a524;color:#111;cursor:pointer;margin-right:8px}
 button.sec{background:rgba(255,255,255,.16);color:#fff}
 button:disabled{background:rgba(255,255,255,.08);color:#888;cursor:not-allowed}
-.help{font-size:18px;opacity:.85;line-height:1.5}
+.help{font-size:14px;opacity:.85;line-height:1.5}
 
 #cockpit{position:absolute;left:50%;bottom:-19.2vw;width:176vw;max-width:none;pointer-events:none;user-select:none;transform-origin:50% 19.1%;will-change:transform;filter:drop-shadow(0 6px 10px rgba(0,0,0,.35))}
 body.fpv #prof{bottom:auto;top:16px}
 
 /* Startscreen MIWORU */
-.intro{display:flex;align-items:center;gap:clamp(24px,4vw,64px);max-width:1180px;width:100%;justify-content:center}
-.poster{flex:0 0 auto;height:min(86vh,820px);aspect-ratio:361.42/547.35;filter:drop-shadow(0 10px 30px rgba(0,0,0,.6));transform:rotate(-1.6deg)}
+.intro{display:flex;align-items:center;gap:clamp(20px,3vw,48px);max-width:1100px;width:100%;justify-content:center}
+.poster{flex:0 0 auto;height:min(62vh,560px);aspect-ratio:361.42/547.35;filter:drop-shadow(0 10px 30px rgba(0,0,0,.6));transform:rotate(-1.6deg)}
 .poster img{display:block;width:100%;height:100%}
-.panel{display:flex;flex-direction:column;gap:14px;max-width:520px;min-width:0}
-.panel .by{font-size:22px;letter-spacing:.2em;text-transform:uppercase;color:#e14230;font-weight:700}
-.panel h1{margin:0;font-size:clamp(64px,9vw,120px);font-weight:800;line-height:.88;letter-spacing:.02em;text-transform:uppercase}
-.panel .res{font-size:30px;font-weight:700;color:#fff;background:#e14230;display:inline-block;padding:4px 12px;align-self:flex-start}
-.panel .route{font-size:30px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;line-height:1.05}
-.panel .route span{display:block;font-size:20px;font-weight:500;opacity:.8;letter-spacing:.14em}
-.stats{display:flex;gap:28px;border-top:2px solid rgba(255,255,255,.25);border-bottom:2px solid rgba(255,255,255,.25);padding:8px 0}
-.stats b{font-size:54px;font-weight:800;line-height:1}
-.stats i{font-style:normal;font-size:18px;letter-spacing:.14em;text-transform:uppercase;opacity:.8;margin-left:8px}
-.btns{display:flex;flex-wrap:wrap;gap:8px}
-.btns button{margin:0}
-button.main{background:#e14230;color:#fff;font-size:30px;padding:12px 34px}
-.keys{font-size:16px;opacity:.85;margin-top:6px}
+.panel{display:flex;flex-direction:column;gap:9px;max-width:640px;min-width:0}
+.panel .by{font-size:15px;letter-spacing:.2em;text-transform:uppercase;color:#e14230;font-weight:700}
+.panel h1{margin:0;font-size:clamp(44px,5.5vw,76px);font-weight:800;line-height:.88;letter-spacing:.02em;text-transform:uppercase}
+.panel .res{font-size:20px;font-weight:700;color:#fff;background:#e14230;display:inline-block;padding:4px 12px;align-self:flex-start}
+.panel .route{font-size:22px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;line-height:1.05}
+.panel .route span{display:block;font-size:14px;font-weight:500;opacity:.8;letter-spacing:.14em}
+.stats{display:flex;gap:24px;border-top:1px solid rgba(255,255,255,.25);border-bottom:1px solid rgba(255,255,255,.25);padding:5px 0}
+.stats b{font-size:36px;font-weight:800;line-height:1}
+.stats i{font-style:normal;font-size:13px;letter-spacing:.14em;text-transform:uppercase;opacity:.8;margin-left:8px}
+.btns{display:flex;flex-wrap:wrap;gap:6px}
+.btns button{margin:0;font-size:13px;padding:7px 11px;letter-spacing:.05em}
+.btns button.main,button.main{background:#e14230;color:#fff;font-size:22px;padding:9px 24px;flex:1 1 100%}
+.keys{font-size:13px;opacity:.85;margin-top:6px}
 .keys div{margin:3px 0}.keys .kh{font-weight:700;letter-spacing:.12em;text-transform:uppercase;opacity:.9}.keys .note{opacity:.7}
 .keys b{display:inline-block;min-width:16px;padding:0 4px;text-align:center;border:1px solid rgba(255,255,255,.5);border-radius:3px}
 @media (max-width:860px){.intro{flex-direction:column;gap:16px}.poster{height:34vh}.panel h1{font-size:56px}.stats b{font-size:38px}}
@@ -72,14 +72,14 @@ button.main{background:#e14230;color:#fff;font-size:30px;padding:12px 34px}
 #hint .on b{border-color:#f5a524}
 #hint span{margin-left:12px}
 
-.mine{margin-top:14px;text-align:left}
-.mine .mh{font-size:13px;letter-spacing:.14em;text-transform:uppercase;opacity:.7;margin-bottom:6px}
-.mine .mr{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+.mine{margin-top:6px;text-align:left;display:grid;grid-template-columns:1fr 1fr;column-gap:20px}.mine .mh{grid-column:1/-1}
+.mine .mh{font-size:11px;letter-spacing:.14em;text-transform:uppercase;opacity:.7;margin-bottom:6px}
+.mine .mr{display:flex;gap:6px;align-items:center;margin-bottom:3px;font-size:14px}
 .mine .mn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
 .mine .mn small{margin-left:8px;opacity:.6;font-weight:500}
 .mine .mr.cur .mn{color:#f5a524}
-.mine button{width:auto;padding:6px 12px;font-size:15px;flex:none}
-.mine .act{flex:none;font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:#f5a524;padding:6px 10px}
+.mine button{width:auto;padding:3px 9px;font-size:12px;flex:none}
+.mine .act{flex:none;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#f5a524;padding:6px 10px}
 
 #menuBtn{position:absolute;right:24px;top:56px;z-index:5;pointer-events:auto;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;
   font:700 15px/1 'Barlow Condensed',system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#fff;background:rgba(20,20,20,.55);border:1px solid rgba(255,255,255,.5);border-radius:8px;padding:11px 16px;min-height:44px;backdrop-filter:blur(4px)}
