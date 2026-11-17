@@ -56,7 +56,7 @@ function demH(x,z){
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const airU=()=>SHK.air?SHK.air.t/SHK.air.T:0,airH=()=>SHK.air?SHK.air.H*4*airU()*(1-airU()):0;
 const TABS=[];   // Tables (Sprunghuegel): s0 = Beginn der Anfahrtsrampe, H = Hoehe; Profil: Rampe 3,2 m, Plateau 2,4 m, Landung 3,6 m
-const smoothS=u=>u*u*(3-2*u),tabH=s=>{for(let i=0;i<TABS.length;i++){const t=TABS[i],u=s-t.s0;if(u<0)return 0;if(u>10.2)continue;return u<3.6?t.H*smoothS(u/3.6):u<6.0?t.H:t.H*(1-smoothS((u-6.0)/4.2));}return 0;};
+const smoothS=u=>u*u*(3-2*u),tabH=s=>{for(let i=0;i<TABS.length;i++){const t=TABS[i],u=s-t.s0;if(u<0)return 0;if(u>t.L)continue;if(t.K)return u<3.2?t.H*smoothS(u/3.2):t.H*(1-smoothS((u-3.2)/0.6));return u<3.6?t.H*smoothS(u/3.6):u<6.0?t.H:t.H*(1-smoothS((u-6.0)/4.2));}return 0;};
 const tabD=s=>(tabH(s+0.4)-tabH(s-0.4))/0.8;
 const BUMPS=[],FEAT=[],SHK={y:0,vy:0,r:0,vr:0,i:0,fi:0,w:0,wv:0,air:null};   // Stöße (Wurzeln/Steine) -> Cockpit ruppelt
 const lerp=(a,b,t)=>a+(b-a)*t;
@@ -1046,7 +1046,7 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
       if(ROUTE&&SURF[i]>=1&&dn>=5&&(FEAT.length===0||i*SEG-FEAT[FEAT.length-1].s>(FEAT[FEAT.length-1].k==='j'?120:22))){   // Abfahrten: Kanten, kleine Drops und ab und zu ein Sprung
         const kv=Math.abs(KV[i]),r=rnd(),pd=Math.min(1,dn/12);
         const t1=TABS.length===0&&SURF[i]>=1&&dn>=6&&dn<=22&&kv<0.05;   // erste Table gleich am ersten Downhill (Testpunkt)
-        if(((kv<0.02&&SURF[i]===2&&dn<=16&&dn>=4&&r<0.035*pd)||t1)&&i*SEG>40){const H=0.65+rnd()*0.15,s0=i*SEG;TABS.push({s0:s0,H:H});FEAT.push({s:s0+6.0,k:'j',a:1});}   // Table: Anfahrt, Plateau, Landung
+        if(((kv<0.03&&SURF[i]>=1&&dn<=18&&dn>=3.5&&r<0.085*pd&&(TABS.length===0||i*SEG-TABS[TABS.length-1].s0>150))||t1)&&i*SEG>40){const K=TABS.length>0&&rnd()<0.45,H=(K?0.5:0.65)+rnd()*0.15,s0=i*SEG;TABS.push({s0:s0,H:H,K:K,L:K?3.8:10.2});FEAT.push({s:s0+(K?3.2:6.0),k:'j',a:1});}   // Table: Anfahrt, Plateau, Landung
         else if(r<0.012*pd+0.004){const big=rnd()<0.3,a=big?1.5+rnd()*0.8:0.7+rnd()*0.6;FEAT.push({s:i*SEG,k:'e',a:a});   // Kante/Drop: quer liegende Steinplatte oder Absatz
           const hh=HS[i],ox=(rnd()-0.5)*hw0(i)*0.5,x=PX[i]-Math.cos(hh)*ox,z=PZ[i]+Math.sin(hh)*ox;edges.push({x:x,y:gnd(x,z),z:z,h:hh,w:big?1.3:0.8});}
       }
@@ -1068,7 +1068,7 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
     BUMPS.sort((a,b)=>a.s-b.s);FEAT.sort((a,b)=>a.s-b.s);
     if(TABS.length){   // Tables als Erdhuegel mit Rampe, Plateau und Landung
       const P=[],U=[],I=[],S={};let vi=0;
-      TABS.forEach(t=>{const n=Math.round(10.4/0.4);
+      TABS.forEach(t=>{const n=Math.round((t.L+0.2)/0.4);
         for(let k=0;k<=n;k++){const ss=t.s0+k*0.4,hh=tabH(ss);sample(ss,S);const ii=Math.min(N-1,Math.floor(ss/SEG)),hw=Math.max(1.1,Math.min(1.5,HW[ii]*0.9)),rx=-Math.cos(S.h),rz=Math.sin(S.h);
           [[-(hw+0.8),0],[-hw,1],[hw,1],[hw+0.8,0]].forEach(q=>{const x=S.x+rx*q[0],z=S.z+rz*q[0];P.push(x,gnd(x,z)+(q[1]?hh+0.02:-0.04),z);U.push(q[0]/2,ss/2);});
           if(k<n){const b0=vi;for(let c=0;c<3;c++){I.push(b0+c,b0+c+4,b0+c+1,b0+c+1,b0+c+4,b0+c+5);}}
