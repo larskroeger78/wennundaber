@@ -9,6 +9,7 @@ import { makeVan } from './van.js';
 import { makeGroup, GROUP_COLORS } from './group.js';
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Trainer, ClickPad, BLE_OK } from './ble.js';
+import { AUDIO } from './audio.js';
 import MITT1 from './routes/mittwochsrunde.json';
 import MIW from './routes/miworu.json';
 import BUE from './routes/buellberg.json';
@@ -28,6 +29,7 @@ if(CUSTOM)ROUTES[RKEY]={data:CUSTOM,label:CUSTOM.name||'Eigene Strecke',surf:'__
 try{listRoutes().forEach(e=>{const nm=String(e.name||'').trim().toLowerCase();if(e.id!==GPX_ID&&['hagen','iserlohn','wuppertal','miworu','hemer','buellberg','dortmund'].indexOf(nm)>=0)deleteRoute(e.id);});}catch(e){}
 const RT=RKEY==='halde'?null:(ROUTES[RKEY]||ROUTES.tour2);   // Standard: die Tour vom 5.10.2022; andere Strecken nur noch per URL (?route=halde|mittwoch) für Entwicklung
 const ROUTE=!!RT,MITT=RT?RT.data:MITT1;
+const MW=!!RT&&RT.dem==='miworu';   // Bergkamen: zuerst hier gibt es Feinschliff (Unterwuchs, Wegzustand, Waldausstattung)
 // Echtes Geländemodell (DGM1 NRW, per npm run terrain erzeugt): Höhenraster in Dezimetern
 const TERR=[];   // Gelaendekacheln (fuer die Bodenhoehe der Autos)
 const BOOT=(t,p)=>{const m=document.getElementById('bootmsg'),b=document.querySelector('#bootbar i');if(m)m.textContent=t;if(b&&p!==undefined)b.style.width=p+'%';return new Promise(r=>requestAnimationFrame(()=>setTimeout(r,0)));};
@@ -381,13 +383,15 @@ sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.3;
 scene.add(sun);scene.add(sun.target);
 function resize(){const w=window.innerWidth,h=window.innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
 window.addEventListener('resize',resize);resize();
+const WXN=['Klar','Nebel','Nieselregen'];let WX=0;const WXS={rain:0,fog:0,day:1};
+try{const q=new URLSearchParams(location.search).get('wetter');WX=q!==null&&!isNaN(+q)?clamp(+q|0,0,2):clamp(+localStorage.getItem('miworu_wx')|0,0,2);}catch(e){}
 // Qualitaetsstufen (Taste Q): Aufloesung, Schattenkarte
 const TILES=[];const TREE_FAR=[0,300,560,950];let GRS=null;   // Sichtweite fuer Baum-/Buschkacheln je Qualitaetsstufe (m)
 const QN={1:'Niedrig',2:'Mittel',3:'Hoch'};let quality=2;try{quality=clamp(+localStorage.getItem('miworu_q')||2,1,3);}catch(e){}
 function applyQ(){
   const dpr=window.devicePixelRatio||1;
   renderer.setPixelRatio([0,Math.min(dpr,0.7),Math.min(dpr,1.25),Math.max(Math.min(dpr,2),1.5)][quality]);   // Niedrig bewusst weich, Hoch mit Supersampling
-  scene.fog.density=[0,0.0009,0.00055,0.0004][quality];                                                        // Niedrig: naeher Dunst, spart Fernsicht
+  scene.fog.density=[0,0.0009,0.00055,0.0004][quality]*[1,5,2.2][WX];                                                        // Niedrig: naeher Dunst, spart Fernsicht
   sun.castShadow=quality>1;if(GRS)GRS.visible=quality>1;                                                       // Niedrig: keine Schatten, kein Gras
   const sz=[0,1024,2048,4096][quality];
   if(sun.shadow.mapSize.x!==sz){sun.shadow.mapSize.set(sz,sz);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null;}}
@@ -452,6 +456,16 @@ function applySun(force){
   const u=sky.material.uniforms;u.horCol.value.set(hor[0],hor[1],hor[2]);u.zenCol.value.set(zen[0],zen[1],zen[2]);u.sunCol.value.set(sc[0],sc[1]*0.95,sc[2]*0.85);
   const ct=mixc([1,0.82,0.7],[1,1,1],1-low);u.cloudTint.value.set(ct[0]*(0.75+0.25*tw),ct[1]*(0.78+0.22*tw),ct[2]*(0.85+0.15*tw));
   scene.fog.color.setRGB(hor[0],hor[1],hor[2]);scene.background=scene.background&&scene.background.isColor?new THREE.Color(hor[0],hor[1],hor[2]):scene.background;
+  // Wetter: Nebel/Nieselregen nehmen Sonne und Farbe, Himmel und Dunst werden grau
+  WXS.day=tw;WXS.rain=WX===2?1:0;
+  if(WX){const g=WX===1?0.74:0.5,k=WX===1?0.75:0.85,gr=[g*(0.9+0.1*tw),g*(0.92+0.08*tw),g*(0.96+0.04*tw)];
+    const gm=(c)=>[c[0]+(gr[0]-c[0])*k,c[1]+(gr[1]-c[1])*k,c[2]+(gr[2]-c[2])*k];
+    const h2=gm(hor),z2=gm(WX===1?[gr[0]*0.95,gr[1]*0.97,gr[2]]:[gr[0]*0.7,gr[1]*0.72,gr[2]*0.78]);
+    u.horCol.value.set(h2[0],h2[1],h2[2]);u.zenCol.value.set(z2[0],z2[1],z2[2]);u.cloudTint.value.set(gr[0],gr[1],gr[2]);u.sunCol.value.set(gr[0],gr[1],gr[2]);
+    scene.fog.color.setRGB(h2[0],h2[1],h2[2]);scene.background=new THREE.Color(h2[0],h2[1],h2[2]);
+    sun.intensity*=WX===1?0.42:0.3;hemi.intensity*=WX===1?1.15:0.95;
+  }
+  scene.fog.density=[0,0.0009,0.00055,0.0004][quality]*[1,5,2.2][WX];
   window.__sun={alt:deg,az:A*180/Math.PI,utc:utc};
 }
 if(BK)applySun(true);
@@ -911,6 +925,16 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
       tufts.push({x:x,y:gnd(x,z)-0.05,z:z,w:0.35+rnd()*0.45,h:0.18+rnd()*0.3,dry:0.1});
     }
   }
+  // Bergkamen: Unterwuchs entlang der Strecke (Farn, Brombeeren, Gras), im Wald dichter
+  if(MW){for(let i=2;i<N-2;i++){
+    const h=HS[i],rx=-Math.cos(h),rz=Math.sin(h),fd=forestD(PX[i],PZ[i]),open=SURF[i]===0?0.35:1;
+    const nt=Math.round((fd*3.2+0.5)*open*(1+rnd()*0.6));
+    for(let k=0;k<nt;k++){
+      const o=(HW[i]+0.2+rnd()*(1.2+fd*3.2))*(rnd()<0.5?-1:1),x=PX[i]+rx*o+(rnd()-0.5),z=PZ[i]+rz*o+(rnd()-0.5);
+      if(clearOf(x,z,0.1))tufts.push({x:x,y:gnd(x,z)-0.05,z:z,w:0.45+rnd()*0.55,h:0.25+rnd()*0.5+fd*0.25,dry:0.15+rnd()*0.55});   // Farn/Gras, im Herbst teils verbraunt
+    }
+    if(fd>0.3&&rnd()<0.1*open){const o=(HW[i]+1.4+rnd()*4.5)*(rnd()<0.5?-1:1),x=PX[i]+rx*o,z=PZ[i]+rz*o;if(clearOf(x,z,0.4))bushes.push({x:x,y:gnd(x,z)-0.1,z:z,w:0.9+rnd()*1.4,h:0.6+rnd()*1.0});}   // Brombeere/Hasel
+  }}
   // Wegränder Uphill
   for(let i=0;i<iTrail&&!ROUTE;i++){
     const h=HS[i],rx=-Math.cos(h),rz=Math.sin(h);
@@ -1140,6 +1164,47 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
   }
   window.__counts={trees:trees.length,bushes:bushes.length,tufts:tufts.length};
 })();
+
+// ================= Bergkamen: Waldausstattung (Totholz, Baumstuempfe, Holzstapel, Hochsitze) und Spurrillen =================
+if(MW){
+  const clearOf=(x,z,extra)=>{if(inBuilding(x,z))return false;if(!nearest(allHash,x,z))return true;return nD>HW[nI]+0.9+extra;};
+  const LG=[],ST=[],lc=new THREE.Color(),DM=new THREE.Object3D();
+  let lastPile=-1e9,lastHs=-1e9;const piles=[],hochs=[];
+  for(let i=6;i<N-6;i+=1){
+    const h=HS[i],rx=-Math.cos(h),rz=Math.sin(h),fd=forestD(PX[i],PZ[i]);
+    if(fd>0.35&&rnd()<0.018*fd){const o=(HW[i]+1.2+rnd()*6)*(rnd()<0.5?-1:1),x=PX[i]+rx*o,z=PZ[i]+rz*o;if(clearOf(x,z,0.3))LG.push({x:x,z:z,L:1.8+rnd()*3.2,r:0.07+rnd()*0.13,a:rnd()*6.283,t:rnd()});}   // liegender Stamm
+    if(fd>0.4&&rnd()<0.012*fd){const o=(HW[i]+1+rnd()*5)*(rnd()<0.5?-1:1),x=PX[i]+rx*o,z=PZ[i]+rz*o;if(clearOf(x,z,0.3))ST.push({x:x,z:z,H:0.25+rnd()*0.6,r:0.12+rnd()*0.18,t:rnd()});}   // Baumstumpf
+    const sa=i*SEG;
+    if(SURF[i]>=1&&fd>0.3&&sa-lastPile>650&&rnd()<0.02){const o=(HW[i]+1.6)*(rnd()<0.5?-1:1),x=PX[i]+rx*o,z=PZ[i]+rz*o;if(clearOf(x,z,0.8)){piles.push({x:x,z:z,a:h});lastPile=sa;}}   // Holzpolter am Wegrand
+    if(fd>0.28&&fd<0.7&&sa-lastHs>900&&rnd()<0.01&&sa>300){const o=(HW[i]+5+rnd()*3)*(rnd()<0.5?-1:1),x=PX[i]+rx*o,z=PZ[i]+rz*o;if(clearOf(x,z,1.5)){hochs.push({x:x,z:z,a:h+(o>0?Math.PI/2:-Math.PI/2)});lastHs=sa;}}   // Hochsitz am Waldrand
+  }
+  const mkI=(geo,arr,mat,fn)=>{if(!arr.length)return;const im=new THREE.InstancedMesh(geo,mat,arr.length);arr.forEach((a,k)=>{fn(a);DM.updateMatrix();im.setMatrixAt(k,DM.matrix);lc.setHex(0x6a5237).offsetHSL(0,0,(a.t||0)*0.12-0.06);im.setColorAt(k,lc);});im.castShadow=true;im.receiveShadow=true;im.frustumCulled=false;scene.add(im);};
+  const woodM=new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,map:texGround});
+  const lgG=new THREE.CylinderGeometry(1,1,1,8);lgG.rotateZ(Math.PI/2);
+  mkI(lgG,LG,woodM,a=>{DM.position.set(a.x,gnd(a.x,a.z)+a.r*0.8,a.z);DM.rotation.set(0,a.a,(a.t-0.5)*0.12);DM.scale.set(a.L,a.r,a.r);});
+  mkI(new THREE.CylinderGeometry(1,1.18,1,9),ST,woodM,a=>{DM.position.set(a.x,gnd(a.x,a.z)+a.H/2-0.03,a.z);DM.rotation.set(0,a.t*6,0);DM.scale.set(a.r,a.H,a.r);});
+  const mTop=new THREE.MeshStandardMaterial({color:0xc9a26a,roughness:1}),mBar=new THREE.MeshStandardMaterial({color:0x5b4630,roughness:1}),mGr=new THREE.MeshStandardMaterial({color:0x6b5a40,roughness:1}),mRf=new THREE.MeshStandardMaterial({color:0x3f4a3a,roughness:1});
+  piles.forEach(p=>{const g=new THREE.Group(),y=gnd(p.x,p.z);   // Holzpolter: Stapel aus Stammenden (hell) mit Stuetzpfosten
+    for(let r=0;r<5;r++)for(let c=0;c<9;c++){const rad=0.11+((r*7+c*3)%5)*0.012,m=new THREE.Mesh(new THREE.CylinderGeometry(rad,rad,2.6,7),((r+c)%3?mTop:mBar));m.rotation.x=Math.PI/2;m.position.set(-1.7+c*0.42+(r%2)*0.2,0.13+r*0.21,0);g.add(m);}
+    [-1.9,1.9].forEach(px=>{const m=new THREE.Mesh(new THREE.BoxGeometry(0.1,1.2,0.1),mGr);m.position.set(px,0.6,1.35);g.add(m);const m2=m.clone();m2.position.z=-1.35;g.add(m2);});
+    g.position.set(p.x,y,p.z);g.rotation.y=p.a+Math.PI/2;g.traverse(o=>{if(o.isMesh)o.castShadow=true;});scene.add(g);});
+  hochs.forEach(p=>{const g=new THREE.Group(),y=gnd(p.x,p.z),cab=(w,h,d,m,px,py,pz)=>{const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(px,py,pz);o.castShadow=true;g.add(o);return o;};
+    [[-0.7,-0.7],[0.7,-0.7],[-0.7,0.7],[0.7,0.7]].forEach(q=>cab(0.12,3.4,0.12,mBar,q[0],1.7,q[1]));   // Stuetzen
+    cab(1.7,0.1,1.7,mBar,0,3.35,0);                                    // Boden
+    cab(1.7,1.0,0.08,mGr,0,3.9,-0.8);cab(0.08,1.0,1.7,mGr,-0.8,3.9,0);cab(0.08,1.0,1.7,mGr,0.8,3.9,0);cab(1.7,0.45,0.08,mGr,0,3.62,0.8);   // Bruestung/Kanzel
+    const rf=cab(2.1,0.08,2.1,mRf,0,4.6,0);rf.rotation.x=0.06;
+    [[-0.7,0.7],[0.7,0.7]].forEach(q=>{const r=cab(0.07,3.5,0.07,mBar,q[0]*0.5,1.65,q[1]+0.55);r.rotation.x=-0.28;});for(let k=0;k<7;k++)cab(0.9,0.05,0.06,mBar,0,0.4+k*0.45,1.25-k*0.12);   // Leiter
+    g.position.set(p.x,y,p.z);g.rotation.y=p.a;scene.add(g);});
+  // Spurrillen: zwei dunkle Streifen in Schotter- und Trailabschnitten, an den Raendern leicht aufgehellt (Gras in der Mitte)
+  {const rp=[],ri=[];let vi=0;
+    for(let i=2;i<N-2;i++){if(SURF[i]<1||SURF[i+1]<1){continue;}
+      const h=HS[i],rx=-Math.cos(h),rz=Math.sin(h),w=SURF[i]===2?0.14:0.11;
+      [-0.62,0.62].forEach(o=>{for(let k=0;k<2;k++){const e=k?1:0,j=i+e,hh=HS[j],rx2=-Math.cos(hh),rz2=Math.sin(hh);const ox=Math.min(0.62,HW[j]*0.5)*Math.sign(o);
+        [-w,w].forEach(dw=>{const x=PX[j]+rx2*(ox+dw),z=PZ[j]+rz2*(ox+dw);rp.push(x,gnd(x,z)+0.03,z);});}});
+      for(let c=0;c<2;c++){const b=vi+c*4;ri.push(b,b+2,b+1,b+1,b+2,b+3);}vi+=8;}
+    if(rp.length){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(rp,3));g.setIndex(ri);g.computeVertexNormals();
+      const m=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:0x24190f,transparent:true,opacity:0.3,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2,fog:true,side:THREE.DoubleSide}));m.frustumCulled=false;scene.add(m);}}
+}
 
 // ================= Landmarken =================
 const UP=new THREE.Vector3(0,1,0),_v=new THREE.Vector3();
@@ -1513,7 +1578,9 @@ if(OSM){
     let curTop=0;const pushT=(arr,carr,V,t,col,sh)=>{t.forEach(tr=>tr.forEach(k=>{arr.push(V[k][0],V[k][1],V[k][2]);carr.push(col.r*sh,col.g*sh,col.b*sh);if(arr===wP)wT.push(curTop);else if(arr===wP2)wT2.push(curTop);}));};
     const flatC=new THREE.Color(0x5f5c59);
     LOD2.b.forEach(poly=>{
-      {const fp=[];poly.forEach(f=>{if(f[0]==='g'){const q=f[1];for(let i=0;i<q.length/3;i++)fp.push(q[i*3],q[i*3+2]);}});if(ROUTE&&!CUS&&hitsRoute(fp))return;}
+      {const fp=[];poly.forEach(f=>{if(f[0]==='g'){const q=f[1];for(let i=0;i<q.length/3;i++)fp.push(q[i*3],q[i*3+2]);}});if(ROUTE&&!CUS&&hitsRoute(fp))return;
+        {let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9,y0=1e9,y1=-1e9;for(let i=0;i<fp.length;i+=2){x0=Math.min(x0,fp[i]);x1=Math.max(x1,fp[i]);z0=Math.min(z0,fp[i+1]);z1=Math.max(z1,fp[i+1]);}poly.forEach(f=>{const q=f[1];for(let i=1;i<q.length;i+=3){y0=Math.min(y0,q[i]);y1=Math.max(y1,q[i]);}});
+        if(x1-x0<7.5&&z1-z0<7.5&&y1-y0>16)return;}}   // Strommasten stecken im LoD2 als schlanke Hochhaeuser: weglassen, sie werden als Gittermasten gebaut
       const wc=wallC[(rnd()*wallC.length)|0],rc=roofC[(rnd()*roofC.length)|0],sh=0.92+rnd()*0.14,rb={a:rC.length,b:0,pts:[],sh:sh};
       {let tp=1e9,mx=-1e9;poly.forEach(f=>{if(f[0]!=='w')return;const q=f[1];let m=-1e9;for(let i=1;i<q.length;i+=3)m=Math.max(m,q[i]-NHN0);tp=Math.min(tp,m);mx=Math.max(mx,m);});curTop=tp<1e8?tp:mx;}
       let cwP=wP,cwC=wC;{const gf=poly.find(f=>f[0]==='g');if(gf){const q=gf[1],n=q.length/3;let ar=0,gy=1e9,cx=0,cz=0;for(let i=0;i<n;i++){const j=(i+1)%n;ar+=q[i*3]*q[j*3+2]-q[j*3]*q[i*3+2];gy=Math.min(gy,q[i*3+1]-NHN0);cx+=q[i*3];cz+=q[i*3+2];}ar=Math.abs(ar)/2;cx/=n;cz/=n;const H=curTop-gy,hs=Math.abs(Math.sin(cx*12.9898+cz*78.233)*43758.5453)%1;   // Hallen, Garagen, Gewerbe: ohne Fensterreihen
@@ -1617,6 +1684,9 @@ if(OSM){
   });
 }
 await BOOT('Starte Physik …',88);
+// ================= Wetter (Taste W): Klar, Nebel, Nieselregen =================
+function cycleWX(){WX=(WX+1)%3;try{localStorage.setItem('miworu_wx',WX);}catch(_){}if(BK)applySun(true);toastEl.textContent='Wetter: '+WXN[WX];toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}
+
 // ================= Zustand, Eingabe, Physik =================
 const M=95,CDA=0.38,RHO=1.2,GRAV=9.81,PMAX=300,BRAKE=260;
 const keys={};
@@ -1632,7 +1702,7 @@ function shift(d){
   const ng=clamp(gear+d,-6,5);gearUsed=true;   // 12 Gänge: Stufen -6..5 = Anzeige 1..12
   const n=ng+7;
   if(ng===gear){toastEl.textContent=(d>0?'Schwerster Gang · ':'Leichtester Gang · ')+n;}
-  else{gear=ng;SHK.vy+=0.12*d;toastEl.textContent=(d>0?'▲ ':'▼ ')+'Gang '+n+(d>0?' · schwerer':' · leichter');}
+  else{gear=ng;AUDIO.gear();SHK.vy+=0.12*d;toastEl.textContent=(d>0?'▲ ':'▼ ')+'Gang '+n+(d>0?' · schwerer':' · leichter');}
   toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),900);
 }
 function hintHud(){
@@ -1663,6 +1733,8 @@ window.addEventListener('keydown',e=>{
   if(e.key==='c'||e.key==='C')FPV=!FPV;
   if(e.key==='Escape')pauseGame();
   if(e.key==='q'||e.key==='Q')cycleQ();
+  if(e.key==='n'||e.key==='N'){AUDIO.toggle();toastEl.textContent='Sound: '+(AUDIO.on?'an':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}
+  if(e.key==='w'||e.key==='W')cycleWX();
   if(e.key==='1')setDiff(1);
   if(e.key==='2')setDiff(2);
   if(e.key==='3')setDiff(3);
@@ -1675,7 +1747,7 @@ window.addEventListener('keyup',e=>{keys[e.key]=false;});
 window.addEventListener('blur',()=>{for(const k in keys)keys[k]=false;});
 
 function update(dt){
-  if(!running)return;
+  if(!running){AUDIO.update(dt,{running:false,v:0,surf:0,pedal:0,brake:false,forest:0,rain:WXS.rain,day:WXS.day});return;}
   const kb=inputMode==='keyboard';
   const up=kb&&keys.ArrowUp,down=kb&&keys.ArrowDown,left=kb&&keys.ArrowLeft,right=kb&&keys.ArrowRight;
   const i=Math.min(N-1,Math.floor(st.pos/SEG)),dirt=SURF[i]===2;
@@ -1690,24 +1762,26 @@ function update(dt){
   const pf=[1,1.6,1,0.85,0.83,0.64][diff]||1;   // Schwierigkeit wirkt auf jeder Strecke: Leicht 1,6x Wirkung der Watt, Normal 1,0x (realistisch), Hardcore 0,85x, Eskalation 0,83x (20 % haerter)
   st.v=Math.max(0,v+(Math.min(st.power*pf/vs,420)-fres)/M*dt);   // Zugkraft am Hinterrad gedeckelt (Traktion)
   if(st.v<0.3&&eg>7&&st.power>15&&st.t-(update.hintT||-9)>7){update.hintT=st.t;toastEl.textContent='Zu steil für diese Leistung · "−" = leichterer Gang';toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),2600);}
+  BRK+=((down&&st.v>1.5?1:0)-BRK)*Math.min(1,dt*5);
   const off=Math.abs(st.x)>HW[i]+0.15;
   if(off)st.v*=Math.max(0,1-1.3*dt);
   const p0=st.pos;st.pos=Math.max(0,st.pos+st.v*dt);st.t+=dt;
   // Ruppeln: Wurzeln und Steine unter dem Rad geben Stöße, Schotter/Trail rauschen leicht
   while(SHK.i<BUMPS.length&&BUMPS[SHK.i].s<st.pos){
     const b=BUMPS[SHK.i++];
-    if(b.s>=p0-0.01&&st.x>b.o0&&st.x<b.o1&&st.v>0.8){const f=0.5+0.5*Math.min(1,st.v/7);SHK.vy+=b.a*f*(rnd()<0.5?1:0.7);SHK.vr+=(rnd()-0.5)*b.a*f*5;}
+    if(b.s>=p0-0.01&&st.x>b.o0&&st.x<b.o1&&st.v>0.8){const f=0.5+0.5*Math.min(1,st.v/7);SHK.vy+=b.a*f*(rnd()<0.5?1:0.7);if(b.a>0.04)AUDIO.bump(b.a*f,SURF[i]);SHK.vr+=(rnd()-0.5)*b.a*f*5;}
   }
   while(SHK.fi<FEAT.length&&FEAT[SHK.fi].s<st.pos){   // Kanten, Drops und Sprung
     const f=FEAT[SHK.fi++];if(!(f.s>=p0-0.01&&st.v>2.2))continue;
-    if(f.k==='e'){const a=f.a*(0.55+0.45*Math.min(1,st.v/9));SHK.vy+=a;SHK.vr+=(rnd()-0.5)*a*9;SHK.wv+=(rnd()<0.5?-1:1)*a*110;}
-    else if(f.k==='j'&&!SHK.air&&st.v>4.5){SHK.air={t:0,T:clamp(0.42+st.v*0.03,0.55,0.95),H:clamp(0.14+st.v*0.018,0.25,0.5)};}
+    if(f.k==='e'){const a=f.a*(0.55+0.45*Math.min(1,st.v/9));AUDIO.edge(a);SHK.vy+=a;SHK.vr+=(rnd()-0.5)*a*9;SHK.wv+=(rnd()<0.5?-1:1)*a*110;}
+    else if(f.k==='j'&&!SHK.air&&st.v>4.5){SHK.air={t:0,T:clamp(0.42+st.v*0.03,0.55,0.95),H:clamp(0.14+st.v*0.018,0.25,0.5)};AUDIO.takeoff();}
   }
-  if(SHK.air){SHK.air.t+=dt;if(SHK.air.t>=SHK.air.T){const H=SHK.air.H;SHK.air=null;SHK.vy-=2.4*Math.min(1,H/0.4);SHK.vr+=(rnd()-0.5)*6;SHK.wv+=(rnd()<0.5?-1:1)*26*Math.min(1,H/0.4);st.v*=0.96;}}
+  if(SHK.air){SHK.air.t+=dt;if(SHK.air.t>=SHK.air.T){const H=SHK.air.H;SHK.air=null;AUDIO.land(H);SHK.vy-=2.4*Math.min(1,H/0.4);SHK.vr+=(rnd()-0.5)*6;SHK.wv+=(rnd()<0.5?-1:1)*26*Math.min(1,H/0.4);st.v*=0.96;}}
   SHK.wv+=(-900*SHK.w-9*SHK.wv)*dt;SHK.w+=SHK.wv*dt;   // Lenker flattert nach Stoessen
   SHK.vy+=(-420*SHK.y-17*SHK.vy)*dt;SHK.y+=SHK.vy*dt;SHK.vr+=(-380*SHK.r-16*SHK.vr)*dt;SHK.r+=SHK.vr*dt;
   const rough=(ROUTE?[0,0.4,1][SURF[i]]:(i>=iTrail?1:0.2))*(1+Math.max(0,-GR[i])*0.06)*Math.min(1,st.v/6);
   SHK.buzz=rough*(Math.sin(st.pos*9.3)+Math.sin(st.pos*17.9+1.3)*0.7+Math.sin(st.pos*31.7)*0.4);
+  {const fd=forestD(PX[i],PZ[i]);AUDIO.update(dt,{running:true,v:st.v,surf:SHK.air?-1:SURF[i],pedal:st.power>20?1:0,brake:!!down,forest:fd,rain:WXS.rain,day:WXS.day});}
   updateJoggers(dt);updateVans(dt);updateGroup(dt);
   const steer=(right?1:0)-(left?1:0);
   // Automatische Lenkung (Rollentrainer wie D100 oder KICKR können nicht lenken): Lenker und Neigung folgen dem
@@ -1880,7 +1954,7 @@ try{const o=JSON.parse(localStorage.getItem(PK)||'null');if(o&&o.pos>50&&Date.no
 setInterval(()=>{if(running&&st.pos>50&&!st.done)try{localStorage.setItem(PK,JSON.stringify({pos:st.pos,t:st.t,ts:Date.now()}));}catch(e){}},2000);
 function clearProg(){SAVED=null;try{localStorage.removeItem(PK);}catch(e){}}
 function startSaved(){const o=SAVED;start();if(o){st.pos=o.pos;st.t=o.t;}}
-function start(){if(GRP_CODE&&!GRP.peer)grpJoin();menuBtn.style.display='';clearProg();paused=false;reset();if(trainer.connected)trainer.setGrade(0,0.005,true);running=true;lastSec=-1;ov.style.display='none';hudBox.style.display='block';}
+function start(){AUDIO.init();if(GRP_CODE&&!GRP.peer)grpJoin();menuBtn.style.display='';clearProg();paused=false;reset();if(trainer.connected)trainer.setGrade(0,0.005,true);running=true;lastSec=-1;ov.style.display='none';hudBox.style.display='block';}
 
 // ================= Kamera & Render =================
 const smp={x:0,y:0,z:0,h:0},smp2={x:0,y:0,z:0,h:0};
@@ -1891,9 +1965,25 @@ function sample(s,o){
   o.x=lerp(PX[i],PX[i+1],f)+Math.sin(o.h)*e;o.y=lerp(PY[i],PY[i+1],f);o.z=lerp(PZ[i],PZ[i+1],f)+Math.cos(o.h)*e;
 }
 const camT=new THREE.Vector3(),lookT=new THREE.Vector3(),lookC=new THREE.Vector3(0,60,0),ctr=new THREE.Vector3();
-let camInit=false;
+let camInit=false,BRK=0;
 const OR=ROUTE?{cx:MCX,cz:MCZ,r:1000,h:420,ly:55,cr:260}:{cx:0,cz:0,r:540,h:170,ly:58,cr:120};
+const RAIN_N=900,rainG=new THREE.BufferGeometry(),rainP=new Float32Array(RAIN_N*6),rainS=new Float32Array(RAIN_N*3);
+for(let k=0;k<RAIN_N;k++){rainS[k*3]=(Math.random()-0.5)*26;rainS[k*3+1]=Math.random()*14;rainS[k*3+2]=(Math.random()-0.5)*26;}
+rainG.setAttribute('position',new THREE.BufferAttribute(rainP,3));
+const rainM=new THREE.LineSegments(rainG,new THREE.LineBasicMaterial({color:0xcfd8e0,transparent:true,opacity:0.28,depthWrite:false,fog:false}));rainM.frustumCulled=false;rainM.visible=false;scene.add(rainM);
+function updateRain(dt){
+  rainM.visible=WX===2;if(WX!==2)return;
+  const cx=camera.position.x,cy=camera.position.y-2,cz=camera.position.z,vv=(running?st.v:0);
+  for(let k=0;k<RAIN_N;k++){
+    rainS[k*3+1]-=dt*9;let y=rainS[k*3+1];
+    if(y<0){rainS[k*3+1]=y+14;rainS[k*3]=(Math.random()-0.5)*26;rainS[k*3+2]=(Math.random()-0.5)*26;y=rainS[k*3+1];}
+    const x=cx+rainS[k*3],z=cz+rainS[k*3+2],yy=cy+y;
+    rainP.set([x,yy,z,x+0.012*vv,yy+0.45,z+0.02*vv],k*6);
+  }
+  rainG.attributes.position.needsUpdate=true;
+}
 function render(dt,now){
+  updateRain(dt);
   sample(st.pos,smp);
   const rx=-Math.cos(smp.h),rz=Math.sin(smp.h);
   const bx=smp.x+rx*st.x,bz=smp.z+rz*st.x,by=smp.y+0.07+(running||st.done?tabH(st.pos):0);
@@ -1908,7 +1998,7 @@ function render(dt,now){
   cockpitEl.style.display=fp?'block':'none';document.body.classList.toggle('fpv',fp);
   if(fp){
     const ey=by+1.3,k=1-Math.exp(-dt*9);
-    camera.position.set(bx+Math.sin(smp.h)*0.05,ey+Math.sin(st.wheel*0.9)*0.004*Math.min(1,st.v/4)+(running?(SHK.y+airH())*0.9+(SHK.buzz||0)*0.0035:0),bz+Math.cos(smp.h)*0.05);
+    camera.position.set(bx+Math.sin(smp.h)*0.05+rx*Math.sin(st.crank)*0.011*Math.min(1,st.power/150),ey+Math.sin(st.wheel*0.9)*0.004*Math.min(1,st.v/4)+Math.abs(Math.sin(st.crank))*0.006*Math.min(1,st.power/150)-BRK*0.025+(running?(SHK.y+airH())*0.9+(SHK.buzz||0)*0.0035:0),bz+Math.cos(smp.h)*0.05);
     {const cx0=camera.position.x,cz0=camera.position.z,gm=Math.max(gnd(cx0,cz0),gnd(cx0-Math.sin(smp.h)*0.8,cz0-Math.cos(smp.h)*0.8),gnd(cx0+Math.sin(smp.h)*1.2,cz0+Math.cos(smp.h)*1.2));if(camera.position.y<gm+0.95)camera.position.y=gm+0.95;}   // Kamera nie unter oder in das Gelaende (Absatzkanten, Steilstuecke)
     sample(st.pos+9,smp2);
     lookT.set(smp2.x+rx*st.x*0.9,smp2.y+1.15,smp2.z+rz*st.x*0.9);
@@ -1933,10 +2023,10 @@ function render(dt,now){
   }
   camera.lookAt(lookC);
   if(fp){
-    camera.rotateZ(-st.lean*0.55+SHK.r*0.5);             // Neigung in Kurven + Ruppeln
-    camera.rotateX((running?Math.atan(tabD(st.pos))*0.7:0)+SHK.y*0.9+(SHK.air?0.035*Math.cos(Math.PI*airU()):0));
+    camera.rotateZ(-st.lean*0.55+SHK.r*0.5+Math.sin(st.crank)*0.006*Math.min(1,st.power/150));             // Neigung in Kurven + Ruppeln
+    camera.rotateX((running?Math.atan(tabD(st.pos))*0.7:0)-BRK*0.03+SHK.y*0.9+(SHK.air?0.035*Math.cos(Math.PI*airU()):0));
     const deg=clamp(st.bar,-17,17);                     // Lenker dreht mit
-    cockpitEl.style.transform='translate(-50%,'+(18.5+Math.abs(deg)*0.062-(SHK.y+airH()*0.6)*70-(SHK.buzz||0)*0.12).toFixed(2)+'%) rotate('+(deg+SHK.r*25+SHK.w).toFixed(2)+'deg)';
+    cockpitEl.style.transform='translate(-50%,'+(18.5+Math.abs(deg)*0.062-(SHK.y+airH()*0.6)*70-(SHK.buzz||0)*0.12).toFixed(2)+'%) rotate('+(deg+SHK.r*25+SHK.w+Math.sin(st.crank)*0.7*Math.min(1,st.power/150)).toFixed(2)+'deg)';
   }
   sky.position.copy(camera.position);sky.material.uniforms.time.value=now*0.001;
   if(BK)applySun();
@@ -1977,6 +2067,19 @@ function updateTiles(cp){   // weit entfernte Kacheln nicht zeichnen, Schatten n
     };
     const G=(x,z)=>gnd(x,z);
     const post=(x,z,h,w,hex)=>box(x,G(x,z)+h/2,z,w,h,w,0,hex);
+    const beam=(x0,y0,z0,x1,y1,z1,w,hex)=>{   // beliebig geneigter Vierkantstab (Gittermast-Streben)
+      let ax=x1-x0,ay=y1-y0,az=z1-z0;const L=Math.hypot(ax,ay,az)||1;ax/=L;ay/=L;az/=L;
+      let ux=ay*0-az*1,uy=az*0-ax*0,uz=ax*1-ay*0;   // a x (0,1,0)
+      let ul=Math.hypot(ux,uy,uz);if(ul<0.05){ux=1;uy=0;uz=0;ul=1;}ux/=ul;uy/=ul;uz/=ul;
+      const vx=ay*uz-az*uy,vy=az*ux-ax*uz,vz=ax*uy-ay*ux,h=w/2;ca.setHex(hex);
+      const C=[];for(let e=0;e<8;e++){const su=(e&1)?h:-h,sv=(e&2)?h:-h,t=(e&4)?1:0;C.push([(t?x1:x0)+ux*su+vx*sv,(t?y1:y0)+uy*su+vy*sv,(t?z1:z0)+uz*su+vz*sv]);}
+      [[0,1,3,2],[4,6,7,5],[0,4,5,1],[2,3,7,6],[0,2,6,4],[1,5,7,3]].forEach(f=>{const A=C[f[0]],B=C[f[1]],D=C[f[2]];const e1=[B[0]-A[0],B[1]-A[1],B[2]-A[2]],e2=[D[0]-A[0],D[1]-A[1],D[2]-A[2]];let nx=e1[1]*e2[2]-e1[2]*e2[1],ny=e1[2]*e2[0]-e1[0]*e2[2],nz=e1[0]*e2[1]-e1[1]*e2[0];const nl=Math.hypot(nx,ny,nz)||1;nx/=nl;ny/=nl;nz/=nl;
+        [0,1,2,0,2,3].forEach(i=>{const q=C[f[i]];P.push(q[0],q[1],q[2]);Nn.push(nx,ny,nz);Cc.push(ca.r,ca.g,ca.b);});});
+    };
+    // Hochspannungsmasten: Richtung der Leitung bestimmen (Traversen quer dazu), Seile spaeter an den Traversen befestigen
+    const PYH=40,PYL=O.nodes.filter(n=>n[0]==='pylon').map(n=>({x:n[1],z:n[2],a:null}));
+    const pyAt=(x,z)=>{for(let i=0;i<PYL.length;i++)if(Math.hypot(PYL[i].x-x,PYL[i].z-z)<9)return PYL[i];return null;};
+    O.lines.forEach(L=>{if(L[0]!=='line')return;const q=L[1];for(let i=0;i+3<q.length;i+=2){const a=pyAt(q[i],q[i+1]),b=pyAt(q[i+2],q[i+3]);if(a||b){const ang=Math.atan2(q[i+2]-q[i],q[i+3]-q[i+1]);if(a&&a.a===null)a.a=ang;if(b&&b.a===null)b.a=ang;}}});
     O.nodes.forEach(n=>{const k=n[0],x=n[1],z=n[2],y=G(x,z),hh=n[3]||0,rot=rnd()*6.283;
       if(nearest(allHash,x,z)&&nD<(HW[nI]||2)+0.9)return;   // nichts im Fahrbereich
       if(k==='lamp'){post(x,z,5.2,0.14,0x4a4d52);box(x+0.45,y+5.2,z,1.0,0.12,0.2,rot,0x4a4d52);box(x+0.9,y+5.1,z,0.5,0.12,0.3,rot,0xfff2c0,1.4);}
@@ -1984,7 +2087,18 @@ function updateTiles(cp){   // weit entfernte Kacheln nicht zeichnen, Schatten n
       else if(k==='table'){box(x,y+0.76,z,2.0,0.06,0.8,rot,0x8a6a45);box(x,y+0.45,z+0.0,2.0,0.06,1.7,rot,0x8a6a45,0.9);post(x,z,0.7,0.12,0x5a4a35);}
       else if(k==='sign'){post(x,z,2.1,0.12,0x6a4a2e);box(x,y+1.9,z,0.9,0.5,0.06,rot,0xe8e2c8);}
       else if(k==='pole'){post(x,z,9.5,0.28,0x5b4636);box(x,y+9.2,z,2.2,0.12,0.12,rot,0x5b4636);}
-      else if(k==='pylon'){const h=hh||34;[[1,1],[1,-1],[-1,1],[-1,-1]].forEach(a=>box(x+a[0]*1.6,y+h*0.35,z+a[1]*1.6,0.3,h*0.7,0.3,0,0x8b9097));box(x,y+h*0.7,z,5,0.4,5,0,0x8b9097);post(x,z,h,0.5,0x8b9097);box(x,y+h*0.85,z,9,0.3,0.3,rot,0x8b9097);box(x,y+h*0.95,z,6,0.3,0.3,rot,0x8b9097);}
+      else if(k==='pylon'){const h=PYH,py=pyAt(x,z),ang=py&&py.a!==null?py.a:rot,cs=Math.cos(ang),sn=Math.sin(ang),col=0x8d949b;
+        const at=(lx,lz,yy)=>[x+lx*cs+lz*sn,y+yy,z-lx*sn+lz*cs];   // lokal: lx quer zur Leitung, lz laengs
+        const yW=h*0.58,yA1=h*0.62,yA2=h*0.78,yT=h*0.93,bw=3.4,ww=0.95;   // Fuss-, Taillen- und Kopfmasse
+        [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(c=>{const f=at(c[0]*bw,c[1]*bw,0),w=at(c[0]*ww,c[1]*ww,yW),t=at(c[0]*ww*0.8,c[1]*ww*0.8,yT);beam(f[0],f[1],f[2],w[0],w[1],w[2],0.34,col);beam(w[0],w[1],w[2],t[0],t[1],t[2],0.3,col);});
+        for(let k2=1;k2<=5;k2++){const t=k2/6,y0=yW*t,y1=yW*(t+1/6>1?1:t+1/6),wa=bw+(ww-bw)*t,wb=bw+(ww-bw)*Math.min(1,t+1/6);   // Querstreben + Diagonalen am Unterbau
+          const sd=[[[-1,-1],[1,-1]],[[1,-1],[1,1]],[[1,1],[-1,1]],[[-1,1],[-1,-1]]];
+          sd.forEach(e=>{const p0=at(e[0][0]*wa,e[0][1]*wa,y0),p1=at(e[1][0]*wa,e[1][1]*wa,y0);beam(p0[0],p0[1],p0[2],p1[0],p1[1],p1[2],0.13,col);
+            const p2=at(e[1][0]*wb,e[1][1]*wb,y1);beam(p0[0],p0[1],p0[2],p2[0],p2[1],p2[2],0.1,col);});}
+        const spl=(yy,half,ln)=>{const l=at(-half,0,yy),r=at(half,0,yy);beam(l[0],l[1],l[2],r[0],r[1],r[2],0.32,col);   // Traverse
+          [-half,half].forEach(e=>{const tip=at(e,0,yy),up=at(e*0.5,0,yy+1.3),dn=at(e*0.97,0,yy-ln);beam(tip[0],tip[1],tip[2],up[0],up[1],up[2],0.12,col);beam(tip[0],tip[1],tip[2],dn[0],dn[1],dn[2],0.17,0xd7d2c6);});};   // Isolatorkette haengt herunter
+        spl(yA1,6.6,1.9);spl(yA2,5.0,1.6);spl(yT,3.0,1.4);
+        const tp=at(0,0,yT),pk=at(0,0,h);beam(tp[0],tp[1],tp[2],pk[0],pk[1],pk[2],0.3,col);}
       else if(k==='mast'){post(x,z,hh||24,0.5,0xb9bcc0);}
       else if(k==='chimney'){post(x,z,hh||30,2.6,0xb7a99a);}
       else if(k==='bollard'){post(x,z,0.9,0.18,0xd8d8d0);}
@@ -1999,7 +2113,7 @@ function updateTiles(cp){   // weit entfernte Kacheln nicht zeichnen, Schatten n
       for(let i=0;i+3<q.length;i+=2){
         const ax=q[i],az=q[i+1],bx=q[i+2],bz=q[i+3],dx=bx-ax,dz=bz-az,len=Math.hypot(dx,dz);if(len<0.3||len>400)continue;
         const ry=Math.atan2(dx,dz)-Math.PI/2;
-        if(k==='line'){lp.push([ax,az,bx,bz]);continue;}
+        if(k==='line'){lp.push([ax,az,bx,bz,!!(pyAt(ax,az)&&pyAt(bx,bz))]);continue;}
         const stp=k==='hedge'?1.2:k==='wall'?2.5:3;
         const n=Math.max(1,Math.round(len/stp));
         for(let j=0;j<n;j++){
@@ -2107,8 +2221,15 @@ function updateTiles(cp){   // weit entfernte Kacheln nicht zeichnen, Schatten n
       const im=new THREE.InstancedMesh(hg,hm,hedge.length),D=new THREE.Object3D();
       hedge.forEach((h,i)=>{const hh=1.3+rnd()*0.7;D.position.set(h[0],h[1]+hh/2,h[2]);D.rotation.set(0,h[4],0);D.scale.set(h[3]+0.1,hh,0.9+rnd()*0.4);D.updateMatrix();im.setMatrixAt(i,D.matrix);});
       im.castShadow=false;im.frustumCulled=false;scene.add(im);}
-    if(lp.length){   // Stromleitungen: durchhaengende Seile zwischen den Masten
-      const pts=[];lp.forEach(l=>{const h0=9,sag=0.8;let px=l[0],pz=l[1],py=G(px,pz)+h0;for(let i=1;i<=4;i++){const t=i/4,x=l[0]+(l[2]-l[0])*t,z=l[1]+(l[3]-l[1])*t,y=G(x,z)+h0-Math.sin(t*Math.PI)*sag;pts.push(px,py,pz,x,y,z);px=x;py=y;pz=z;}});
+    if(lp.length){   // Stromleitungen: durchhaengende Seile; Hochspannung an den Traversen der Masten, Niederspannung in 9 m Hoehe
+      const pts=[];
+      const cab=(ax,ay,az,bx,by,bz,sag)=>{let px=ax,py=ay,pz=az;for(let i=1;i<=6;i++){const t=i/6,x=ax+(bx-ax)*t,z=az+(bz-az)*t,y=ay+(by-ay)*t-Math.sin(t*Math.PI)*sag;pts.push(px,py,pz,x,y,z);px=x;py=y;pz=z;}};
+      lp.forEach(l=>{
+        if(!l[4]){const h0=9,sag=0.8;cab(l[0],G(l[0],l[1])+h0,l[1],l[2],G(l[2],l[3])+h0,l[3],sag);return;}
+        const dx=l[2]-l[0],dz=l[3]-l[1],len=Math.hypot(dx,dz)||1,nx=-dz/len,nz=dx/len,gA=G(l[0],l[1]),gB=G(l[2],l[3]),sag=Math.min(12,len*0.025+1.5);
+        [[6.6,PYH*0.62-1.9],[-6.6,PYH*0.62-1.9],[5.0,PYH*0.78-1.6],[-5.0,PYH*0.78-1.6],[3.0,PYH*0.93-1.4],[-3.0,PYH*0.93-1.4]].forEach(o=>{cab(l[0]+nx*o[0],gA+o[1],l[1]+nz*o[0],l[2]+nx*o[0],gB+o[1],l[3]+nz*o[0],sag);});
+        cab(l[0],gA+PYH,l[1],l[2],gB+PYH,l[3],sag*0.8);   // Erdseil an der Mastspitze
+      });
       const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));g.computeBoundingSphere();
       scene.add(new THREE.LineSegments(g,new THREE.LineBasicMaterial({color:0x2a2c2e})));}
   }

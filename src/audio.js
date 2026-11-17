@@ -1,0 +1,109 @@
+// Prozeduraler Fahrsound (WebAudio, keine Dateien): Reifen je Untergrund, Freilauf, Wind, Voegel, Stoesse, Sprung, Bremse, Regen.
+// Alles wird aus Rauschen und kurzen Impulsen erzeugt; AUDIO.init() muss aus einer Nutzergeste kommen (Start-Knopf).
+export const AUDIO = (() => {
+  let ctx = null, master = null, noise = null, on = true, vol = 0.8, ok = false;
+  const N = {};              // Dauer-Klaenge: Name -> {g: GainNode, f: BiquadFilter}
+  let birdT = 3, clickAcc = 0, stoneAcc = 0, rainAcc = 0, lastSurf = 0, brakeG = null;
+  try { const v = localStorage.getItem('miworu_snd'); if (v === '0') on = false; } catch (e) {}
+
+  function mkNoise() {
+    const len = ctx.sampleRate * 2, b = ctx.createBuffer(1, len, ctx.sampleRate), d = b.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    return b;
+  }
+  function loop(type, freq, q) {   // Rauschen -> Filter -> Gain (Dauerklang)
+    const s = ctx.createBufferSource(); s.buffer = noise; s.loop = true;
+    s.loopStart = Math.random(); s.start(0, Math.random() * 1.5);
+    const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q || 0.7;
+    const g = ctx.createGain(); g.gain.value = 0;
+    s.connect(f); f.connect(g); g.connect(master);
+    return { g, f };
+  }
+  function burst(t, dur, type, freq, q, gain, dest) {   // kurzer Rauschimpuls
+    const s = ctx.createBufferSource(); s.buffer = noise;
+    const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+    const g = ctx.createGain(); g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+    s.connect(f); f.connect(g); g.connect(dest || master); s.start(t, Math.random() * 1.8, dur + 0.02);
+  }
+  function thump(t, f0, f1, dur, gain) {
+    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    const g = ctx.createGain(); g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
+  }
+  function chirp(t, f0, f1, dur, gain, vib) {
+    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + dur * 0.15); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    if (vib) { const l = ctx.createOscillator(), lg = ctx.createGain(); l.frequency.value = vib; lg.gain.value = f0 * 0.05; l.connect(lg); lg.connect(o.frequency); l.start(t); l.stop(t + dur); }
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
+  }
+  function bird(t) {   // zwei, drei Arten: Meise (zwei Toene), Amsel-Triller, Taube
+    const k = Math.random(), base = 2200 + Math.random() * 1600;
+    if (k < 0.4) { for (let i = 0; i < 2 + (Math.random() * 3 | 0); i++) { chirp(t + i * 0.19, base, base * 1.25, 0.1, 0.05); chirp(t + i * 0.19 + 0.09, base * 1.25, base * 0.95, 0.08, 0.04); } }
+    else if (k < 0.8) { let f = 1700 + Math.random() * 500; for (let i = 0; i < 7 + (Math.random() * 6 | 0); i++) { const f2 = f * (0.8 + Math.random() * 0.5); chirp(t + i * 0.11, f, f2, 0.1, 0.045, 28); f = f2; } }
+    else { chirp(t, 480, 400, 0.28, 0.07); chirp(t + 0.34, 460, 380, 0.3, 0.07); chirp(t + 0.75, 470, 390, 0.4, 0.06); }
+  }
+
+  function init() {
+    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+      ctx = new AC(); master = ctx.createGain(); master.gain.value = on ? vol : 0;
+      const comp = ctx.createDynamicsCompressor(); master.connect(comp); comp.connect(ctx.destination);
+      noise = mkNoise();
+      N.wind = loop('lowpass', 500, 0.5);       // Fahrtwind
+      N.amb = loop('bandpass', 700, 0.4);       // Hintergrund: Blaetter, leises Rauschen
+      N.asph = loop('highpass', 2800, 0.6);     // Asphalt: feines Reifenzischen
+      N.road = loop('lowpass', 160, 0.7);       // Rollgeraeusch (Tiefe)
+      N.trail = loop('bandpass', 900, 0.5);     // Waldboden: weiches Rascheln
+      N.rain = loop('highpass', 3500, 0.4);     // Regen auf Laub
+      N.rain2 = loop('bandpass', 1400, 0.4);
+      brakeG = loop('bandpass', 3400, 7);
+      ok = true;
+    } catch (e) { ok = false; }
+  }
+  function set(n, v, dt, k) { const g = n.g.gain; g.value += (v - g.value) * Math.min(1, dt * (k || 6)); }
+
+  // s: {v m/s, surf 0..2, pedal 0..1 (Treten), brake bool, running, forest 0..1, rain 0..1, day 0..1, dn (Gefaelle %)}
+  function update(dt, s) {
+    if (!ok || !ctx) return;
+    const t = ctx.currentTime, v = s.running ? s.v : 0, sp = Math.min(1, v / 14);
+    master.gain.value += ((on ? vol : 0) - master.gain.value) * Math.min(1, dt * 5);
+    const surf = s.surf;
+    // Wind: quadratisch mit Tempo, heller bei hoher Geschwindigkeit
+    set(N.wind, (0.02 + 0.5 * sp * sp) * (s.running ? 1 : 0.3), dt, 4); N.wind.f.frequency.value = 350 + 1500 * sp;
+    set(N.amb, (0.035 + 0.035 * s.forest) * (0.4 + 0.6 * s.day), dt, 1); N.amb.f.frequency.value = 600 + 600 * (1 - s.forest);
+    // Reifen je Untergrund (weiche Ueberblendung)
+    const rv = Math.min(1, v / 9);
+    set(N.asph, surf === 0 ? 0.045 * rv : 0, dt, 5);
+    set(N.road, surf === 0 ? 0.13 * rv : surf === 1 ? 0.1 * rv : 0.05 * rv, dt, 5);
+    set(N.trail, surf === 2 ? 0.13 * rv * (0.5 + 0.5 * Math.min(1, v / 5)) : surf === 1 ? 0.04 * rv : 0, dt, 5);
+    N.trail.f.frequency.value = 500 + 1100 * rv;
+    // Schotter: knirschende Einzelimpulse (Steinchen), Trail: knackende Zweige/Blaetter
+    if (v > 0.6 && (surf === 1 || surf === 2)) {
+      stoneAcc += dt * v * (surf === 1 ? 20 : 7);
+      let n = stoneAcc | 0; stoneAcc -= n; n = Math.min(n, 10);
+      while (n--) burst(t + Math.random() * dt, 0.02 + Math.random() * 0.03, 'bandpass', (surf === 1 ? 1800 : 700) + Math.random() * 2400, 2 + Math.random() * 3, (surf === 1 ? 0.08 : 0.05) * (0.4 + Math.random()));
+    }
+    // Freilauf: klackernde Sperrklinke, solange nicht getreten wird; Frequenz folgt dem Tempo
+    if (v > 1.2 && s.pedal < 0.15) {
+      clickAcc += dt * v * 9;
+      let n = clickAcc | 0; clickAcc -= n; n = Math.min(n, 12);
+      for (let i = 0; i < n; i++) burst(t + (i + 0.5) / (n + 1) * dt, 0.006, 'bandpass', 3600 + v * 90, 6, 0.045 + 0.02 * sp);
+    }
+    // Bremse: hohes Quietschen bei Tempo
+    set(brakeG, s.brake && v > 1.5 ? 0.025 * Math.min(1, v / 8) : 0, dt, 10);
+    // Regen
+    set(N.rain, 0.1 * s.rain, dt, 1.5); set(N.rain2, 0.09 * s.rain, dt, 1.5);
+    // Voegel: tagsueber im Wald, selten auf offenem Feld
+    birdT -= dt * (0.3 + 0.7 * s.forest) * s.day * (1 - 0.8 * s.rain);
+    if (birdT <= 0) { birdT = 5 + Math.random() * 10; if (Math.random() < 0.3 + 0.7 * s.forest) bird(t + Math.random() * 0.3); }
+  }
+  // Einmalige Ereignisse
+  function bump(a, surf) { if (!ok || !on) return; const t = ctx.currentTime, k = Math.min(1, a / 0.3); thump(t, 120, 55, 0.12, 0.35 * k); burst(t, 0.07, 'lowpass', 900, 0.7, 0.4 * k); if (surf === 2) burst(t, 0.12, 'bandpass', 1800, 1, 0.12 * k); }
+  function takeoff() { if (!ok) return; const t = ctx.currentTime; burst(t, 0.12, 'lowpass', 700, 0.7, 0.35); thump(t, 90, 50, 0.14, 0.3); }
+  function land(h) { if (!ok) return; const t = ctx.currentTime, k = Math.min(1, h / 0.4); thump(t, 100, 38, 0.22, 0.7 * k + 0.2); burst(t, 0.2, 'lowpass', 1100, 0.7, 0.55 * k + 0.1); burst(t, 0.15, 'bandpass', 2400, 1.2, 0.16 * k); }
+  function edge(a) { if (!ok) return; const t = ctx.currentTime, k = Math.min(1, a / 1.5); thump(t, 110, 45, 0.18, 0.4 * k + 0.1); burst(t, 0.1, 'lowpass', 800, 0.7, 0.35 * k); }
+  function gear() { if (!ok) return; const t = ctx.currentTime; burst(t, 0.012, 'bandpass', 4200, 5, 0.1); burst(t + 0.06, 0.012, 'bandpass', 3000, 5, 0.08); }
+  function toggle() { on = !on; try { localStorage.setItem('miworu_snd', on ? '1' : '0'); } catch (e) {} init(); return on; }
+  return { init, update, bump, takeoff, land, edge, gear, toggle, get on() { return on; } };
+})();
