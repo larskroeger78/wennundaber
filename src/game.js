@@ -5,7 +5,7 @@ import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import './style.css';
-import { makeVan, vanFace } from './van.js';
+import { makeVan } from './van.js';
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Trainer, ClickPad, BLE_OK } from './ble.js';
 import MITT1 from './routes/mittwochsrunde.json';
@@ -1914,8 +1914,9 @@ const nearHouse=(()=>{if(!BK||!OSM)return null;
   const H=new Map(),K=(x,z)=>Math.floor(x/30)*10000+Math.floor(z/30);
   OSM.buildings.forEach(b=>{const p=b.p;let cx=0,cz=0;for(let i=0;i<p.length;i+=2){cx+=p[i];cz+=p[i+1];}cx/=p.length/2;cz/=p.length/2;const k=K(cx,cz);(H.get(k)||H.set(k,[]).get(k)).push(cx,cz);});
   return (x,z,r,n)=>{let c=0;for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const l=H.get(K(x+a*30,z+b*30));if(!l)continue;for(let i=0;i<l.length;i+=2)if(Math.hypot(l[i]-x,l[i+1]-z)<r)c++;}return c>=n;};})();
-const vanPose=(v,x,z,h,fwd)=>{   // Van auf das Gelaende setzen
-  v.g.position.set(x,gnd(x,z)+0.02,z);v.g.userData.hd=fwd>0?h:h+Math.PI;
+const vanPose=(v,x,z,h,fwd)=>{   // Van auf das Gelaende setzen (Nick-Winkel aus Vorder- und Hinterachse)
+  const fx=Math.sin(h)*fwd,fz=Math.cos(h)*fwd,yF=gnd(x+fx*2,z+fz*2),yR=gnd(x-fx*1.75,z-fz*1.75),yM=gnd(x,z);
+  v.g.position.set(x,Math.min(yM,(yF+yR)/2)+0.02,z);v.g.rotation.order='YXZ';v.g.rotation.y=fwd>0?h:h+Math.PI;v.g.rotation.x=-Math.atan2(yF-yR,3.75);
 };
 const vanPos=(s,lat,o)=>{sample(s,o);return [o.x-Math.cos(o.h)*lat,o.z+Math.sin(o.h)*lat];};
 if(nearHouse){
@@ -1925,22 +1926,22 @@ if(nearHouse){
     sample(s,o);if(!nearHouse(o.x,o.z,45,2))continue;
     gap-=5;if(gap>0)continue;
     const side=rs()<0.6?1:-1,lat=side*(HW[i]+1.35),[x,z]=vanPos(s,lat,o);
-    const v={g:makeVan(),parked:true,s:s};vanPose(v,x,z,o.h,side>0?1:-1);scene.add(v.g);VANS.push(v);
+    const v={g:makeVan(rs()<0.5),parked:true,s:s};vanPose(v,x,z,o.h,side>0?1:-1);scene.add(v.g);VANS.push(v);
     gap=260+rs()*340;
   }
   if(window.__counts)window.__counts.vans=VANS.length;
-  for(let k=0;k<2;k++){const v={g:makeVan(),parked:false,active:false,s:0,dir:1,v:0,lat:0,hw:0};v.g.visible=false;scene.add(v.g);VANS.push(v);}
+  for(let k=0;k<2;k++){const v={g:makeVan(true),parked:false,active:false,s:0,dir:1,v:0,lat:0,hw:0};v.g.visible=false;scene.add(v.g);VANS.push(v);}
 }
 const vo={x:0,y:0,z:0,h:0};
 function updateVans(dt){
   if(!nearHouse)return;
-  const vl=0.62+0.38*Math.min(1,SUN.y*1.4+0.2);VANS.forEach(v=>{if(v.g.visible&&v.g.position.distanceToSquared(camera.position)<90000)vanFace(v.g,camera,vl);});
   const mv=VANS.filter(v=>!v.parked);if(!mv.length)return;
   mv.forEach(v=>{
     if(!v.active)return;
     v.s+=v.dir*v.v*dt;
     const i=Math.floor(clamp(v.s,0,TOTAL-1)/SEG);
     sample(v.s,vo);
+    v.g.userData.wheels.forEach(w=>{w.rotation.x+=v.v*dt/0.41;});
     if(v.s<6||v.s>TOTAL-10||SURF[i]!==0||HW[i]<2.2||Math.abs(v.s-st.pos)>260||!nearHouse(vo.x,vo.z,45,1)){v.active=false;v.g.visible=false;return;}
     const lat=-Math.max(HW[i]-1.25,1.1);
         vanPose(v,vo.x-Math.cos(vo.h)*lat,vo.z+Math.sin(vo.h)*lat,vo.h,v.dir);
