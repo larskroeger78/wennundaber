@@ -1371,39 +1371,6 @@ function updateJoggers(dt){
 }
 
 
-// ================= Reh: huscht bei Abfahrten durch den Wald und flüchtet =================
-const DEER=(function(){
-  const g=new THREE.Group(),bm=new THREE.MeshStandardMaterial({color:0x6e4524,roughness:1}),wm=new THREE.MeshStandardMaterial({color:0xcfc6b0,roughness:1}),dm=new THREE.MeshStandardMaterial({color:0x2a1f18,roughness:1});
-  const bx=(w,h,d,m,x,y,z,par)=>{const q=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);q.position.set(x,y,z);q.castShadow=true;(par||g).add(q);return q;};
-  bx(0.78,0.34,0.3,bm,0,0.78,0);bx(0.2,0.3,0.26,wm,-0.42,0.78,0);   // Rumpf, heller Spiegel
-  const neck=new THREE.Group();neck.position.set(0.4,0.88,0);g.add(neck);bx(0.1,0.42,0.14,bm,0.08,0.18,0,neck).rotation.z=-0.45;
-  const head=new THREE.Group();head.position.set(0.2,0.4,0);neck.add(head);bx(0.24,0.14,0.13,bm,0.1,0,0,head);bx(0.04,0.05,0.14,dm,0.23,-0.01,0,head);bx(0.04,0.14,0.03,bm,0.0,0.12,0.05,head);bx(0.04,0.14,0.03,bm,0.0,0.12,-0.05,head);
-  bx(0.06,0.1,0.06,wm,-0.5,0.86,0);
-  const legs=[];[[0.28,0.1],[0.28,-0.1],[-0.3,0.1],[-0.3,-0.1]].forEach(a=>{const lg=new THREE.Group();lg.position.set(a[0],0.64,a[1]);g.add(lg);bx(0.07,0.62,0.07,bm,0,-0.31,0,lg);legs.push(lg);});
-  g.visible=false;scene.add(g);
-  return {g:g,neck:neck,legs:legs,active:false,wait:35,state:0,t:0,x:0,z:0,vx:0,vz:0,ph:0,fx:1,fz:0,ox:0,oz:0};
-})();
-const dS={};
-function updateDeer(dt){
-  const D=DEER;if(!ROUTE)return;
-  if(!D.active){
-    D.wait-=dt;if(D.wait>0||st.v<4)return;
-    const s=st.pos+34+Math.random()*14,i=Math.floor(s/SEG);
-    if(s>TOTAL-60||SURF[i]<1||GR[i]>-4){D.wait=3;return;}
-    sample(s,dS);const side=Math.random()<0.5?-1:1,o=side*(8+Math.random()*6),rx=-Math.cos(dS.h),rz=Math.sin(dS.h);
-    D.x=dS.x+rx*o;D.z=dS.z+rz*o;D.ox=rx*side;D.oz=rz*side;D.fx=-D.ox;D.fz=-D.oz;D.s=s;D.state=0;D.t=0;D.ph=0;D.active=true;D.g.visible=true;
-    return;
-  }
-  D.t+=dt;sample(st.pos,dS);
-  const dx=D.x-dS.x,dz=D.z-dS.z,dist=Math.hypot(dx,dz);
-  if(D.state===0&&(Math.abs(D.s-st.pos)<17||D.t>20)){D.state=1;D.t=0;const hx=Math.sin(dS.h),hz=Math.cos(dS.h);D.vx=(D.ox*0.9+hx*0.4)*8.5;D.vz=(D.oz*0.9+hz*0.4)*8.5;}   // weg vom Weg, leicht in Fahrtrichtung
-  if(D.state===1){D.x+=D.vx*dt;D.z+=D.vz*dt;D.ph+=dt*11;D.fx=D.vx;D.fz=D.vz;}
-  if(D.state===1&&(D.t>6||dist>60)||(D.state===0&&st.pos>D.s+30)){D.active=false;D.g.visible=false;D.wait=45+Math.random()*80;return;}
-  const y=gnd(D.x,D.z),bound=D.state===1?Math.abs(Math.sin(D.ph)):0;
-  D.g.position.set(D.x,y+bound*0.55,D.z);D.g.rotation.y=Math.atan2(-D.fz,D.fx);D.g.rotation.z=D.state===1?Math.cos(D.ph)*0.22:0;
-  D.legs.forEach((l,k)=>{l.rotation.z=D.state===1?Math.sin(D.ph+(k<2?0:0.9))*0.85:0;});
-  D.neck.rotation.z=D.state===1?0.15:-0.12+Math.sin(D.t*1.3)*0.05;
-}
 await BOOT('Baue Häuser und Gewässer …',72);
 // ================= Gebäude und Gewässer (OpenStreetMap) =================
 if(OSM){
@@ -1502,7 +1469,7 @@ if(OSM){
       const wc=wallC[(rnd()*wallC.length)|0],rc=roofC[(rnd()*roofC.length)|0],sh=0.92+rnd()*0.14,rb={a:rC.length,b:0,pts:[],sh:sh};
       {let tp=1e9,mx=-1e9;poly.forEach(f=>{if(f[0]!=='w')return;const q=f[1];let m=-1e9;for(let i=1;i<q.length;i+=3)m=Math.max(m,q[i]-NHN0);tp=Math.min(tp,m);mx=Math.max(mx,m);});curTop=tp<1e8?tp:mx;}
       let cwP=wP,cwC=wC;{const gf=poly.find(f=>f[0]==='g');if(gf){const q=gf[1],n=q.length/3;let ar=0,gy=1e9,cx=0,cz=0;for(let i=0;i<n;i++){const j=(i+1)%n;ar+=q[i*3]*q[j*3+2]-q[j*3]*q[i*3+2];gy=Math.min(gy,q[i*3+1]-NHN0);cx+=q[i*3];cz+=q[i*3+2];}ar=Math.abs(ar)/2;cx/=n;cz/=n;const H=curTop-gy,hs=Math.abs(Math.sin(cx*12.9898+cz*78.233)*43758.5453)%1;   // Hallen, Garagen, Gewerbe: ohne Fensterreihen
-        if(ar>500||H<3.8||(H<9&&ar>300)||hs<0.2){cwP=wP2;cwC=wC2;}}}   // Traufhoehe: niedrigste Oberkante der Waende
+        if(ar>500||H<3.8||(H<9&&ar>300)||hs<0.2||(H>11&&ar<220&&H>2.2*Math.sqrt(ar))||H>26){cwP=wP2;cwC=wC2;}}}   // Traufhoehe: niedrigste Oberkante der Waende
       poly.forEach(f=>{
         const k=f[0],q=f[1],n=q.length/3,V=[];
         for(let i=0;i<n;i++)V.push([q[i*3],q[i*3+1]-NHN0,q[i*3+2]]);
@@ -1537,7 +1504,7 @@ if(OSM){
     let gmin=1e9,gmax=-1e9,area=0;
     for(let a=0;a<n;a++){const x=b.p[a*2],z=b.p[a*2+1],g=gnd(x,z);gmin=Math.min(gmin,g);gmax=Math.max(gmax,g);const a2=(a+1)%n;area+=b.p[a*2]*b.p[a2*2+1]-b.p[a2*2]*b.p[a*2+1];}
     area=Math.abs(area)/2;if(area<12)return;
-    const plB=area>500||b.h<3.8||(b.h<9&&area>300)||(Math.abs(Math.sin(b.p[0]*12.9898+b.p[1]*78.233)*43758.5453)%1)<0.2,WG=plB?wallP:wallG;   // Hallen/Garagen/Gewerbe: ohne Fensterreihen
+    const plB=area>500||b.h<3.8||(b.h<9&&area>300)||(b.h>11&&area<220&&b.h>2.2*Math.sqrt(area))||b.h>26||(Math.abs(Math.sin(b.p[0]*12.9898+b.p[1]*78.233)*43758.5453)%1)<0.2,WG=plB?wallP:wallG;   // Hallen/Garagen/Gewerbe: ohne Fensterreihen
     const wc=wallC[(rnd()*wallC.length)|0],rc=b.r?new THREE.Color(0x5d6b6a):roofC[(rnd()*roofC.length)|0],sh=0.92+rnd()*0.14;
     // kleinste umschliessende Rechteck-Ausrichtung (fuer Satteldach)
     let best=null;
@@ -1639,7 +1606,7 @@ let bleKey='';
 const bleChange=()=>{if(trainer.connected)inputMode='trainer';else if(inputMode==='trainer')inputMode='keyboard';const ck=click.connected+'|'+click.devs.length;if(bleKey.indexOf(ck)<0&&bleMsg.indexOf('Click')===0)bleMsg='';const k=trainer.connected+'|'+ck+'|'+bleMsg;if(k===bleKey)return;bleKey=k;if(ov.style.display!=='none'&&lastMenu&&!helpOpen)menu(lastMenu[0],lastMenu[1]);};
 trainer.onChange=bleChange;click.onChange=bleChange;   // FPV: Cockpit-Ansicht aus Fahrersicht (Taste C wechselt)
 const cockpitEl=document.getElementById('cockpit'),glowEl=document.getElementById('glow'),_cd=new THREE.Vector3(),_sv=new THREE.Vector3();
-function reset(){SHK.y=SHK.vy=SHK.r=SHK.vr=0;SHK.i=0;SHK.fi=0;SHK.w=SHK.wv=0;SHK.air=null;st={pos:0,v:0,x:0.4,power:0,t:0,crank:0.6,wheel:0,lean:0,bar:0,pitch:0,done:false};resetJoggers();DEER.active=false;DEER.g.visible=false;DEER.wait=25;vanWait=12;VANS&&VANS.forEach(v=>{if(!v.parked){v.active=false;v.g.visible=false;}});}
+function reset(){SHK.y=SHK.vy=SHK.r=SHK.vr=0;SHK.i=0;SHK.fi=0;SHK.w=SHK.wv=0;SHK.air=null;st={pos:0,v:0,x:0.4,power:0,t:0,crank:0.6,wheel:0,lean:0,bar:0,pitch:0,done:false};resetJoggers();vanWait=12;VANS&&VANS.forEach(v=>{if(!v.parked){v.active=false;v.g.visible=false;}});}
 reset();
 window.addEventListener('keydown',e=>{
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].indexOf(e.key)>=0)e.preventDefault();
@@ -1690,7 +1657,7 @@ function update(dt){
   SHK.vy+=(-420*SHK.y-17*SHK.vy)*dt;SHK.y+=SHK.vy*dt;SHK.vr+=(-380*SHK.r-16*SHK.vr)*dt;SHK.r+=SHK.vr*dt;
   const rough=(ROUTE?[0,0.4,1][SURF[i]]:(i>=iTrail?1:0.2))*(1+Math.max(0,-GR[i])*0.06)*Math.min(1,st.v/6);
   SHK.buzz=rough*(Math.sin(st.pos*9.3)+Math.sin(st.pos*17.9+1.3)*0.7+Math.sin(st.pos*31.7)*0.4);
-  updateJoggers(dt);updateVans(dt);updateDeer(dt);updateGroup(dt);
+  updateJoggers(dt);updateVans(dt);updateGroup(dt);
   const steer=(right?1:0)-(left?1:0);
   // Automatische Lenkung (Rollentrainer wie D100 oder KICKR können nicht lenken): Lenker und Neigung folgen dem
   // Streckenverlauf, Ausweichen übernimmt das Spiel. Auf Asphalt/Schotter fährt das Rad rechts (Gegenverkehr links),
@@ -2282,7 +2249,7 @@ function loop(now){
   update(dt);render(dt,now);
   requestAnimationFrame(loop);
 }
-window.__dbg={renderer:renderer,scene:scene,SHK:SHK,BUMPS:BUMPS,gnd:gnd,HS:HS,PX:PX,PZ:PZ,HW:HW,KV:KV,ROUTE:ROUTE,SURF:SURF,cam:camera,joggers:joggers,DEER:DEER,get st(){return st;},set pos(v){st.pos=v;camInit=false;},N:N,TOTAL:TOTAL,iTrail:iTrail,SEC:SEC,PY:PY,GR:GR,forestD:forestD,lu:(k,x,z)=>LU?lu(LU[k],x,z):-1};
+window.__dbg={renderer:renderer,scene:scene,SHK:SHK,BUMPS:BUMPS,gnd:gnd,HS:HS,PX:PX,PZ:PZ,HW:HW,KV:KV,ROUTE:ROUTE,SURF:SURF,cam:camera,joggers:joggers,get st(){return st;},set pos(v){st.pos=v;camInit=false;},N:N,TOTAL:TOTAL,iTrail:iTrail,SEC:SEC,PY:PY,GR:GR,forestD:forestD,lu:(k,x,z)=>LU?lu(LU[k],x,z):-1};
 if(SAVED)menu('Weiterfahren bei '+(SAVED.pos/1000).toFixed(2).replace('.',',')+' km','Gespeicherte Fahrt · '+fmtT(SAVED.t));else menu('Start');
 if(location.hash==='#go')start();
 requestAnimationFrame(loop);
