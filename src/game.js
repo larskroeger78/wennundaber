@@ -9,6 +9,9 @@ import { makeVan } from './van.js';
 import PV5URL from './assets/cars/pv5.glb?url';
 import AE86URL from './assets/cars/ae86.glb?url';
 import GMCURL from './assets/cars/gmc.glb?url';
+import F150URL from './assets/cars/f150.glb?url';
+import C10URL from './assets/cars/c10.glb?url';
+import WRECKURL from './assets/cars/wreck.glb?url';
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Trainer, ClickPad, BLE_OK } from './ble.js';
 import MITT1 from './routes/mittwochsrunde.json';
@@ -1929,15 +1932,19 @@ if(BK){   // Voegel: kreisen und gleiten um die Strecke, schlagen zwischendurch 
 var VANS=[],vanWait=14;
 // Fremdmodelle (Sketchfab, siehe #credits): GLB-Dateien, Front +z, auf echte Groesse skaliert; Hersteller-Laden erst wenn geladen
 const CARS={
-  pv5:{url:PV5URL,sc:[3.1,3.9,4.1],dy:0,hw:0.98},            // Kia PV5, teenlin3, CC BY
-  ae86:{url:AE86URL,sc:[0.01,0.01,0.01],dy:0,hw:0.85},       // Toyota AE86 Trueno
-  gmc:{url:GMCURL,sc:[0.9,0.9,0.9],dy:1.4*0.9,hw:1.45}       // GMC Motorhome
+  pv5:{url:PV5URL,sc:[3.1,3.9,4.1],hw:0.98},            // Kia PV5, teenlin3, CC BY
+  ae86:{url:AE86URL,sc:[0.01,0.01,0.01],hw:0.85},       // Toyota AE86 Trueno
+  gmc:{url:GMCURL,sc:[0.9,0.9,0.9],hw:1.45},            // GMC Motorhome
+  f150:{url:F150URL,sc:[1,1,1],rot:Math.PI,hw:1.35},    // Ford F-150 Raptor (Front war -z)
+  c10:{url:C10URL,sc:[0.01,0.01,0.01],hw:1.05},         // Chevrolet C10 1963
+  wreck:{url:WRECKURL,sc:[0.17,0.17,0.17],hw:1.1}       // Autowrack (Scan)
 };
 Object.keys(CARS).forEach(k=>{const C=CARS[k];C.tpl=null;C.wait=[];
-  new GLTFLoader().load(C.url,gl=>{const m=gl.scene;m.position.y=C.dy/C.sc[1];m.traverse(o=>{if(o.isMesh){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(q=>{q.roughness=Math.max(q.roughness||0,0.5);q.metalness=Math.min(q.metalness||0,0.15);});}});
-    const w=new THREE.Group();w.add(m);w.scale.set(...C.sc);C.tpl=w;C.wait.forEach(g=>g.add(w.clone(true)));C.wait.length=0;},undefined,()=>{});});
+  new GLTFLoader().load(C.url,gl=>{const m=gl.scene;m.traverse(o=>{if(o.isMesh){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(q=>{q.roughness=Math.max(q.roughness||0,0.5);q.metalness=Math.min(q.metalness||0,0.15);});}});
+    const b=new THREE.Box3().setFromObject(m),c=b.getCenter(new THREE.Vector3());m.position.set(-c.x,-b.min.y,-c.z);   // mittig auf den Boden stellen
+    const r=new THREE.Group();r.add(m);r.rotation.y=C.rot||0;const w=new THREE.Group();w.add(r);w.scale.set(...C.sc);C.tpl=w;C.wait.forEach(g=>g.add(w.clone(true)));C.wait.length=0;},undefined,()=>{});});
 const makeCar=k=>{const C=CARS[k],g=new THREE.Group();g.userData.wheels=[];g.userData.hw=C.hw;if(C.tpl)g.add(C.tpl.clone(true));else C.wait.push(g);return g;};
-const pickCar=r=>r<0.4?makeCar('pv5'):r<0.8?makeCar('ae86'):makeCar('gmc');
+const pickCar=r=>r<0.22?makeCar('pv5'):r<0.44?makeCar('ae86'):r<0.64?makeCar('c10'):r<0.8?makeCar('f150'):r<0.93?makeCar('gmc'):makeCar('wreck');
 var VANS=[],vanWait=14;
 const nearHouse=(()=>{if(!BK||!OSM)return null;
   const H=new Map(),K=(x,z)=>Math.floor(x/30)*10000+Math.floor(z/30);
