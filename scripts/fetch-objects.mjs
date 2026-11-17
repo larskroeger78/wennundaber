@@ -15,7 +15,8 @@ const q = `[out:json][timeout:120];(
  node["power"~"^(pole|tower)$"](${bb});node["man_made"~"^(mast|tower|chimney|water_tower|flagpole)$"](${bb});node["barrier"~"^(bollard|gate|stile|lift_gate)$"](${bb});
  node["amenity"~"^(shelter|waste_basket|drinking_water)$"](${bb});node["leisure"="picnic_table"](${bb});
  way["barrier"~"^(fence|wall|hedge|guard_rail|retaining_wall|city_wall)$"](${bb});way["power"~"^(line|minor_line)$"](${bb});
- way["highway"~"^(trunk|primary|secondary|tertiary|unclassified|residential|living_street|service)$"](${bb});
+ way["highway"~"^(trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|pedestrian|footway|cycleway|path|track)$"](${bb});
+ way["amenity"="parking"](${bb});rel["amenity"="parking"](${bb});way["area:highway"](${bb});
 );out geom;`;
 const j = await overpass(q, 3, 1);
 const L = (lat, lon) => [Math.round((lon - LON0) * KX * 10) / 10, Math.round(-(lat - LAT0) * KY * 10) / 10];
@@ -39,7 +40,17 @@ for (const e of j.elements || []) {
     else if (t.amenity) k = 'bin';
     if (!k) continue; cnt[k] = (cnt[k] || 0) + 1;
     nodes.push([k, ...p, t.height ? +parseFloat(t.height) || 0 : 0]);
+  } else if (e.type === 'relation' && e.members) {   // Parkplaetze als Multipolygon: aeussere Ringe
+    if (t.amenity !== 'parking') continue;
+    for (const m of e.members) { if (m.type !== 'way' || m.role === 'inner' || !m.geometry) continue;
+      const pts = m.geometry.map(g => L(g.lat, g.lon)); if (pts.length < 4 || !pts.some(inside)) continue;
+      cnt.park = (cnt.park || 0) + 1; lines.push(['park', pts.flat(), { m: 1 }]); }
   } else if (e.type === 'way' && e.geometry) {
+    if (t.amenity === 'parking' || t['area:highway']) {   // Parkplatz- und Platzflaechen (Polygone)
+      const pts = e.geometry.map(g => L(g.lat, g.lon)); if (pts.length < 4 || !pts.some(inside)) continue;
+      if (t.amenity === 'parking' && /^(multi-storey|underground|rooftop)$/.test(t.parking || '')) continue;
+      cnt.park = (cnt.park || 0) + 1; lines.push(['park', pts.flat(), { u: /unpaved|gravel|dirt|ground|compacted|fine_gravel|grass/.test(t.surface || '') ? 1 : 0, c: t.capacity ? +t.capacity || 0 : 0 }]); continue;
+    }
     let k = null;
     if (t.barrier === 'fence') k = 'fence'; else if (/^(wall|retaining_wall|city_wall)$/.test(t.barrier)) k = 'wall'; else if (t.barrier === 'hedge') k = 'hedge';
     else if (t.barrier === 'guard_rail') k = 'rail'; else if (t.power) k = 'line'; else if (t.highway) k = 'road';
@@ -47,10 +58,11 @@ for (const e of j.elements || []) {
     const pts = e.geometry.map(g => L(g.lat, g.lon)); if (!pts.some(inside)) continue;
     cnt[k] = (cnt[k] || 0) + 1;
     if (k === 'road') {
-      const W0 = { trunk: 8, primary: 7.5, secondary: 7, tertiary: 6.2, unclassified: 5.2, residential: 5, living_street: 4.2, service: 3.2 };
-      const w = parseFloat(t.width) || W0[t.highway] || 5;
+      const W0 = { trunk: 8, primary: 7.5, secondary: 7, tertiary: 6.2, unclassified: 5.2, residential: 5, living_street: 4.2, service: 3.2, pedestrian: 4, footway: 1.8, cycleway: 2.2, path: 1.2, track: 3 };
+      const lanes = parseInt(t.lanes) || 0, w = parseFloat(t.width) || (lanes > 2 && /^(trunk|primary|secondary|tertiary)$/.test(t.highway) ? lanes * 3.1 : 0) || W0[t.highway] || 5;
+      const sw = /^(both|yes)$/.test(t.sidewalk || '') ? 3 : t.sidewalk === 'left' ? 1 : t.sidewalk === 'right' ? 2 : 0;   // Buergersteige: 3 = beidseitig, 1 links, 2 rechts
       if (t.tunnel === 'yes' || t.tunnel === 'building_passage') continue;
-      lines.push([k, pts.flat(), { w, h: t.highway, br: t.bridge ? 1 : 0, u: /unpaved|gravel|dirt|ground|compacted|fine_gravel|grass/.test(t.surface || '') ? 1 : 0 }]);
+      lines.push([k, pts.flat(), { w, h: t.highway, br: t.bridge ? 1 : 0, u: /unpaved|gravel|dirt|ground|compacted|fine_gravel|grass/.test(t.surface || '') || (/^(track|path)$/.test(t.highway) && !/asphalt|paved|concrete|paving/.test(t.surface || '')) ? 1 : 0, sw, rb: t.junction === 'roundabout' ? 1 : 0, ow: t.oneway === 'yes' ? 1 : 0, l: lanes }]);
     } else lines.push([k, pts.flat()]);
   }
 }
