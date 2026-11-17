@@ -1662,9 +1662,9 @@ function update(dt){
   while(SHK.fi<FEAT.length&&FEAT[SHK.fi].s<st.pos){   // Kanten, Drops und Sprung
     const f=FEAT[SHK.fi++];if(!(f.s>=p0-0.01&&st.v>2.2))continue;
     if(f.k==='e'){const a=f.a*(0.55+0.45*Math.min(1,st.v/9));SHK.vy+=a;SHK.vr+=(rnd()-0.5)*a*9;SHK.wv+=(rnd()<0.5?-1:1)*a*110;}
-    else if(f.k==='j'&&!SHK.air&&st.v>4.5){SHK.air={t:0,T:clamp(0.3+st.v*0.03,0.45,0.85),H:clamp(0.12+st.v*0.025,0.2,0.55)};SHK.vy+=0.3;}
+    else if(f.k==='j'&&!SHK.air&&st.v>4.5){SHK.air={t:0,T:clamp(0.28+st.v*0.022,0.4,0.7),H:clamp(0.07+st.v*0.011,0.12,0.28)};}
   }
-  if(SHK.air){SHK.air.t+=dt;if(SHK.air.t>=SHK.air.T){const H=SHK.air.H;SHK.air=null;SHK.vy-=3.2*Math.min(1,H/0.5);SHK.vr+=(rnd()-0.5)*22;SHK.wv+=(rnd()<0.5?-1:1)*110*Math.min(1,H/0.4);}}
+  if(SHK.air){SHK.air.t+=dt;if(SHK.air.t>=SHK.air.T){const H=SHK.air.H;SHK.air=null;SHK.vy-=1.1*Math.min(1,H/0.3);SHK.vr+=(rnd()-0.5)*3;SHK.wv+=(rnd()<0.5?-1:1)*14*Math.min(1,H/0.3);}}
   SHK.wv+=(-900*SHK.w-9*SHK.wv)*dt;SHK.w+=SHK.wv*dt;   // Lenker flattert nach Stoessen
   SHK.vy+=(-420*SHK.y-17*SHK.vy)*dt;SHK.y+=SHK.vy*dt;SHK.vr+=(-380*SHK.r-16*SHK.vr)*dt;SHK.r+=SHK.vr*dt;
   const rough=(ROUTE?[0,0.4,1][SURF[i]]:(i>=iTrail?1:0.2))*(1+Math.max(0,-GR[i])*0.06)*Math.min(1,st.v/6);
@@ -1894,9 +1894,9 @@ function render(dt,now){
   camera.lookAt(lookC);
   if(fp){
     camera.rotateZ(-st.lean*0.55+SHK.r*0.5);             // Neigung in Kurven + Ruppeln
-    camera.rotateX((running?Math.atan(tabD(st.pos))*0.7:0)+SHK.y*0.9+(SHK.air?0.1*Math.cos(Math.PI*airU()):0));
+    camera.rotateX((running?Math.atan(tabD(st.pos))*0.7:0)+SHK.y*0.9+(SHK.air?0.035*Math.cos(Math.PI*airU()):0));
     const deg=clamp(st.bar,-17,17);                     // Lenker dreht mit
-    cockpitEl.style.transform='translate(-50%,'+(18.5+Math.abs(deg)*0.062-(SHK.y+airH())*70-(SHK.buzz||0)*0.12).toFixed(2)+'%) rotate('+(deg+SHK.r*25+SHK.w).toFixed(2)+'deg)';
+    cockpitEl.style.transform='translate(-50%,'+(18.5+Math.abs(deg)*0.062-(SHK.y+airH()*0.6)*70-(SHK.buzz||0)*0.12).toFixed(2)+'%) rotate('+(deg+SHK.r*25+SHK.w).toFixed(2)+'deg)';
   }
   sky.position.copy(camera.position);sky.material.uniforms.time.value=now*0.001;
   if(BK)applySun();
