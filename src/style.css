@@ -94,3 +94,5 @@ button.main{background:#e14230;color:#fff;font-size:30px;padding:12px 34px}
 #prof{pointer-events:auto;cursor:pointer;touch-action:none}
 
 #credits{position:absolute;right:8px;bottom:4px;font:500 10px 'Barlow Condensed',sans-serif;color:#fff;opacity:.45;pointer-events:none;z-index:1}
+
+#grp{left:22px;top:78px;font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;opacity:.85}
