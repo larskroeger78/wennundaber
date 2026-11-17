@@ -798,18 +798,19 @@ applyPhoto(trunkMat,'tree_bark_03',2,7,{normal:false,color:new THREE.Color(0.75,
 const DUM=new THREE.Object3D(),TC=new THREE.Color();
 // Baumart je Strecke: Wuppertal/Hagen/Iserlohn dichte Fichten (Nadelwald), Bergkamen Birken; andere Strecken wie bisher
 const SPEC=(RT&&['wuppertal','hagen','iserlohn','hemer'].indexOf(RT.dem)>=0)?'fir':(RT===ROUTES.tour2?'birch':null);
-const firGeo=(function(){
-  const pos=[],nrm=[],uv=[],S=7,T=4;
+const firGeo=(function(){   // dichte Tanne: 8 ueberlappende, unten ausgefranste Aststockwerke plus geschlossener Kern, keine Luecken zwischen den Stockwerken
+  const pos=[],nrm=[],uv=[],S=9,T=8;
+  const tri=(P,U,N)=>{for(let q=0;q<3;q++){pos.push(P[q][0],P[q][1],P[q][2]);uv.push(U[q][0],U[q][1]);const l=Math.hypot(N[q][0],N[q][1],N[q][2]);nrm.push(N[q][0]/l,N[q][1]/l,N[q][2]/l);}};
   for(let i=0;i<T;i++){
-    const yb=i*0.22,hh=0.4,r=0.5*(1-i*0.19),ph=i*0.9;
+    const yb=i*0.1,hh=0.3,r=0.54*(1-i*0.105),ph=i*0.7;
     for(let k=0;k<S;k++){
-      const a0=ph+k/S*6.2832,a1=ph+(k+1)/S*6.2832,am=(a0+a1)/2;
-      const P=[[Math.cos(a0)*r,yb,Math.sin(a0)*r],[Math.cos(a1)*r,yb,Math.sin(a1)*r],[Math.cos(am)*r*0.04,yb+hh,Math.sin(am)*r*0.04]];
-      const U=[[k/S,0],[(k+1)/S,0],[(k+0.5)/S,1]];
-      for(let q=0;q<3;q++){pos.push(P[q][0],P[q][1],P[q][2]);uv.push(U[q][0]*2,U[q][1]+i*0.3);
-        const nx=q<2?Math.cos(q?a1:a0):Math.cos(am),nz=q<2?Math.sin(q?a1:a0):Math.sin(am),ny=q<2?0.55:0.9;const l=Math.hypot(nx,ny,nz);nrm.push(nx/l,ny/l,nz/l);}
+      const a0=ph+k/S*6.2832,a1=ph+(k+1)/S*6.2832,am=(a0+a1)/2,j0=(k%2?0.8:1),j1=((k+1)%2?0.8:1);
+      const P=[[Math.cos(a0)*r*j0,yb-(k%2?0.03:0),Math.sin(a0)*r*j0],[Math.cos(a1)*r*j1,yb-((k+1)%2?0.03:0),Math.sin(a1)*r*j1],[Math.cos(am)*r*0.05,yb+hh,Math.sin(am)*r*0.05]];
+      tri(P,[[k/S*2,i*0.12],[(k+1)/S*2,i*0.12],[(k+0.5)/S*2,i*0.12+0.35]],[[Math.cos(a0),0.55,Math.sin(a0)],[Math.cos(a1),0.55,Math.sin(a1)],[Math.cos(am),0.9,Math.sin(am)]]);
     }
   }
+  for(let k=0;k<6;k++){const a0=k/6*6.2832,a1=(k+1)/6*6.2832,am=(a0+a1)/2;   // Kern
+    tri([[Math.cos(a0)*0.2,0.05,Math.sin(a0)*0.2],[Math.cos(a1)*0.2,0.05,Math.sin(a1)*0.2],[0,1,0]],[[k/6,0.2],[(k+1)/6,0.2],[(k+0.5)/6,0.6]],[[Math.cos(a0),0.4,Math.sin(a0)],[Math.cos(a1),0.4,Math.sin(a1)],[Math.cos(am),0.9,Math.sin(am)]]);}
   const g=new THREE.BufferGeometry();
   g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(nrm,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
   return g;
@@ -1883,6 +1884,21 @@ function updateTiles(cp){   // weit entfernte Kacheln nicht zeichnen, Schatten n
       }
     });
     // Strassen (ohne die Strecke selbst): Asphaltband mit Mittellinie, Randlinien und Bordsteinen, auf das Gelaende gelegt
+    roadSegs.forEach(L=>{   // Kreisverkehre: geschlossene, runde Strassenringe als Fahrbahnring mit Mittelinsel (Rasen) und Bordstein
+      const q=L[1],ex=L[2]||{},n=q.length/2;if(n<8||ex.u||ex.br||Math.hypot(q[0]-q[q.length-2],q[1]-q[q.length-1])>1.5)return;
+      let cx=0,cz=0;for(let i=0;i<q.length;i+=2){cx+=q[i];cz+=q[i+1];}cx/=n;cz/=n;
+      const rr=[];for(let i=0;i<q.length;i+=2)rr.push(Math.hypot(q[i]-cx,q[i+1]-cz));const R=rr.reduce((a,b)=>a+b,0)/n;
+      if(R<5||R>35||Math.max(...rr)>R*1.3||Math.min(...rr)<R*0.7)return;
+      const w=Math.max(ex.w||6,6),ri=R-w/2,ro=R+w/2,M=28,lift=0.13;
+      const ring=(r0,r1,y,col,P_,C_)=>{for(let m=0;m<M;m++){const a0=m/M*6.2832,a1=(m+1)/M*6.2832;
+        const p=(r,a)=>[cx+Math.cos(a)*r,cz+Math.sin(a)*r],A=p(r0,a0),B=p(r1,a0),C=p(r0,a1),D=p(r1,a1);
+        [[A],[B],[C],[B],[D],[C]].forEach(v=>{P_.push(v[0][0],G(v[0][0],v[0][1])+y,v[0][1]);C_.push(col[0]*(0.95+0.1*fbm(v[0][0]/3,v[0][1]/3)),col[1],col[2]);});}};
+      ring(ri,ro,lift,[0.11,0.115,0.12],RP,RC);
+      ring(0,ri-0.35,lift+0.12,[0.2,0.33,0.14],MP,MC);   // Mittelinsel mit Gras
+      ring(ri-0.35,ri,lift+0.14,[0.6,0.6,0.58],MP,MC);   // Bordstein
+      ring(ro,ro+0.3,lift+0.02,[0.55,0.55,0.53],MP,MC);  // aeusserer Randstein
+      if(window.__counts)window.__counts.rb=(window.__counts.rb||0)+1;
+    });
     roadSegs.forEach(L=>{
       const q=L[1],ex=L[2]||{},w=ex.w||5,hw=ex.h,paved=!ex.u&&hw!=='service'||(hw==='service'&&!ex.u);
       if(ex.u||ex.br)return;
