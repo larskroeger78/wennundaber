@@ -105,5 +105,8 @@ export const AUDIO = (() => {
   function edge(a) { if (!ok) return; const t = ctx.currentTime, k = Math.min(1, a / 1.5); thump(t, 110, 45, 0.18, 0.4 * k + 0.1); burst(t, 0.1, 'lowpass', 800, 0.7, 0.35 * k); }
   function gear() { if (!ok) return; const t = ctx.currentTime; burst(t, 0.012, 'bandpass', 4200, 5, 0.1); burst(t + 0.06, 0.012, 'bandpass', 3000, 5, 0.08); }
   function toggle() { on = !on; try { localStorage.setItem('miworu_snd', on ? '1' : '0'); } catch (e) {} init(); return on; }
-  return { init, update, bump, takeoff, land, edge, gear, toggle, get on() { return on; } };
+  // Browser starten Audio erst nach einer Nutzergeste (Klick, Taste, Touch): beim ersten Mal Kontext anlegen bzw. fortsetzen
+  const wake = () => { init(); if (ctx && ctx.state === 'suspended') ctx.resume(); };
+  ['pointerdown', 'keydown', 'touchstart', 'click'].forEach(ev => window.addEventListener(ev, wake, { passive: true }));
+  return { init, get suspended() { return !ctx || ctx.state !== 'running'; }, update, bump, takeoff, land, edge, gear, toggle, get on() { return on; } };
 })();
