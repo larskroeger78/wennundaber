@@ -39,6 +39,8 @@ try{listRoutes().forEach(e=>{const nm=String(e.name||'').trim().toLowerCase();if
 const RT=RKEY==='halde'?null:(ROUTES[RKEY]||ROUTES.tour2);   // Standard: die Tour vom 5.10.2022; andere Strecken nur noch per URL (?route=halde|mittwoch) für Entwicklung
 const ROUTE=!!RT,MITT=RT?RT.data:MITT1;
 // Echtes Geländemodell (DGM1 NRW, per npm run terrain erzeugt): Höhenraster in Dezimetern
+const BOOT=(t,p)=>{const m=document.getElementById('bootmsg'),b=document.querySelector('#bootbar i');if(m)m.textContent=t;if(b&&p!==undefined)b.style.width=p+'%';return new Promise(r=>requestAnimationFrame(()=>setTimeout(r,0)));};
+await BOOT('Lade Streckendaten …',5);
 const GEL_F=import.meta.glob('./routes/*gelaende.json'),OSM_F=import.meta.glob('./routes/*umgebung.json'),LOD2_F=import.meta.glob('./routes/*.lod2.json'),CAN_F=import.meta.glob('./routes/*.canopy.json'),R1_F=import.meta.glob('./routes/*.dgm1.json'),STR_F=import.meta.glob('./routes/*.strassen.json'),OBJ_F=import.meta.glob('./routes/*.objekte.json'),DOP_J=import.meta.glob('./routes/*.dop.json'),DOP_I=import.meta.glob('./routes/*.dop-*.jpg',{eager:true,query:'?url',import:'default'});
 const DATA_KEY=(F,_,ext)=>Object.keys(F).find(k=>k.split('/').pop()===((RT&&RT.dem)?RT.dem+'.'+ext:ext));   // Standard: gelaende.json / umgebung.json; eigene Strecken: <name>.gelaende.json / <name>.umgebung.json
 const LZ=async(F,ext)=>{const k=DATA_KEY(F,0,ext);if(!k)return null;const m=await F[k]();return m.default||m;};
@@ -568,6 +570,7 @@ function textTex(txt,bg,fg){
   return canvasTex(512,128,(g,w,h)=>{g.fillStyle=bg;g.fillRect(0,0,w,h);g.fillStyle=fg;g.font='bold 76px Arial';g.textAlign='center';g.textBaseline='middle';g.fillText(txt,w/2,h/2+4);},false);
 }
 
+await BOOT('Baue Gelände …',25);
 // ================= Gelände =================
 const cGrassA=L3(0x5f7d34),cGrassB=L3(0x84903f),cDry=L3(0xa39a5c),cForest=L3(0x3d4a25),cGravel=L3(0x837c6d),cDirt=L3(0x5c4730),cRough=L3(0x2b2019),cLitter=L3(0x4b3a22),cSoil=L3(0x6a4f33),cStoneG=L3(0x77726a),cField=L3(0x6d8a3e),cUrban=L3(0x8f9180),cWater=L3(0x3b5f70);
 function forestD(x,z){
@@ -763,6 +766,7 @@ else{
   surfRuns((sf,a,b)=>{ribbon(Math.max(0,a-2),Math.min(N,b+2),sf===0?1:(sf===1?1.5:1.7),sf===0?asphaltMat:(sf===1?gravelMat:trailMat),sf===0?8:5,sf===0?0.05:0.07);});
 }
 
+await BOOT('Pflanze Bäume und Büsche …',40);
 // ================= Vegetation =================
 function cardGeo(quads,nrmFn){
   const pos=[],uv=[],nrm=[],idx=[];
@@ -1181,6 +1185,7 @@ if(!ROUTE)(function(){
   s.position.y=1.8;s.rotation.y=Math.PI;g.add(s);scene.add(g);
 })();
 
+await BOOT('Baue Fahrrad …',65);
 // ================= Bike & Fahrer =================
 const SPH=new THREE.SphereGeometry(1,16,12),BOX=new THREE.BoxGeometry(1,1,1),limbGeos={};
 function limb(mat,ra,rb,parent){const k=ra+'_'+rb,geo=limbGeos[k]||(limbGeos[k]=new THREE.CylinderGeometry(rb,ra,1,10));const m=new THREE.Mesh(geo,mat);m.castShadow=true;parent.add(m);return m;}
@@ -1351,21 +1356,47 @@ function updateJoggers(dt){
   });
 }
 
+await BOOT('Baue Häuser und Gewässer …',72);
 // ================= Gebäude und Gewässer (OpenStreetMap) =================
 if(OSM){
   // --- Fassaden- und Dachtexturen (im Code erzeugt, Kachel = 5 m breit x 6 m hoch bzw. 1,6 m Ziegelreihen) ---
   const mkTex=(w,h,draw)=>{const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);const tx=new THREE.CanvasTexture(c);tx.wrapS=tx.wrapT=THREE.RepeatWrapping;tx.anisotropy=4;tx.encoding=THREE.sRGBEncoding;return tx;};
   const noise=(x,w,h,n,a)=>{for(let i=0;i<n;i++){const v=Math.random()<0.5?0:255;x.fillStyle='rgba('+v+','+v+','+v+','+(Math.random()*a)+')';x.fillRect(Math.random()*w,Math.random()*h,1+Math.random()*2,1+Math.random()*2);}};
-  const facadeTex=mkTex(256,256,(x,w,h)=>{
-    x.fillStyle='#f3efe6';x.fillRect(0,0,w,h);noise(x,w,h,2600,0.07);
-    for(let f=0;f<2;f++){const cy=h*(f?0.25:0.75),ww=w*0.26,wh=h*0.2,cx=w*0.5;     // zwei Geschosse, je ein Fenster pro 5 m
-      x.fillStyle='#d8d2c6';x.fillRect(cx-ww/2-5,cy-wh/2-5,ww+10,wh+10+4);            // Laibung
-      const gr=x.createLinearGradient(0,cy-wh/2,0,cy+wh/2);gr.addColorStop(0,'#6f8aa3');gr.addColorStop(0.55,'#2d3c4b');gr.addColorStop(1,'#1d2733');
-      x.fillStyle=gr;x.fillRect(cx-ww/2,cy-wh/2,ww,wh);
-      x.fillStyle='#f6f4ee';x.fillRect(cx-ww/2,cy-wh/2,ww,3);x.fillRect(cx-ww/2,cy+wh/2-3,ww,3);x.fillRect(cx-ww/2,cy-wh/2,3,wh);x.fillRect(cx+ww/2-3,cy-wh/2,3,wh);x.fillRect(cx-1.5,cy-wh/2,3,wh);x.fillRect(cx-ww/2,cy-2,ww,4);   // Rahmen + Kreuz
-      x.fillStyle='rgba(255,255,255,0.22)';x.beginPath();x.moveTo(cx-ww/2+3,cy+wh/2-3);x.lineTo(cx-ww/2+3,cy-wh/2+3);x.lineTo(cx-ww*0.1,cy-wh/2+3);x.closePath();x.fill();   // Spiegelung
-      x.fillStyle='#bdb6a8';x.fillRect(cx-ww/2-8,cy+wh/2+4,ww+16,5);}                // Fensterbank
-    x.fillStyle='rgba(0,0,0,0.10)';x.fillRect(0,h-6,w,6);x.fillRect(0,h*0.5-2,w,3);     // Sockel + Geschossfuge
+  const facadeTex=mkTex(2048,512,(x,w,h)=>{   // Kachel 24 m x 6 m, acht Fensterachsen, zwei Geschosse; Fenster je Achse verschieden, dazu Rollladen, Vorhaenge, Tuer, Balkon, Putzflecken, Regenspuren
+    const R=(a,b)=>a+Math.random()*(b-a),px=85;   // Pixel je Meter
+    x.fillStyle='#f3efe6';x.fillRect(0,0,w,h);noise(x,w,h,16000,0.06);
+    for(let i=0;i<90;i++){const g=x.createRadialGradient(0,0,0,0,0,1);x.save();x.translate(R(0,w),R(0,h));x.scale(R(20,90),R(15,60));x.fillStyle='rgba('+(Math.random()<0.5?'60,55,45':'255,255,250')+','+R(0.02,0.06)+')';x.beginPath();x.arc(0,0,1,0,7);x.fill();x.restore();}   // Putzflecken
+    const door=-1;
+    for(let b=0;b<8;b++){
+      const cx=b*256+128+R(-14,14);
+      for(let f=0;f<2;f++){   // f=0 oben (v=0.5..1 liegt unten im Bild, siehe unten): oben im Bild = Obergeschoss
+        const ground=f===1,cy=(f?0.75:0.25)*h+R(-4,4);
+        if(ground&&b===door){   // Haustuer mit Stufe und Oberlicht
+          const dw=1.0*px,dh=2.1*px,y1=h-18;x.fillStyle='#cfc8ba';x.fillRect(cx-dw/2-8,y1-dh-8,dw+16,dh+8);
+          x.fillStyle=['#6b4a33','#3f5a49','#4a4e55','#7a2f2a'][(Math.random()*4)|0];x.fillRect(cx-dw/2,y1-dh,dw,dh);
+          x.fillStyle='rgba(180,205,220,0.55)';x.fillRect(cx-dw/2+8,y1-dh+10,dw-16,dh*0.3);x.fillStyle='#d9d3c6';x.fillRect(cx-dw/2-12,y1,dw+24,7);continue;}
+        const upper=!ground&&Math.random()<0.18,type=upper?3:(Math.random()*5)|0;   // 3 = Balkontuer
+        let ww=[1.15,0.75,1.7,1.0,1.2][type]*px*R(0.92,1.08),wh=(type===3?2.0:ground?1.35:1.5)*px*R(0.94,1.06);
+        if(type===3)ww=1.0*px;
+        const y0=type===3?cy+0.55*px-wh:cy-wh/2;
+        x.fillStyle='rgba(120,112,98,0.20)';x.fillRect(cx-ww/2-6,y0-6,ww+12,wh+12);   // Laibung / Schatten
+        x.fillStyle=Math.random()<0.8?'#ece8df':'#d4cdbf';x.fillRect(cx-ww/2-4,y0-4,ww+8,wh+8);
+        const gr=x.createLinearGradient(0,y0,0,y0+wh),k=R(0,1);gr.addColorStop(0,'rgb('+(95+k*45)+','+(125+k*40)+','+(150+k*35)+')');gr.addColorStop(0.5,'rgb('+(48+k*25)+','+(62+k*22)+','+(80+k*20)+')');gr.addColorStop(1,'rgb(30,40,52)');
+        x.fillStyle=gr;x.fillRect(cx-ww/2,y0,ww,wh);
+        if(Math.random()<0.45){x.fillStyle='rgba(235,225,205,'+R(0.45,0.8)+')';x.fillRect(cx-ww/2,y0,ww*R(0.25,0.4),wh*R(0.7,1));x.fillRect(cx+ww/2-ww*R(0.2,0.35),y0,ww*0.3,wh*R(0.5,0.9));}   // Gardinen
+        if(Math.random()<0.2){const hh=wh*R(0.3,0.7);x.fillStyle='#b8b3a6';x.fillRect(cx-ww/2,y0,ww,hh);x.fillStyle='rgba(0,0,0,0.2)';for(let l=3;l<hh;l+=6)x.fillRect(cx-ww/2,y0+l,ww,1.5);}   // Rollladen / Jalousie halb unten
+        x.fillStyle='rgba(255,255,255,0.18)';x.beginPath();x.moveTo(cx-ww/2,y0+wh);x.lineTo(cx-ww/2,y0+wh*0.35);x.lineTo(cx-ww/2+ww*0.55,y0);x.lineTo(cx-ww/2+ww*0.8,y0);x.closePath();x.fill();   // Spiegelung
+        x.fillStyle='#f7f5ef';const fr=type===1?4:3.5;x.fillRect(cx-ww/2,y0,ww,fr);x.fillRect(cx-ww/2,y0+wh-fr,ww,fr);x.fillRect(cx-ww/2,y0,fr,wh);x.fillRect(cx+ww/2-fr,y0,fr,wh);
+        if(type!==1)x.fillRect(cx-1.5,y0,3,wh);if(type===2)x.fillRect(cx-ww/4-1.5,y0,3,wh),x.fillRect(cx+ww/4-1.5,y0,3,wh);
+        if(type===0||type===4||type===3&&false)x.fillRect(cx-ww/2,y0+wh*0.35,ww,3);   // Kaempfer
+        if(type!==3){x.fillStyle='#bdb6a8';x.fillRect(cx-ww/2-9,y0+wh+4,ww+18,6);x.fillStyle='rgba(0,0,0,0.18)';x.fillRect(cx-ww/2-9,y0+wh+10,ww+18,3);   // Fensterbank mit Schatten
+          const sg=x.createLinearGradient(0,y0+wh+10,0,y0+wh+10+R(40,110));sg.addColorStop(0,'rgba(70,62,50,0.16)');sg.addColorStop(1,'rgba(70,62,50,0)');x.fillStyle=sg;x.fillRect(cx-ww/2+4,y0+wh+10,ww-8,120);}   // Regenspur
+        else{x.fillStyle='#8d8a84';for(let r=0;r<=9;r++)x.fillRect(cx-ww/2-6+r*(ww+12)/9,y0+wh-0.55*px,3,0.55*px);x.fillRect(cx-ww/2-8,y0+wh-0.55*px,ww+16,4);x.fillRect(cx-ww/2-8,y0+wh,ww+16,5);}   // Balkongelaender
+        if(!ground&&type===0&&Math.random()<0.15){x.fillStyle='#5a4636';x.fillRect(cx-ww/2-3,y0+wh+8,ww+6,16);x.fillStyle='#4f7a3b';for(let q=0;q<9;q++)x.fillRect(cx-ww/2+q*ww/9,y0+wh-2+R(-5,3),ww/9+2,12);}   // Blumenkasten
+      }
+    }
+    x.fillStyle='rgba(0,0,0,0.12)';x.fillRect(0,h-7,w,7);   // Sockel
+    for(let i=0;i<40;i++){x.fillStyle='rgba(60,55,45,'+R(0.02,0.05)+')';x.fillRect(R(0,w),0,R(1,4),h);}   // feine Putzstreifen
   });
   const roofTex=mkTex(128,128,(x,w,h)=>{
     x.fillStyle='#fff';x.fillRect(0,0,w,h);const rows=8,rh=h/rows;
@@ -1378,7 +1409,7 @@ if(OSM){
   const uvWall=(g,plain)=>{const p=g.attributes.position,nr=g.attributes.normal,uv=new Float32Array(p.count*2);
     for(let v=0;v<p.count;v++){
       if(plain||Math.abs(nr.getY(v))>0.5){uv[v*2]=0.03;uv[v*2+1]=0.03;continue;}   // Dachflaechen/Kappen: neutraler Fleck der Fassadentextur
-      const nx=nr.getX(v),nz=nr.getZ(v),tx=-nz,tz=nx;uv[v*2]=(p.getX(v)*tx+p.getZ(v)*tz)/5;uv[v*2+1]=p.getY(v)/6;}
+      const nx=nr.getX(v),nz=nr.getZ(v),tx=-nz,tz=nx;uv[v*2]=(p.getX(v)*tx+p.getZ(v)*tz)/24;uv[v*2+1]=p.getY(v)/6;}
     g.setAttribute('uv',new THREE.BufferAttribute(uv,2));};
   const tint=(g,col,sh)=>{const n=g.attributes.position.count,cl=new Float32Array(n*3);for(let v=0;v<n;v++){cl[v*3]=col.r*sh;cl[v*3+1]=col.g*sh;cl[v*3+2]=col.b*sh;}g.setAttribute('color',new THREE.BufferAttribute(cl,3));};
   const hitsRoute=P=>{   // Strecke laeuft durch das Gebaeude (oder dicht an der Wand): entfernen
@@ -1500,6 +1531,7 @@ if(OSM){
     const m=new THREE.Mesh(g,wm);m.material.side=THREE.DoubleSide;scene.add(m);
   });
 }
+await BOOT('Starte Physik …',88);
 // ================= Zustand, Eingabe, Physik =================
 const M=95,CDA=0.38,RHO=1.2,GRAV=9.81,PMAX=300,BRAKE=260;
 const keys={};
@@ -1994,7 +2026,7 @@ const nearHouse=(()=>{if(!BK||!OSM)return null;
 let GRND=null;const grc=new THREE.Raycaster();grc.ray.direction.set(0,-1,0);
 const groundY=(x,z)=>{   // Hoehe des tatsaechlich gezeichneten Bodens (Gelaende, Wege): Strahl von knapp ueber dem Boden nach unten
   const g0=gnd(x,z);
-  if(!GRND){GRND=[];scene.children.forEach(o=>{if(o.isMesh&&!o.isInstancedMesh&&o.geometry&&o.geometry.attributes&&o.geometry.attributes.position){o.geometry.computeBoundingSphere();if(o.geometry.boundingSphere.radius>60)GRND.push(o);}});}
+  if(!GRND){GRND=[];scene.children.forEach(o=>{if(o.isMesh&&!o.isInstancedMesh&&o.geometry&&o.geometry.attributes&&o.geometry.attributes.position){o.geometry.computeBoundingSphere();if(o.geometry.boundingSphere.radius>15&&!o.material.transparent)GRND.push(o);}});}
   grc.ray.origin.set(x,g0+2.5,z);const h=grc.intersectObjects(GRND,false);
   for(const k of h)if(Math.abs(k.point.y-g0)<2)return k.point.y;return g0;};
 const vanPose=(v,x,z,h,fwd)=>{   // Auto aufs Gelaende setzen: Ebene durch 4 Radpunkte (Nick und Rollen), Hoehe so, dass kein Rad im Boden steckt
@@ -2014,7 +2046,7 @@ const vanPos=(s,lat,o)=>{sample(s,o);return [o.x-Math.cos(o.h)*lat,o.z+Math.sin(
 const carRoad=(()=>{   // nur echte Autostrassen aus OSM (keine Wirtschaftswege, Zufahrten, Radwege, Unbefestigtes): Asphalt allein heisst nicht Autostrasse
   if(!OBJ_RAW)return ()=>false;
   const OK=/^(trunk|primary|secondary|tertiary|unclassified|residential|living_street)$/,G=new Map(),K=(x,z)=>Math.floor(x/20)*10000+Math.floor(z/20);
-  OBJ_RAW.lines.forEach(L=>{if(L[0]!=='road')return;const e=L[2]||{};if(e.u||e.br||!OK.test(e.h||''))return;const q=L[1],r=(e.w||5)/2+1.5;
+  OBJ_RAW.lines.forEach(L=>{if(L[0]!=='road')return;const e=L[2]||{};if(e.u||e.br||!OK.test(e.h||''))return;const q=L[1],r=(e.w||5)/2+3;
     for(let i=0;i+3<q.length;i+=2){const a=[q[i],q[i+1],q[i+2],q[i+3],r],l=Math.hypot(a[2]-a[0],a[3]-a[1]),n=Math.max(1,Math.ceil(l/10));
       for(let t=0;t<=n;t++){const k=K(a[0]+(a[2]-a[0])*t/n,a[1]+(a[3]-a[1])*t/n);(G.get(k)||G.set(k,new Set()).get(k)).add(a);}}});
   return (x,z)=>{for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const c=G.get(K(x+a*20,z+b*20));if(!c)continue;
@@ -2060,19 +2092,21 @@ function updateVans(dt){   // fahrende Autos: kommen entgegen, bremsen rechtzeit
     const i=Math.floor(clamp(v.s,0,TOTAL-1)/SEG);
     sample(v.s,vo);
     v.g.userData.wheels&&v.g.userData.wheels.forEach(w=>{w.rotation.x+=v.v*dt/0.41;});
-    if(v.s<6||v.s>TOTAL-10||SURF[i]!==0||HW[i]<2.2||st.pos-v.s>25||Math.abs(v.s-st.pos)>260||!nearHouse(vo.x,vo.z,45,1)||!carRoad(vo.x,vo.z)){v.active=false;v.g.visible=false;return;}
-    const lat=-Math.max(HW[i]-(v.g.userData.hw||1)-0.15,1.0);
+    if(v.s<6||v.s>TOTAL-10||SURF[i]!==0||st.pos-v.s>25||Math.abs(v.s-st.pos)>260||!carRoad(vo.x,vo.z)){v.active=false;v.g.visible=false;return;}
+    const lat=-Math.max(HW[i]-(v.g.userData.hw||1)-0.15,0.95);
     vanFast(v,vo.x-Math.cos(vo.h)*lat,vo.z+Math.sin(vo.h)*lat,vo.h,v.dir,dt);
   });
   vanWait-=dt;
   if(vanWait<=0){
     const v=mv.find(q=>!q.active);vanWait=3;if(!v)return;
-    const s=st.pos+110+Math.random()*80;
-    if(s<8||s>TOTAL-30||SURF[Math.floor(s/SEG)]!==0||HW[Math.floor(s/SEG)]<2.2)return;sample(s,vo);if(!nearHouse(vo.x,vo.z,45,1)||!carRoad(vo.x,vo.z))return;
+    const s=st.pos+60+Math.random()*50;   // nur dort starten, wo die Strasse auf den naechsten 50 m durchgehend befahrbar ist
+    if(s<8||s>TOTAL-30)return;
+    for(let d=0;d<=50;d+=10){const q=s-d,qi=Math.floor(q/SEG);if(q<st.pos+8)break;if(qi<0||SURF[qi]!==0){return;}sample(q,vo);if(!carRoad(vo.x,vo.z))return;}
     if(VANS.some(q=>q.parked&&Math.abs(q.s-s)<8))return;
-    v.s=s;v.dir=-1;v.cruise=7+Math.random()*2.5;v.v=v.cruise;v.off=undefined;v.active=true;v.g.visible=true;vanWait=35+Math.random()*60;
+    v.s=s;v.dir=-1;v.cruise=6+Math.random()*2.5;v.v=v.cruise;v.off=undefined;v.active=true;v.g.visible=true;vanWait=18+Math.random()*30;
   }
 }
+await BOOT('Setze Autos und Mitfahrer …',95);
 // ================= Gruppenfahrt: farbige Punkte der Mitfahrer =================
 const GRP=makeGroup(),GRP_ROUTE=GPX_ID?'gpx_'+GPX_ID:(RKEY||'tour2');
 let GRP_CODE='';try{GRP_CODE=localStorage.getItem('miworu_group')||'';}catch(e){}
@@ -2122,3 +2156,4 @@ window.__dbg={renderer:renderer,scene:scene,SHK:SHK,BUMPS:BUMPS,gnd:gnd,HS:HS,PX
 if(SAVED)menu('Weiterfahren bei '+(SAVED.pos/1000).toFixed(2).replace('.',',')+' km','Gespeicherte Fahrt · '+fmtT(SAVED.t));else menu('Start');
 if(location.hash==='#go')start();
 requestAnimationFrame(loop);
+requestAnimationFrame(()=>{const b=document.getElementById('boot');if(b){b.classList.add('off');setTimeout(()=>b.remove(),700);}});

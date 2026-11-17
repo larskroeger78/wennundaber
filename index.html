@@ -7,6 +7,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
+<div id="boot"><div class="bspin"></div><div id="bootmsg">Lade Strecke …</div><div id="bootbar"><i></i></div></div>
+<script>addEventListener("error",function(e){var m=document.getElementById("bootmsg");if(m&&document.getElementById("boot"))m.textContent="Fehler beim Laden: "+(e.message||"unbekannt")+" – Seite neu laden";});addEventListener("unhandledrejection",function(e){var m=document.getElementById("bootmsg");if(m&&document.getElementById("boot"))m.textContent="Fehler beim Laden: "+((e.reason&&e.reason.message)||e.reason)+" – Seite neu laden";});</script>
 <div id="wrap">
   <canvas id="c"></canvas>
   <div id="vig"></div>
