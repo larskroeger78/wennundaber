@@ -1881,10 +1881,15 @@ function updateTiles(cp){   // weit entfernte Kacheln nicht zeichnen, Schatten n
       if(ex.u||ex.br)return;
       const pts=[];for(let i=0;i+3<q.length;i+=2){const ax=q[i],az=q[i+1],bx=q[i+2],bz=q[i+3],l=Math.hypot(bx-ax,bz-az),n=Math.max(1,Math.ceil(l/2));for(let t=(i?1:0);t<=n;t++)pts.push([ax+(bx-ax)*t/n,az+(bz-az)*t/n]);}
       const mid=(hw==='primary'||hw==='secondary'||hw==='tertiary'||hw==='trunk'||(hw==='unclassified'&&w>=5.4)),edge=(hw==='primary'||hw==='secondary'||hw==='trunk'),kerb=(hw==='residential'||hw==='living_street'||hw==='tertiary'||hw==='unclassified');
-      const near=p=>{const f=nearest(allHash,p[0],p[1]);return f&&nD<HW[nI]+w/2+2.5;};
+      const hrAt=i=>HW[i]*(SURF[i]===0?1:SURF[i]===1?1.5:1.7);
+      const nearI=p=>{const f=nearest(allHash,p[0],p[1]);return f?{d:nD,i:nI}:null;};
       let dist=0;
       for(let i=0;i+1<pts.length;i++){
-        const a=pts[i],b=pts[i+1];if(near(a)||near(b))continue;
+        const a=pts[i],b=pts[i+1],A=nearI(a),B=nearI(b);
+        {   // parallel zur Strecke (dieselbe Strasse): auslassen; querende Strasse: bis an den Rand der Strecke durchziehen
+          const sx=b[0]-a[0],sz=b[1]-a[1],sl=Math.hypot(sx,sz)||1,ni=A?A.i:(B?B.i:-1),par=ni>=0?Math.abs(sx*Math.sin(HS[ni])+sz*Math.cos(HS[ni]))/sl>0.8:false;
+          if(par){if((A&&A.d<hrAt(A.i)+w/2+2.5)||(B&&B.d<hrAt(B.i)+w/2+2.5))continue;}
+          else if((A&&A.d<hrAt(A.i)+0.15)||(B&&B.d<hrAt(B.i)+0.15))continue;}
         const dx=b[0]-a[0],dz=b[1]-a[1],l=Math.hypot(dx,dz)||1,nx=-dz/l,nz=dx/l;
         const ya=G(a[0],a[1]),yb=G(b[0],b[1]),lift=0.13;
         const cA=[a[0]+nx*w/2,a[1]+nz*w/2],dA=[a[0]-nx*w/2,a[1]-nz*w/2],cB=[b[0]+nx*w/2,b[1]+nz*w/2],dB=[b[0]-nx*w/2,b[1]-nz*w/2];
@@ -1942,11 +1947,14 @@ const CARS={
   gmc:{hl:4.2,url:GMCURL,sc:[0.9,0.9,0.9],hw:1.45},            // GMC Motorhome
   c10:{hl:2.4,url:C10URL,sc:[0.01,0.01,0.01],hw:1.05},         // Chevrolet C10 1963
 };
-Object.keys(CARS).forEach(k=>{const C=CARS[k];C.tpl=null;C.wait=[];
-  new GLTFLoader().load(C.url,gl=>{const m=gl.scene;m.traverse(o=>{if(o.isMesh){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(q=>{q.roughness=Math.max(q.roughness||0,0.5);q.metalness=Math.min(q.metalness||0,0.15);});}});
+const shadowTex=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d'),gr=g.createRadialGradient(32,32,6,32,32,32);gr.addColorStop(0,'rgba(0,0,0,0.75)');gr.addColorStop(0.7,'rgba(0,0,0,0.35)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,64,64);return new THREE.CanvasTexture(c);})();
+if(BK&&OSM)Object.keys(CARS).forEach(k=>{const C=CARS[k];C.tpl=null;C.wait=[];
+  new GLTFLoader().load(C.url,gl=>{const m=gl.scene;m.traverse(o=>{if(o.isMesh){o.castShadow=true;o.frustumCulled=true;const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(q=>{q.roughness=Math.max(q.roughness||0,0.38);q.metalness=Math.min(q.metalness||0,0.45);q.envMapIntensity=0.9;q.userData.keepEnv=true;if(q.map)q.map.anisotropy=8;if(q.normalMap)q.normalMap.anisotropy=4;});}});
     const b=new THREE.Box3().setFromObject(m),c=b.getCenter(new THREE.Vector3());m.position.set(-c.x,-b.min.y,-c.z);   // mittig auf den Boden stellen
     const r=new THREE.Group();r.add(m);r.rotation.y=C.rot||0;const w=new THREE.Group();w.add(r);w.scale.set(...C.sc);C.tpl=w;C.wait.forEach(g=>g.add(w.clone(true)));C.wait.length=0;},undefined,()=>{});});
-const makeCar=k=>{const C=CARS[k],g=new THREE.Group();g.userData.wheels=[];g.userData.hw=C.hw;g.userData.hl=C.hl;if(C.tpl)g.add(C.tpl.clone(true));else C.wait.push(g);return g;};
+const makeCar=k=>{const C=CARS[k],g=new THREE.Group();g.userData.wheels=[];g.userData.hw=C.hw;g.userData.hl=C.hl;
+  const sh=new THREE.Mesh(new THREE.PlaneGeometry(C.hw*2.5,C.hl*2.3),new THREE.MeshBasicMaterial({map:shadowTex,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-6,polygonOffsetUnits:-6}));sh.rotation.x=-Math.PI/2;sh.position.y=0.05;sh.renderOrder=1;g.add(sh);   // weicher Kontaktschatten
+  if(C.tpl)g.add(C.tpl.clone(true));else C.wait.push(g);return g;};
 const CAR_SEQ=['gmc','pv5','ae86','c10','pv5','ae86','c10','gmc','pv5','ae86','c10'];let carN=0;   // jedes Modell kommt mindestens einmal vor, danach gemischt
 const pickCar=r=>makeCar(carN<CAR_SEQ.length?CAR_SEQ[carN++]:(carN++,r<0.3?'pv5':r<0.6?'ae86':r<0.85?'c10':'gmc'));
 var VANS=[],vanWait=14;
@@ -1954,10 +1962,12 @@ const nearHouse=(()=>{if(!BK||!OSM)return null;
   const H=new Map(),K=(x,z)=>Math.floor(x/30)*10000+Math.floor(z/30);
   OSM.buildings.forEach(b=>{const p=b.p;let cx=0,cz=0;for(let i=0;i<p.length;i+=2){cx+=p[i];cz+=p[i+1];}cx/=p.length/2;cz/=p.length/2;const k=K(cx,cz);(H.get(k)||H.set(k,[]).get(k)).push(cx,cz);});
   return (x,z,r,n)=>{let c=0;for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const l=H.get(K(x+a*30,z+b*30));if(!l)continue;for(let i=0;i<l.length;i+=2)if(Math.hypot(l[i]-x,l[i+1]-z)<r)c++;}return c>=n;};})();
-const vanPose=(v,x,z,h,fwd)=>{   // Auto auf das Gelaende setzen: 4 Radpunkte, Nick-Winkel aus Vorder- und Hinterachse, tiefster Punkt = Boden
-  const hl=(v.g.userData.hl||2.6)*0.7,hw=(v.g.userData.hw||1)*0.8,fx=Math.sin(h)*fwd,fz=Math.cos(h)*fwd,rx=Math.cos(h),rz=-Math.sin(h);
-  const q=(a,b)=>gnd(x+fx*a+rx*b,z+fz*a+rz*b),fl=q(hl,-hw),fr=q(hl,hw),bl=q(-hl,-hw),br=q(-hl,hw);
-  v.g.position.set(x,Math.min(fl,fr,bl,br,gnd(x,z))+0.02,z);v.g.rotation.order='YXZ';v.g.rotation.y=fwd>0?h:h+Math.PI;v.g.rotation.x=-Math.atan2((fl+fr)/2-(bl+br)/2,2*hl);
+const vanPose=(v,x,z,h,fwd)=>{   // Auto aufs Gelaende setzen: Ebene durch 4 Radpunkte (Nick und Rollen), Hoehe so, dass kein Rad im Boden steckt
+  const H=fwd>0?h:h+Math.PI,hl=(v.g.userData.hl||2.6)*0.75,hw=(v.g.userData.hw||1)*0.85,fx=Math.sin(H),fz=Math.cos(H),rx=Math.cos(H),rz=-Math.sin(H);   // Modell: Front +z, rechts +x
+  const q=(a,b)=>gnd(x+fx*a+rx*b,z+fz*a+rz*b),fl=q(hl,-hw),fr=q(hl,hw),bl=q(-hl,-hw),br=q(-hl,hw),mean=(fl+fr+bl+br)/4;
+  const pitch=((fl+fr)-(bl+br))/2/(2*hl),roll=((fr+br)-(fl+bl))/2/(2*hw);
+  const dev=Math.max(fl-(mean+pitch*hl-roll*hw),fr-(mean+pitch*hl+roll*hw),bl-(mean-pitch*hl-roll*hw),br-(mean-pitch*hl+roll*hw),0);
+  v.g.position.set(x,mean+dev+0.06,z);v.g.rotation.order='YXZ';v.g.rotation.y=H;v.g.rotation.x=-Math.atan(pitch);v.g.rotation.z=Math.atan(roll);
 };
 const vanPos=(s,lat,o)=>{sample(s,o);return [o.x-Math.cos(o.h)*lat,o.z+Math.sin(o.h)*lat];};
 if(nearHouse){
@@ -1966,13 +1976,23 @@ if(nearHouse){
     const i=Math.floor(s/SEG);if(SURF[i]!==0)continue;
     sample(s,o);if(!nearHouse(o.x,o.z,45,2))continue;
     gap-=5;if(gap>0)continue;
-    const side=rs()<0.6?1:-1,g=pickCar(rs()),lat=side*(HW[i]+0.4+(g.userData.hw||1)),[x,z]=vanPos(s,lat,o);
-    const v={g:g,parked:true,s:s};vanPose(v,x,z,o.h,side>0?1:-1);scene.add(v.g);VANS.push(v);
+    const side=rs()<0.6?1:-1,g=pickCar(rs()),fwd=side>0?1:-1;let ok=false,x=0,z=0;
+    for(let ex=0;ex<=2.4&&!ok;ex+=0.4){   // seitlich nach aussen schieben, bis das ganze Auto (Ecken, Seitenmitte) Abstand zur Strecke hat
+      const lat=side*(HW[i]+0.5+(g.userData.hw||1)+ex);[x,z]=vanPos(s,lat,o);
+      const H=fwd>0?o.h:o.h+Math.PI,hl=g.userData.hl||2.2,hw=g.userData.hw||1;ok=true;
+      for(const [a,b] of [[hl,-hw],[hl,hw],[-hl,-hw],[-hl,hw],[0,-hw],[0,hw],[hl,0],[-hl,0]]){
+        const px=x+Math.sin(H)*a+Math.cos(H)*b,pz=z+Math.cos(H)*a-Math.sin(H)*b;
+        for(let j=Math.max(0,i-14);j<=Math.min(N,i+14)&&ok;j++){const hr=HW[Math.min(N-1,j)]*(SURF[Math.min(N-1,j)]===0?1:SURF[Math.min(N-1,j)]===1?1.5:1.7);if(Math.hypot(PX[j]-px,PZ[j]-pz)<hr+0.45)ok=false;}
+        if(!ok)break;}
+    }
+    if(!ok){scene.remove(g);continue;}
+    const v={g:g,parked:true,s:s};vanPose(v,x,z,o.h,fwd);scene.add(v.g);VANS.push(v);
     gap=60+rs()*110;
   }
   if(window.__counts)window.__counts.vans=VANS.length;
   for(let k=0;k<0;k++){const v={g:makeCar('pv5'),parked:false,active:false,s:0,dir:1,v:0,lat:0,hw:0};v.g.visible=false;scene.add(v.g);VANS.push(v);}
 }
+window.__vans=VANS;
 const vo={x:0,y:0,z:0,h:0};
 function updateVans(dt){
   if(!nearHouse)return;
