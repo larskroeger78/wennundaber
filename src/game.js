@@ -1401,6 +1401,22 @@ async function wakeOn(){
 ['pointerdown','touchend','keydown','click'].forEach(ev=>window.addEventListener(ev,wakeOn,{passive:true}));
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')wakeOn();});
 setInterval(()=>{if(document.visibilityState==='visible'&&(!WAKE.lock||(WAKE.vid&&WAKE.vid.paused)))wakeOn();},15000);
+
+// iPad/iPhone: Safari kennt kein Web Bluetooth -> beim ersten Koppelversuch einmalig auf Bluefy hinweisen (in Bluefy selbst erscheint nichts)
+const IOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+function bleGuard(){
+  if(BLE_OK||!IOS)return false;
+  let seen=false;try{seen=localStorage.getItem('miworu_bluefy_hint')==='1';}catch(_){}
+  if(seen)return false;
+  try{localStorage.setItem('miworu_bluefy_hint','1');}catch(_){}
+  const d=document.createElement('div');d.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:20px;font-family:system-ui,sans-serif';
+  const bx='padding:12px 16px;border-radius:10px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.08);color:#fff;font:600 15px system-ui;text-decoration:none;text-align:center;cursor:pointer';
+  d.innerHTML='<div style="max-width:420px;background:#1b1b1b;color:#fff;border-radius:14px;padding:22px;box-shadow:0 10px 40px #000"><div style="font:700 20px system-ui;margin-bottom:10px">Bluetooth am iPad</div><div style="font-size:15px;line-height:1.45;opacity:.9;margin-bottom:16px">Safari kann am iPad keine Trainer oder Zwift Click koppeln. Installiere dafür einmalig die kostenlose App <b>Bluefy</b> und öffne MIWORU darin: Adresse hier kopieren, in Bluefy einfügen.</div><div style="display:flex;flex-direction:column;gap:8px"><a href="https://apps.apple.com/app/bluefy-web-ble-browser/id1492822055" target="_blank" rel="noopener" style="'+bx+';background:#f5a524;color:#111;border-color:#f5a524">Bluefy im App Store</a><button id="bfCopy" style="'+bx+'">Spiel-Adresse kopieren</button><button id="bfOk" style="'+bx+'">Verstanden</button></div></div>';
+  document.body.appendChild(d);
+  d.querySelector('#bfOk').onclick=()=>d.remove();
+  d.querySelector('#bfCopy').onclick=async e=>{try{await navigator.clipboard.writeText(location.href.split('#')[0]);e.target.textContent='Kopiert ✓';}catch(_){e.target.textContent=location.href.split('#')[0];}};
+  return true;
+}
 await BOOT('Baue Häuser und Gewässer …',72);
 // ================= Gebäude und Gewässer (OpenStreetMap) =================
 if(OSM){
@@ -1822,7 +1838,7 @@ function menu(title,sub){
       '<div class="route">'+(ROUTE?RT.label:TRACK_NAME)+'<span>'+(ROUTE&&RT.place?RT.place:'Bergkamen und Umland')+'</span></div>'+
       '<div class="stats"><div><b>'+km+'</b><i>km</i></div><div><b>'+HM+'</b><i>Höhenmeter</i></div></div>'+
       '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused||SAVED?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(()=>{const n=click.devs.filter(x=>!x.lost).length;return n>=2?'Zwift Click: beide Hälften ✓':n===1&&click.connected?'Zwift Click ✓ · zweite Hälfte koppeln (stabiler)':(click.devs.length?'Zwift Click: getrennt – neu koppeln':'Zwift Click koppeln');})()+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button>'+'<button id="dif" class="sec">Schwierigkeit: '+DIFFN[diff]+'</button><button id="qual" class="sec">Grafik: '+QN[quality]+'</button><button id="grpb" class="sec">'+(GRP_CODE?'Gruppe: '+GRP_CODE:'Gruppenfahrt')+'</button><button id="gpx" class="sec">GPX-Strecke laden</button><button id="hlp" class="sec">So fährst du</button><input id="gpxf" type="file" accept=".gpx,.xml,application/gpx+xml" style="display:none"></div>'+mineHtml()+
-      '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?'Bluetooth nur in Chrome/Edge (nicht Safari).':'D100 oder KICKR einschalten, dann „Trainer koppeln“.')+(bleMsg?'<br>'+bleMsg:'')+''+(click.connected?'<br>'+click.name+' verbunden'+'<br>Click: kurz drücken = schwerer · gedrückt halten = leichter':'')+'</div>'+
+      '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?(IOS?'iPad: Seite in der App Bluefy öffnen (Safari kann kein Bluetooth).':'Bluetooth nur in Chrome/Edge (nicht Safari).'):'D100 oder KICKR einschalten, dann „Trainer koppeln“.')+(bleMsg?'<br>'+bleMsg:'')+''+(click.connected?'<br>'+click.name+' verbunden'+'<br>Click: kurz drücken = schwerer · gedrückt halten = leichter':'')+'</div>'+
     '</div></div>';
   const gpxf=document.getElementById('gpxf');
   const go=id=>{const q='?route=gpx_'+id;const same=location.search===q;location.href=location.pathname+q+'#go';if(same)location.reload();};
@@ -1846,9 +1862,9 @@ function menu(title,sub){
     deleteRoute(id);if(GPX_ID===id){location.href=location.pathname+'#go';location.reload();}else menu(title,sub);});
   document.getElementById('mode').onclick=()=>{inputMode=inputMode==='keyboard'?'off':'keyboard';menu(title,sub);};
   document.querySelectorAll('[data-route]').forEach(b=>b.onclick=()=>{const r=b.getAttribute('data-route');location.href=location.pathname+(r?'?route='+r:'')+'#go';});
-  document.getElementById('trn').onclick=async()=>{bleMsg='';try{await trainer.connect();}catch(e){bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Trainer: '+(e&&e.message||e);}menu(title,sub);};
+  document.getElementById('trn').onclick=async()=>{bleMsg='';if(bleGuard())return;try{await trainer.connect();}catch(e){bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Trainer: '+(e&&e.message||e);}menu(title,sub);};
   document.getElementById('hlp').onclick=showHelp;
-  document.getElementById('clk').onclick=async()=>{bleMsg='';try{await click.connect();}catch(e){click.dbg('Koppeln fehlgeschlagen: '+(e&&e.name||'')+' '+(e&&e.message||e));bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Click: '+(e&&e.message||e);}menu(title,sub);};
+  document.getElementById('clk').onclick=async()=>{bleMsg='';if(bleGuard())return;try{await click.connect();}catch(e){click.dbg('Koppeln fehlgeschlagen: '+(e&&e.name||'')+' '+(e&&e.message||e));bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Click: '+(e&&e.message||e);}menu(title,sub);};
   document.getElementById('go').onclick=paused?resume:(SAVED?startSaved:start);
   const rst=document.getElementById('rst');if(rst)rst.onclick=start;
 }
