@@ -10,7 +10,6 @@ import PV5URL from './assets/cars/pv5.glb?url';
 import AE86URL from './assets/cars/ae86.glb?url';
 import GMCURL from './assets/cars/gmc.glb?url';
 import C10URL from './assets/cars/c10.glb?url';
-import WRECKURL from './assets/cars/wreck.glb?url';
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Trainer, ClickPad, BLE_OK } from './ble.js';
 import MITT1 from './routes/mittwochsrunde.json';
@@ -1935,14 +1934,13 @@ const CARS={
   ae86:{hl:2.1,url:AE86URL,sc:[0.01,0.01,0.01],hw:0.85},       // Toyota AE86 Trueno
   gmc:{hl:4.2,url:GMCURL,sc:[0.9,0.9,0.9],hw:1.45},            // GMC Motorhome
   c10:{hl:2.4,url:C10URL,sc:[0.01,0.01,0.01],hw:1.05},         // Chevrolet C10 1963
-  wreck:{hl:2.5,url:WRECKURL,sc:[0.17,0.17,0.17],hw:1.1}       // Autowrack (Scan)
 };
 Object.keys(CARS).forEach(k=>{const C=CARS[k];C.tpl=null;C.wait=[];
   new GLTFLoader().load(C.url,gl=>{const m=gl.scene;m.traverse(o=>{if(o.isMesh){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(q=>{q.roughness=Math.max(q.roughness||0,0.5);q.metalness=Math.min(q.metalness||0,0.15);});}});
     const b=new THREE.Box3().setFromObject(m),c=b.getCenter(new THREE.Vector3());m.position.set(-c.x,-b.min.y,-c.z);   // mittig auf den Boden stellen
     const r=new THREE.Group();r.add(m);r.rotation.y=C.rot||0;const w=new THREE.Group();w.add(r);w.scale.set(...C.sc);C.tpl=w;C.wait.forEach(g=>g.add(w.clone(true)));C.wait.length=0;},undefined,()=>{});});
 const makeCar=k=>{const C=CARS[k],g=new THREE.Group();g.userData.wheels=[];g.userData.hw=C.hw;g.userData.hl=C.hl;if(C.tpl)g.add(C.tpl.clone(true));else C.wait.push(g);return g;};
-const CAR_SEQ=['gmc','pv5','ae86','c10','wreck','pv5','ae86','c10','gmc','pv5','ae86','c10'];let carN=0;   // jedes Modell kommt mindestens einmal vor, danach gemischt
+const CAR_SEQ=['gmc','pv5','ae86','c10','pv5','ae86','c10','gmc','pv5','ae86','c10'];let carN=0;   // jedes Modell kommt mindestens einmal vor, danach gemischt
 const pickCar=r=>makeCar(carN<CAR_SEQ.length?CAR_SEQ[carN++]:(carN++,r<0.3?'pv5':r<0.6?'ae86':r<0.85?'c10':'gmc'));
 var VANS=[],vanWait=14;
 const nearHouse=(()=>{if(!BK||!OSM)return null;
