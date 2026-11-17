@@ -829,7 +829,7 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
       if(!clearOf(x,z,h<6?0.6:0.3))continue;
       if(h<5.5){if(rnd()<0.85)bushes.push({x:x,y:gnd(x,z)-0.1,z:z,w:Math.max(0.9,r*1.7),h:Math.max(0.7,h*0.75)});continue;}
       const ratio=h/Math.max(1,r),dark=nMed>0&&nir>0&&nir<nMed*0.8;
-      const fir=h>8&&((ratio>3.7)||(dark&&ratio>2.5));   // schmal und hoch (und im Infrarot dunkel) = Nadelbaum
+      const fir=h>9&&((ratio>6.5)||(dark&&ratio>3.6));   // schmal und hoch (und im Infrarot dunkel) = Nadelbaum
       if(fir){trees.push({sp:'f',x:x,y:gnd(x,z)-0.2,z:z,H:h,cw:Math.max(2,r*2.1),ch:h*(0.82+rnd()*0.08),rad:0.16+rnd()*0.1,rot:rnd()*6.283});continue;}
       const ch=h*(0.5+rnd()*0.15);
       trees.push({sp:'b',x:x,y:gnd(x,z)-0.2,z:z,H:h,cw:Math.max(1.6,r*1.55),ch:Math.min(ch,h-2.2),rad:0.07+rnd()*0.07,rot:rnd()*6.283});
