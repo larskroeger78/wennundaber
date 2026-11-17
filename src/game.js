@@ -5,7 +5,7 @@ import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import './style.css';
-import { makeVan } from './van.js';
+import { makeVan, vanFace } from './van.js';
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Trainer, ClickPad, BLE_OK } from './ble.js';
 import MITT1 from './routes/mittwochsrunde.json';
@@ -928,6 +928,14 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
       TILES.push({m:m,x:cx,z:cz,sh:shadow});
     });
   }
+  if(ROUTE){   // Kopffreiheit: Kronen ueber dem Fahrbereich beginnen erst hoch ueber dem Boden, Baeume im Fahrbereich entfallen
+    for(let i=trees.length-1;i>=0;i--){const t=trees[i];
+      if(!nearest(allHash,t.x,t.z))continue;
+      const reach=t.cw*0.62+(HW[nI]||2)+1.3,base=nD<reach?6.2:(nD<reach+3?4.6:3.4);
+      if(nD<(HW[nI]||2)+0.6){trees.splice(i,1);continue;}
+      if(t.H-t.ch<base){if(t.H<base+2.5&&nD<reach){trees.splice(i,1);continue;}t.ch=Math.max(2,t.H-base);}
+    }
+  }
   const trF=trees.filter(t=>t.sp==='f'),trB=trees.filter(t=>t.sp!=='f');
   if(trF.length){
     tiled(trF,firGeo,firMat,(t,i,m,cx,cz)=>{DUM.rotation.set(0,t.rot,0);DUM.position.set(t.x-cx,t.y+t.H-t.ch,t.z-cz);DUM.scale.set(t.cw,t.ch,t.cw);DUM.updateMatrix();m.setMatrixAt(i,DUM.matrix);
@@ -1346,6 +1354,16 @@ if(OSM){
       const nx=nr.getX(v),nz=nr.getZ(v),tx=-nz,tz=nx;uv[v*2]=(p.getX(v)*tx+p.getZ(v)*tz)/5;uv[v*2+1]=p.getY(v)/6;}
     g.setAttribute('uv',new THREE.BufferAttribute(uv,2));};
   const tint=(g,col,sh)=>{const n=g.attributes.position.count,cl=new Float32Array(n*3);for(let v=0;v<n;v++){cl[v*3]=col.r*sh;cl[v*3+1]=col.g*sh;cl[v*3+2]=col.b*sh;}g.setAttribute('color',new THREE.BufferAttribute(cl,3));};
+  const hitsRoute=P=>{   // Strecke laeuft durch das Gebaeude (oder dicht an der Wand): entfernen
+    if(P.length<6)return false;let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;
+    for(let i=0;i<P.length;i+=2){x0=Math.min(x0,P[i]);x1=Math.max(x1,P[i]);z0=Math.min(z0,P[i+1]);z1=Math.max(z1,P[i+1]);}
+    for(let cx=Math.floor((x0-1)/CELL);cx<=Math.floor((x1+1)/CELL);cx++)for(let cz=Math.floor((z0-1)/CELL);cz<=Math.floor((z1+1)/CELL);cz++){
+      const a=allHash.get((cx+500)*1000+cz+500);if(!a)continue;
+      for(let k=0;k<a.length;k++){const x=PX[a[k]],z=PZ[a[k]];if(x<x0-1||x>x1+1||z<z0-1||z>z1+1)continue;
+        {let c=false;for(let u=0,w=P.length-2;u<P.length;w=u,u+=2){if((P[u+1]>z)!==(P[w+1]>z)&&x<(P[w]-P[u])*(z-P[u+1])/(P[w+1]-P[u+1])+P[u])c=!c;}if(c)return true;}
+        for(let i=0;i<P.length;i+=2){const ax=P[i],az=P[i+1],bx=P[(i+2)%P.length],bz=P[(i+3)%P.length],dx=bx-ax,dz=bz-az,l2=dx*dx+dz*dz||1,t=Math.max(0,Math.min(1,((x-ax)*dx+(z-az)*dz)/l2)),ex=ax+dx*t-x,ez=az+dz*t-z;if(ex*ex+ez*ez<0.64)return true;}
+      }}
+    return false;};
   const buildLod2=()=>{
     const wP=[],wC=[],rP=[],rC=[],rU=[],rB=[];
     const triOf=V=>{
@@ -1361,6 +1379,7 @@ if(OSM){
     const pushT=(arr,carr,V,t,col,sh)=>{t.forEach(tr=>tr.forEach(k=>{arr.push(V[k][0],V[k][1],V[k][2]);carr.push(col.r*sh,col.g*sh,col.b*sh);}));};
     const flatC=new THREE.Color(0x5f5c59);
     LOD2.b.forEach(poly=>{
+      {const fp=[];poly.forEach(f=>{if(f[0]==='g'){const q=f[1];for(let i=0;i<q.length/3;i++)fp.push(q[i*3],q[i*3+2]);}});if(ROUTE&&!CUS&&hitsRoute(fp))return;}
       const wc=wallC[(rnd()*wallC.length)|0],rc=roofC[(rnd()*roofC.length)|0],sh=0.92+rnd()*0.14,rb={a:rC.length,b:0,pts:[],sh:sh};
       poly.forEach(f=>{
         const k=f[0],q=f[1],n=q.length/3,V=[];
@@ -1391,7 +1410,7 @@ if(OSM){
       });}
   };
   if(LOD2)buildLod2();else OSM.buildings.forEach(b=>{
-    const n=b.p.length/2;if(n<3)return;
+    const n=b.p.length/2;if(n<3)return;if(ROUTE&&!CUS&&hitsRoute(b.p))return;
     let gmin=1e9,gmax=-1e9,area=0;
     for(let a=0;a<n;a++){const x=b.p[a*2],z=b.p[a*2+1],g=gnd(x,z);gmin=Math.min(gmin,g);gmax=Math.max(gmax,g);const a2=(a+1)%n;area+=b.p[a*2]*b.p[a2*2+1]-b.p[a2*2]*b.p[a*2+1];}
     area=Math.abs(area)/2;if(area<12)return;
@@ -1798,6 +1817,7 @@ function updateTiles(cp){   // weit entfernte Kacheln nicht zeichnen, Schatten n
     const G=(x,z)=>gnd(x,z);
     const post=(x,z,h,w,hex)=>box(x,G(x,z)+h/2,z,w,h,w,0,hex);
     O.nodes.forEach(n=>{const k=n[0],x=n[1],z=n[2],y=G(x,z),hh=n[3]||0,rot=rnd()*6.283;
+      if(nearest(allHash,x,z)&&nD<(HW[nI]||2)+0.9)return;   // nichts im Fahrbereich
       if(k==='lamp'){post(x,z,5.2,0.14,0x4a4d52);box(x+0.45,y+5.2,z,1.0,0.12,0.2,rot,0x4a4d52);box(x+0.9,y+5.1,z,0.5,0.12,0.3,rot,0xfff2c0,1.4);}
       else if(k==='bench'){box(x,y+0.45,z,1.7,0.07,0.5,rot,0x8a6a45);box(x-0.2*Math.sin(rot),y+0.8,z-0.2*Math.cos(rot),1.7,0.45,0.06,rot,0x8a6a45);post(x+0.7*Math.cos(rot),z-0.7*Math.sin(rot),0.45,0.1,0x3a3a3a);post(x-0.7*Math.cos(rot),z+0.7*Math.sin(rot),0.45,0.1,0x3a3a3a);}
       else if(k==='table'){box(x,y+0.76,z,2.0,0.06,0.8,rot,0x8a6a45);box(x,y+0.45,z+0.0,2.0,0.06,1.7,rot,0x8a6a45,0.9);post(x,z,0.7,0.12,0x5a4a35);}
@@ -1822,6 +1842,7 @@ function updateTiles(cp){   // weit entfernte Kacheln nicht zeichnen, Schatten n
         const n=Math.max(1,Math.round(len/stp));
         for(let j=0;j<n;j++){
           const t0=j/n,t1=(j+1)/n,x0=ax+dx*t0,z0=az+dz*t0,x1=ax+dx*t1,z1=az+dz*t1,xm=(x0+x1)/2,zm=(z0+z1)/2,yg=Math.max(G(x0,z0),G(x1,z1)),sl=len/n+0.05;
+          if(nearest(allHash,xm,zm)&&nD<(HW[nI]||2)+0.8)continue;
           if(k==='fence'){post(x0,z0,1.15,0.09,0x6b563c);box(xm,G(xm,zm)+0.95,zm,sl,0.07,0.03,ry,0x8a7350);box(xm,G(xm,zm)+0.6,zm,sl,0.07,0.03,ry,0x8a7350);}
           else if(k==='rail'){post(x0,z0,0.75,0.1,0x8b9097);box(xm,G(xm,zm)+0.62,zm,sl,0.28,0.05,ry,0xb9bcc0);}
           else if(k==='wall'){box(xm,yg-0.25+0.55,zm,sl,1.1,0.4,ry,0x8a8379,0.9+rnd()*0.2);}
@@ -1893,9 +1914,8 @@ const nearHouse=(()=>{if(!BK||!OSM)return null;
   const H=new Map(),K=(x,z)=>Math.floor(x/30)*10000+Math.floor(z/30);
   OSM.buildings.forEach(b=>{const p=b.p;let cx=0,cz=0;for(let i=0;i<p.length;i+=2){cx+=p[i];cz+=p[i+1];}cx/=p.length/2;cz/=p.length/2;const k=K(cx,cz);(H.get(k)||H.set(k,[]).get(k)).push(cx,cz);});
   return (x,z,r,n)=>{let c=0;for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const l=H.get(K(x+a*30,z+b*30));if(!l)continue;for(let i=0;i<l.length;i+=2)if(Math.hypot(l[i]-x,l[i+1]-z)<r)c++;}return c>=n;};})();
-const vanPose=(v,x,z,h,fwd)=>{   // Van auf das Gelaende setzen (Nick-Winkel aus Vorder- und Hinterachse)
-  const fx=Math.sin(h)*fwd,fz=Math.cos(h)*fwd,yF=gnd(x+fx*2,z+fz*2),yR=gnd(x-fx*1.75,z-fz*1.75),yM=gnd(x,z);
-  v.g.position.set(x,Math.min(yM,(yF+yR)/2)+0.02,z);v.g.rotation.order='YXZ';v.g.rotation.y=fwd>0?h:h+Math.PI;v.g.rotation.x=-Math.atan2(yF-yR,3.75);
+const vanPose=(v,x,z,h,fwd)=>{   // Van auf das Gelaende setzen
+  v.g.position.set(x,gnd(x,z)+0.02,z);v.g.userData.hd=fwd>0?h:h+Math.PI;
 };
 const vanPos=(s,lat,o)=>{sample(s,o);return [o.x-Math.cos(o.h)*lat,o.z+Math.sin(o.h)*lat];};
 if(nearHouse){
@@ -1904,33 +1924,33 @@ if(nearHouse){
     const i=Math.floor(s/SEG);if(SURF[i]!==0)continue;
     sample(s,o);if(!nearHouse(o.x,o.z,45,2))continue;
     gap-=5;if(gap>0)continue;
-    const side=rs()<0.6?1:-1,lat=side*Math.max(HW[i]-0.9,1.95),[x,z]=vanPos(s,lat,o);
-    const v={g:makeVan(rs()<0.5),parked:true,s:s};vanPose(v,x,z,o.h,side>0?1:-1);scene.add(v.g);VANS.push(v);
-    gap=60+rs()*120;
+    const side=rs()<0.6?1:-1,lat=side*(HW[i]+1.35),[x,z]=vanPos(s,lat,o);
+    const v={g:makeVan(),parked:true,s:s};vanPose(v,x,z,o.h,side>0?1:-1);scene.add(v.g);VANS.push(v);
+    gap=260+rs()*340;
   }
   if(window.__counts)window.__counts.vans=VANS.length;
-  for(let k=0;k<2;k++){const v={g:makeVan(true),parked:false,active:false,s:0,dir:1,v:0,lat:0,hw:0};v.g.visible=false;scene.add(v.g);VANS.push(v);}
+  for(let k=0;k<2;k++){const v={g:makeVan(),parked:false,active:false,s:0,dir:1,v:0,lat:0,hw:0};v.g.visible=false;scene.add(v.g);VANS.push(v);}
 }
 const vo={x:0,y:0,z:0,h:0};
 function updateVans(dt){
   if(!nearHouse)return;
+  const vl=0.62+0.38*Math.min(1,SUN.y*1.4+0.2);VANS.forEach(v=>{if(v.g.visible&&v.g.position.distanceToSquared(camera.position)<90000)vanFace(v.g,camera,vl);});
   const mv=VANS.filter(v=>!v.parked);if(!mv.length)return;
   mv.forEach(v=>{
     if(!v.active)return;
     v.s+=v.dir*v.v*dt;
     const i=Math.floor(clamp(v.s,0,TOTAL-1)/SEG);
     sample(v.s,vo);
-    if(v.s<6||v.s>TOTAL-10||SURF[i]!==0||Math.abs(v.s-st.pos)>260||!nearHouse(vo.x,vo.z,45,1)){v.active=false;v.g.visible=false;return;}
-    const lat=v.dir>0?-Math.max(HW[i]*0.5,1.2):-Math.max(HW[i]*0.55,1.3);
-    v.g.userData.wheels.forEach(w=>{w.rotation.x+=v.v*dt/0.41;});
-    vanPose(v,vo.x-Math.cos(vo.h)*lat,vo.z+Math.sin(vo.h)*lat,vo.h,v.dir);
+    if(v.s<6||v.s>TOTAL-10||SURF[i]!==0||HW[i]<2.2||Math.abs(v.s-st.pos)>260||!nearHouse(vo.x,vo.z,45,1)){v.active=false;v.g.visible=false;return;}
+    const lat=-Math.max(HW[i]-1.25,1.1);
+        vanPose(v,vo.x-Math.cos(vo.h)*lat,vo.z+Math.sin(vo.h)*lat,vo.h,v.dir);
   });
   vanWait-=dt;
   if(vanWait<=0){   // naechsten Einsatz suchen: entgegenkommend oder von hinten ueberholend
     const v=mv.find(q=>!q.active);vanWait=3;if(!v)return;
     const over=Math.random()<0.35,s=over?st.pos-90:st.pos+90+Math.random()*80;
-    if(s<8||s>TOTAL-30||SURF[Math.floor(s/SEG)]!==0)return;sample(s,vo);if(!nearHouse(vo.x,vo.z,45,1))return;
-    v.s=s;v.dir=over?1:-1;v.v=over?Math.max(st.v+5,9):8+Math.random()*3;v.active=true;v.g.visible=true;vanWait=30+Math.random()*60;
+    if(s<8||s>TOTAL-30||SURF[Math.floor(s/SEG)]!==0||HW[Math.floor(s/SEG)]<2.2)return;sample(s,vo);if(!nearHouse(vo.x,vo.z,45,1))return;
+    v.s=s;v.dir=over?1:-1;v.v=over?Math.max(st.v+5,9):8+Math.random()*3;v.active=true;v.g.visible=true;vanWait=70+Math.random()*110;
   }
 }
 {   // Luftbilder laden und in den Spielfarben verwenden

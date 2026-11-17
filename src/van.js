@@ -1,68 +1,62 @@
-// Ford Transit L2H3 (Lars' Van) als einfaches Low-Poly-Modell im Stil des Spiels (flache Lambert-Flaechen).
-// Lokale Achsen: +z = vorne, +x = rechts (Fahrtrichtung), y = oben, Ursprung am Boden in der Fahrzeugmitte.
+// Lars' Van (Ford Transit L2H3) aus seinen Fotos: freigestellte Ansichten, die sich je nach Blickwinkel drehen.
+// Ansichten (Winkel = Kamera relativ zur Fahrtrichtung; + = Kamera auf der linken Fahrzeugseite):
 import * as THREE from 'three';
+import uSide from './assets/van/side34.png';
+import uF34 from './assets/van/front34.png';
+import uFront from './assets/van/front.png';
+import uRA from './assets/van/rear34a.png';
+import uRB from './assets/van/rear34b.png';
 
-let SH = null;
-function shared() {
-  if (SH) return SH;
-  const m = c => new THREE.MeshLambertMaterial({ color: c });
-  // Seitenprofil (z vorwaerts, y hoch), ueber die Breite extrudiert
-  const sh = new THREE.Shape();
-  [[-2.99, 0.5], [2.99, 0.5], [2.99, 0.95], [2.93, 1.1], [2.35, 1.38], [1.75, 2.38], [1.25, 2.78], [-2.85, 2.78], [-2.99, 2.62]]
-    .forEach((p, i) => (i ? sh.lineTo(p[0], p[1]) : sh.moveTo(p[0], p[1])));
-  const body = new THREE.ExtrudeGeometry(sh, { depth: 1.9, bevelEnabled: true, bevelSize: 0.05, bevelThickness: 0.05, bevelSegments: 1 });
-  body.rotateY(-Math.PI / 2); body.translate(0.95, 0, 0);
-  const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
-  const cyl = (r, w, n) => { const g = new THREE.CylinderGeometry(r, r, w, n); g.rotateZ(Math.PI / 2); return g; };
-  SH = {
-    body, box, cyl,
-    silver: m(0x7a8690), dark: m(0x20252a), glass: m(0x1c242b), bonnet: m(0x22262a), tire: m(0x151515), rim: m(0x2a2c2f),
-    lamp: m(0xe9eef0), tail: m(0xb02a2e), rail: m(0x6e7378), board: m(0x1d1e20), awn: m(0x3f4246), frame: m(0x1a1b1d),
-    wheelG: cyl(0.41, 0.27, 12), rimG: cyl(0.25, 0.29, 8), arch: cyl(0.52, 0.2, 12),
-    ring: new THREE.TorusGeometry(0.33, 0.028, 4, 12),
-  };
-  return SH;
+const VIEWS = [   // [Winkel, Textur, gespiegelt, Breite in m]  (Hoehe ergibt sich aus dem Foto)
+  [0, uFront, false, 2.45], [42, uF34, false, 3.3], [-42, uF34, true, 3.3],
+  [78, uSide, false, 4.7], [-78, uSide, true, 4.7],
+  [128, uRA, false, 5.0], [-128, uRA, true, 5.0],
+  [-142, uRB, false, 2.95], [142, uRB, true, 2.95], [180, uRB, false, 2.95],
+];
+let SET = null, SHADOW = null;
+function setup() {
+  if (SET) return;
+  const L = new THREE.TextureLoader(), cache = {};
+  SET = VIEWS.map(v => {
+    let t = cache[v[1]];
+    if (!t) { t = cache[v[1]] = L.load(v[1]); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4; }
+    return { a: v[0], t, m: v[2], w: v[3] };
+  });
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 4, 32, 32, 31);
+  g.addColorStop(0, 'rgba(0,0,0,0.55)'); g.addColorStop(0.65, 'rgba(0,0,0,0.3)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+  SHADOW = new THREE.CanvasTexture(c);
 }
 
-export function makeVan(withBikes) {
-  const S = shared(), g = new THREE.Group(), wheels = [];
-  const add = (geo, mat, x, y, z, ry) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); if (ry) o.rotation.y = ry; o.castShadow = true; g.add(o); return o; };
-  add(S.body, S.silver, 0, 0, 0);
-  // dunkle Beplankung unten, Stossfaenger
-  [[-2.62, 0.75], [0.15, 2.75], [2.76, 0.5]].forEach(a => { [-1, 1].forEach(sx => add(S.box(0.06, 0.52, a[1]), S.dark, sx * 1.035, 0.74, a[0])); });
-  add(S.box(2.0, 0.42, 0.22), S.dark, 0, 0.62, 3.0);      // Front-Stossfaenger
-  add(S.box(2.0, 0.4, 0.2), S.dark, 0, 0.66, -3.04);      // Heck-Stossfaenger
-  add(S.box(1.2, 0.34, 0.06), S.dark, 0, 1.0, 2.98);      // Grill
-  // Haube (dunkle Folie), Scheibe, Seitenfenster
-  const hood = add(S.box(1.86, 0.05, 0.75), S.bonnet, 0, 1.2, 2.62); hood.rotation.x = 0.35;
-  const ws = add(S.box(1.8, 1.3, 0.05), S.glass, 0, 1.95, 2.0); ws.rotation.x = -0.9;
-  [-1, 1].forEach(sx => {
-    add(S.box(0.05, 0.75, 1.15), S.glass, sx * 1.0, 1.85, 1.85);   // Tuerfenster
-    add(S.box(0.05, 0.5, 0.85), S.glass, sx * 1.0, 1.75, 0.45);    // Seitenfenster
-    add(S.box(0.2, 0.2, 0.12), S.dark, sx * 1.12, 1.55, 2.2);      // Spiegel
-    add(S.box(0.12, 0.12, 0.06), S.lamp, sx * 0.7, 0.98, 3.04);    // Scheinwerfer
-    add(S.box(0.16, 0.5, 0.06), S.tail, sx * 0.95, 1.1, -3.08);    // Ruecklicht
-    add(S.box(0.05, 0.05, 5.0), S.rail, sx * 0.9, 2.82, -0.3);     // Dachreling
-  });
-  [-0.38, 0.38].forEach(x => add(S.cyl(0.14, 0.1, 10), S.lamp, x, 0.62, 3.1).rotation.x = Math.PI / 2);   // Zusatzscheinwerfer
-  add(S.box(0.45, 1.1, 0.05), S.board, 0.55, 1.75, -3.07);   // Bergungsboard an der Hecktuer
-  add(S.box(0.2, 0.2, 3.1), S.awn, 1.08, 2.62, -0.2);         // Markise (Beifahrerseite)
-  // Raeder
-  [[-1.75], [2.0]].forEach(a => [-1, 1].forEach(sx => {
-    add(S.arch, S.dark, sx * 0.9, 0.55, a[0]);
-    const w = add(S.wheelG, S.tire, sx * 0.88, 0.41, a[0]); const r = add(S.rimG, S.rim, sx * 0.9, 0.41, a[0]);
-    wheels.push(w, r);
-  }));
-  if (withBikes) {   // Fahrradtraeger mit zwei Raedern
-    add(S.box(1.5, 0.08, 0.5), S.frame, 0, 0.55, -3.35);
-    [[-0.38, 0.2], [0.38, -0.2]].forEach(b => {
-      const bk = new THREE.Group(); bk.position.set(b[0], 0.95, -3.4 + b[1]);
-      [-0.45, 0.45].forEach(z => { const r = new THREE.Mesh(S.ring, S.frame); r.rotation.y = Math.PI / 2; r.position.z = z; bk.add(r); });
-      const fr = new THREE.Mesh(S.box(0.05, 0.05, 1.0), S.frame); fr.position.set(0, 0.2, 0); bk.add(fr);
-      const hb = new THREE.Mesh(S.box(0.5, 0.04, 0.04), S.frame); hb.position.set(0, 0.42, 0.42); bk.add(hb);
-      bk.traverse(o => { o.castShadow = true; }); g.add(bk);
-    });
-  }
-  g.userData.wheels = wheels;
+export function makeVan() {
+  setup();
+  const g = new THREE.Group();
+  const mat = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.04, side: THREE.DoubleSide });
+  const geo = new THREE.PlaneGeometry(1, 1); geo.translate(0, 0.5, 0);
+  const sp = new THREE.Mesh(geo, mat); sp.frustumCulled = false; g.add(sp);
+  const sh = new THREE.Mesh(new THREE.PlaneGeometry(6.2, 2.9), new THREE.MeshBasicMaterial({ map: SHADOW, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+  sh.rotation.x = -Math.PI / 2; sh.position.y = 0.04; g.add(sh);
+  g.userData.sp = sp; g.userData.sh = sh; g.userData.hd = 0; g.userData.cur = -1; g.userData.wheels = [];
   return g;
+}
+
+// Ansicht passend zur Kamera waehlen (zylindrisches Billboard) und Beleuchtung anpassen
+export function vanFace(g, cam, light) {
+  const u = g.userData, p = g.position;
+  const cx = cam.position.x - p.x, cz = cam.position.z - p.z, hd = u.hd;
+  const th = Math.atan2(cx * Math.cos(hd) - cz * Math.sin(hd), cx * Math.sin(hd) + cz * Math.cos(hd)) * 180 / Math.PI;
+  let bi = 0, bd = 1e9;
+  for (let i = 0; i < SET.length; i++) { let d = Math.abs(th - SET[i].a); if (d > 180) d = 360 - d; if (d < bd) { bd = d; bi = i; } }
+  const v = SET[bi], sp = u.sp;
+  if (u.cur !== bi) {
+    u.cur = bi; sp.material.map = v.t; sp.material.needsUpdate = true;
+    const im = v.t.image, asp = im && im.width ? im.height / im.width : 0.6;
+    u.asp = asp;
+  }
+  const im = v.t.image; if (im && im.width) u.asp = im.height / im.width;
+  sp.scale.set(v.w * (v.m ? -1 : 1), v.w * (u.asp || 0.6), 1);
+  sp.rotation.y = Math.atan2(cx, cz);
+  sp.material.color.setScalar(light);
+  u.sh.rotation.z = -hd;
 }
