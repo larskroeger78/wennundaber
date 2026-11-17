@@ -9,7 +9,6 @@ import { makeVan } from './van.js';
 import PV5URL from './assets/cars/pv5.glb?url';
 import AE86URL from './assets/cars/ae86.glb?url';
 import GMCURL from './assets/cars/gmc.glb?url';
-import F150URL from './assets/cars/f150.glb?url';
 import C10URL from './assets/cars/c10.glb?url';
 import WRECKURL from './assets/cars/wreck.glb?url';
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -1932,27 +1931,28 @@ if(BK){   // Voegel: kreisen und gleiten um die Strecke, schlagen zwischendurch 
 var VANS=[],vanWait=14;
 // Fremdmodelle (Sketchfab, siehe #credits): GLB-Dateien, Front +z, auf echte Groesse skaliert; Hersteller-Laden erst wenn geladen
 const CARS={
-  pv5:{url:PV5URL,sc:[3.1,3.9,4.1],hw:0.98},            // Kia PV5, teenlin3, CC BY
-  ae86:{url:AE86URL,sc:[0.01,0.01,0.01],hw:0.85},       // Toyota AE86 Trueno
-  gmc:{url:GMCURL,sc:[0.9,0.9,0.9],hw:1.45},            // GMC Motorhome
-  f150:{url:F150URL,sc:[1,1,1],rot:Math.PI,hw:1.35},    // Ford F-150 Raptor (Front war -z)
-  c10:{url:C10URL,sc:[0.01,0.01,0.01],hw:1.05},         // Chevrolet C10 1963
-  wreck:{url:WRECKURL,sc:[0.17,0.17,0.17],hw:1.1}       // Autowrack (Scan)
+  pv5:{hl:2.2,url:PV5URL,sc:[3.1,3.9,4.1],hw:0.98},            // Kia PV5, teenlin3, CC BY
+  ae86:{hl:2.1,url:AE86URL,sc:[0.01,0.01,0.01],hw:0.85},       // Toyota AE86 Trueno
+  gmc:{hl:4.2,url:GMCURL,sc:[0.9,0.9,0.9],hw:1.45},            // GMC Motorhome
+  c10:{hl:2.4,url:C10URL,sc:[0.01,0.01,0.01],hw:1.05},         // Chevrolet C10 1963
+  wreck:{hl:2.5,url:WRECKURL,sc:[0.17,0.17,0.17],hw:1.1}       // Autowrack (Scan)
 };
 Object.keys(CARS).forEach(k=>{const C=CARS[k];C.tpl=null;C.wait=[];
   new GLTFLoader().load(C.url,gl=>{const m=gl.scene;m.traverse(o=>{if(o.isMesh){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(q=>{q.roughness=Math.max(q.roughness||0,0.5);q.metalness=Math.min(q.metalness||0,0.15);});}});
     const b=new THREE.Box3().setFromObject(m),c=b.getCenter(new THREE.Vector3());m.position.set(-c.x,-b.min.y,-c.z);   // mittig auf den Boden stellen
     const r=new THREE.Group();r.add(m);r.rotation.y=C.rot||0;const w=new THREE.Group();w.add(r);w.scale.set(...C.sc);C.tpl=w;C.wait.forEach(g=>g.add(w.clone(true)));C.wait.length=0;},undefined,()=>{});});
-const makeCar=k=>{const C=CARS[k],g=new THREE.Group();g.userData.wheels=[];g.userData.hw=C.hw;if(C.tpl)g.add(C.tpl.clone(true));else C.wait.push(g);return g;};
-const pickCar=r=>r<0.22?makeCar('pv5'):r<0.44?makeCar('ae86'):r<0.64?makeCar('c10'):r<0.8?makeCar('f150'):r<0.93?makeCar('gmc'):makeCar('wreck');
+const makeCar=k=>{const C=CARS[k],g=new THREE.Group();g.userData.wheels=[];g.userData.hw=C.hw;g.userData.hl=C.hl;if(C.tpl)g.add(C.tpl.clone(true));else C.wait.push(g);return g;};
+const CAR_SEQ=['gmc','pv5','ae86','c10','wreck','pv5','ae86','c10','gmc','pv5','ae86','c10'];let carN=0;   // jedes Modell kommt mindestens einmal vor, danach gemischt
+const pickCar=r=>makeCar(carN<CAR_SEQ.length?CAR_SEQ[carN++]:(carN++,r<0.3?'pv5':r<0.6?'ae86':r<0.85?'c10':'gmc'));
 var VANS=[],vanWait=14;
 const nearHouse=(()=>{if(!BK||!OSM)return null;
   const H=new Map(),K=(x,z)=>Math.floor(x/30)*10000+Math.floor(z/30);
   OSM.buildings.forEach(b=>{const p=b.p;let cx=0,cz=0;for(let i=0;i<p.length;i+=2){cx+=p[i];cz+=p[i+1];}cx/=p.length/2;cz/=p.length/2;const k=K(cx,cz);(H.get(k)||H.set(k,[]).get(k)).push(cx,cz);});
   return (x,z,r,n)=>{let c=0;for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const l=H.get(K(x+a*30,z+b*30));if(!l)continue;for(let i=0;i<l.length;i+=2)if(Math.hypot(l[i]-x,l[i+1]-z)<r)c++;}return c>=n;};})();
-const vanPose=(v,x,z,h,fwd)=>{   // Van auf das Gelaende setzen (Nick-Winkel aus Vorder- und Hinterachse)
-  const fx=Math.sin(h)*fwd,fz=Math.cos(h)*fwd,yF=gnd(x+fx*2,z+fz*2),yR=gnd(x-fx*1.75,z-fz*1.75),yM=gnd(x,z);
-  v.g.position.set(x,Math.min(yM,(yF+yR)/2)+0.02,z);v.g.rotation.order='YXZ';v.g.rotation.y=fwd>0?h:h+Math.PI;v.g.rotation.x=-Math.atan2(yF-yR,3.75);
+const vanPose=(v,x,z,h,fwd)=>{   // Auto auf das Gelaende setzen: 4 Radpunkte, Nick-Winkel aus Vorder- und Hinterachse, tiefster Punkt = Boden
+  const hl=(v.g.userData.hl||2.6)*0.7,hw=(v.g.userData.hw||1)*0.8,fx=Math.sin(h)*fwd,fz=Math.cos(h)*fwd,rx=Math.cos(h),rz=-Math.sin(h);
+  const q=(a,b)=>gnd(x+fx*a+rx*b,z+fz*a+rz*b),fl=q(hl,-hw),fr=q(hl,hw),bl=q(-hl,-hw),br=q(-hl,hw);
+  v.g.position.set(x,Math.min(fl,fr,bl,br,gnd(x,z))+0.02,z);v.g.rotation.order='YXZ';v.g.rotation.y=fwd>0?h:h+Math.PI;v.g.rotation.x=-Math.atan2((fl+fr)/2-(bl+br)/2,2*hl);
 };
 const vanPos=(s,lat,o)=>{sample(s,o);return [o.x-Math.cos(o.h)*lat,o.z+Math.sin(o.h)*lat];};
 if(nearHouse){
@@ -1963,7 +1963,7 @@ if(nearHouse){
     gap-=5;if(gap>0)continue;
     const side=rs()<0.6?1:-1,g=pickCar(rs()),lat=side*(HW[i]+0.4+(g.userData.hw||1)),[x,z]=vanPos(s,lat,o);
     const v={g:g,parked:true,s:s};vanPose(v,x,z,o.h,side>0?1:-1);scene.add(v.g);VANS.push(v);
-    gap=110+rs()*150;
+    gap=60+rs()*110;
   }
   if(window.__counts)window.__counts.vans=VANS.length;
   for(let k=0;k<0;k++){const v={g:makeCar('pv5'),parked:false,active:false,s:0,dir:1,v:0,lat:0,hw:0};v.g.visible=false;scene.add(v.g);VANS.push(v);}
