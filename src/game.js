@@ -11,6 +11,12 @@ import PV5URL from './assets/cars/pv5.glb?url';
 import AE86URL from './assets/cars/ae86.glb?url';
 import GMCURL from './assets/cars/gmc.glb?url';
 import C10URL from './assets/cars/c10.glb?url';
+import JEEPURL from './assets/cars/jeep.glb?url';
+import RANGERURL from './assets/cars/ranger.glb?url';
+import VOLVO740URL from './assets/cars/volvo740.glb?url';
+import AMAZONURL from './assets/cars/amazon.glb?url';
+import SANTANAURL from './assets/cars/santana.glb?url';
+import EV5URL from './assets/cars/ev5.glb?url';
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Trainer, ClickPad, BLE_OK } from './ble.js';
 import MITT1 from './routes/mittwochsrunde.json';
@@ -1947,6 +1953,12 @@ const CARS={
   ae86:{hl:2.1,url:AE86URL,sc:[0.01,0.01,0.01],hw:0.85},       // Toyota AE86 Trueno
   gmc:{hl:4.2,url:GMCURL,sc:[0.9,0.9,0.9],hw:1.45},            // GMC Motorhome
   c10:{hl:2.4,url:C10URL,sc:[0.01,0.01,0.01],hw:1.05},         // Chevrolet C10 1963
+  jeep:{hl:2.45,url:JEEPURL,sc:[0.97,0.97,0.97],hw:1.1},        // Jeep Wrangler Rubicon 4xe
+  ranger:{hl:2.7,url:RANGERURL,sc:[0.96,0.96,0.96],rot:Math.PI,hw:1.07},   // Ford Ranger Offroad (Front war -z)
+  volvo740:{hl:2.4,url:VOLVO740URL,sc:[1.73,1.73,1.73],rot:Math.PI,hw:1.05},   // Volvo 740 (Front war -z)
+  amazon:{hl:2.2,url:AMAZONURL,sc:[4.45,4.45,4.45],hw:0.99},    // Volvo Amazon Kombi (stilisiert)
+  santana:{hl:1.95,url:SANTANAURL,sc:[1,1,1],rot:-Math.PI/2,hw:0.99},      // Santana S3 (Front war +x)
+  ev5:{hl:2.3,url:EV5URL,sc:[0.99,0.99,0.99],rot:Math.PI/2,hw:1.1},        // Kia EV5 (Front war -x)
 };
 const shadowTex=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d'),gr=g.createRadialGradient(32,32,6,32,32,32);gr.addColorStop(0,'rgba(0,0,0,0.75)');gr.addColorStop(0.7,'rgba(0,0,0,0.35)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,64,64);return new THREE.CanvasTexture(c);})();
 if(BK&&OSM)Object.keys(CARS).forEach(k=>{const C=CARS[k];C.tpl=null;C.wait=[];
@@ -1956,8 +1968,8 @@ if(BK&&OSM)Object.keys(CARS).forEach(k=>{const C=CARS[k];C.tpl=null;C.wait=[];
 const makeCar=k=>{const C=CARS[k],g=new THREE.Group();g.userData.wheels=[];g.userData.hw=C.hw;g.userData.hl=C.hl;
   const sh=new THREE.Mesh(new THREE.PlaneGeometry(C.hw*2.5,C.hl*2.3),new THREE.MeshBasicMaterial({map:shadowTex,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-6,polygonOffsetUnits:-6}));sh.rotation.x=-Math.PI/2;sh.position.y=0.05;sh.renderOrder=1;g.add(sh);   // weicher Kontaktschatten
   if(C.tpl)g.add(C.tpl.clone(true));else C.wait.push(g);return g;};
-const CAR_SEQ=['gmc','pv5','ae86','c10','pv5','ae86','c10','gmc','pv5','ae86','c10'];let carN=0;   // jedes Modell kommt mindestens einmal vor, danach gemischt
-const pickCar=r=>makeCar(carN<CAR_SEQ.length?CAR_SEQ[carN++]:(carN++,r<0.3?'pv5':r<0.6?'ae86':r<0.85?'c10':'gmc'));
+let carDeck=[];   // ausgewogen: alle Modelle gemischt, jedes kommt erst wieder, wenn alle einmal dran waren
+const pickCar=rnd=>{if(!carDeck.length){carDeck=Object.keys(CARS);for(let k=carDeck.length-1;k>0;k--){const j=Math.floor(rnd()*(k+1));[carDeck[k],carDeck[j]]=[carDeck[j],carDeck[k]];}}return makeCar(carDeck.pop());};
 var VANS=[],vanWait=14;
 const nearHouse=(()=>{if(!BK||!OSM)return null;
   const H=new Map(),K=(x,z)=>Math.floor(x/30)*10000+Math.floor(z/30);
@@ -1973,22 +1985,23 @@ const vanPose=(v,x,z,h,fwd)=>{   // Auto aufs Gelaende setzen: Ebene durch 4 Rad
 const vanPos=(s,lat,o)=>{sample(s,o);return [o.x-Math.cos(o.h)*lat,o.z+Math.sin(o.h)*lat];};
 if(nearHouse){
   const o={x:0,y:0,z:0,h:0};let rs=Math.random;let seed=7;rs=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
-  for(let s=30,gap=0;s<TOTAL-30;s+=5){
-    const i=Math.floor(s/SEG);if(SURF[i]!==0)continue;
-    sample(s,o);if(!nearHouse(o.x,o.z,45,2))continue;
-    gap-=5;if(gap>0)continue;
-    const side=rs()<0.6?1:-1,g=pickCar(rs()),fwd=side>0?1:-1;let ok=false,x=0,z=0;
+  const cand=[];for(let s=30;s<TOTAL-30;s+=5){const i=Math.floor(s/SEG);if(SURF[i]!==0)continue;sample(s,o);if(nearHouse(o.x,o.z,55,1))cand.push(s);}
+  const spacing=85;let lastS=-1e9,clu=0,cluN=0,prevC=-1e9;   // gleichmaessig verteilt: mindestens 85 m Abstand, je Siedlungsabschnitt hoechstens 4 Autos
+  for(const s of cand){
+    if(s-prevC>150){clu++;cluN=0;}prevC=s;
+    if(s-lastS<spacing||cluN>=4)continue;
+    const i=Math.floor(s/SEG);sample(s,o);
+    const side=rs()<0.5?1:-1,g=pickCar(rs),fwd=side>0?1:-1;let ok=false,x=0,z=0;
     for(let ex=0;ex<=2.4&&!ok;ex+=0.4){   // seitlich nach aussen schieben, bis das ganze Auto (Ecken, Seitenmitte) Abstand zur Strecke hat
-      const lat=side*(HW[i]+0.5+(g.userData.hw||1)+ex);[x,z]=vanPos(s,lat,o);
+      const lat=side*(HW[i]+0.6+(g.userData.hw||1)+ex);[x,z]=vanPos(s,lat,o);
       const H=fwd>0?o.h:o.h+Math.PI,hl=g.userData.hl||2.2,hw=g.userData.hw||1;ok=true;
       for(const [a,b] of [[hl,-hw],[hl,hw],[-hl,-hw],[-hl,hw],[0,-hw],[0,hw],[hl,0],[-hl,0]]){
         const px=x+Math.sin(H)*a+Math.cos(H)*b,pz=z+Math.cos(H)*a-Math.sin(H)*b;
-        for(let j=Math.max(0,i-14);j<=Math.min(N,i+14)&&ok;j++){const hr=HW[Math.min(N-1,j)]*(SURF[Math.min(N-1,j)]===0?1:SURF[Math.min(N-1,j)]===1?1.5:1.7);if(Math.hypot(PX[j]-px,PZ[j]-pz)<hr+0.45)ok=false;}
+        for(let j=Math.max(0,i-16);j<=Math.min(N,i+16)&&ok;j++){const hr=HW[Math.min(N-1,j)]*(SURF[Math.min(N-1,j)]===0?1:SURF[Math.min(N-1,j)]===1?1.5:1.7);if(Math.hypot(PX[j]-px,PZ[j]-pz)<hr+0.6)ok=false;}
         if(!ok)break;}
     }
     if(!ok){scene.remove(g);continue;}
-    const v={g:g,parked:true,s:s};vanPose(v,x,z,o.h,fwd);scene.add(v.g);VANS.push(v);
-    gap=60+rs()*110;
+    const v={g:g,parked:true,s:s};vanPose(v,x,z,o.h,fwd);scene.add(v.g);VANS.push(v);lastS=s;cluN++;
   }
   if(window.__counts)window.__counts.vans=VANS.length;
   for(let k=0;k<0;k++){const v={g:makeCar('pv5'),parked:false,active:false,s:0,dir:1,v:0,lat:0,hw:0};v.g.visible=false;scene.add(v.g);VANS.push(v);}
