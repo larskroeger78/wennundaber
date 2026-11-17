@@ -3,7 +3,7 @@
 //         npm run real -- hagen hemer      (mehrere)    |   npm run real -- alle
 // Ein fehlgeschlagener Schritt bricht nicht ab, am Ende steht eine Uebersicht.
 import { spawnSync } from 'node:child_process';
-const ALLE = ['wuppertal', 'hagen', 'iserlohn', 'hemer', 'buellberg'];
+const ALLE = ['wuppertal', 'hagen', 'iserlohn', 'hemer', 'buellberg', 'dortmund'];
 let names = process.argv.slice(2).filter(a => !a.startsWith('--'));
 if (names.includes('alle')) names = ALLE;
 if (!names.length) { console.log('Aufruf: npm run real -- <strecke> [...]  (' + ['miworu', ...ALLE].join(', ') + ' oder alle)'); process.exit(1); }

@@ -20,15 +20,16 @@ import WUP from './routes/wuppertal.json';
 import ISE from './routes/iserlohn.json';
 import HEM from './routes/hemer.json';
 import HAG from './routes/hagen.json';
+import DOR from './routes/dortmund.json';
 import { parseGpx, listRoutes, loadRoute, saveRoute, renameRoute, deleteRoute } from './gpx.js';
 const SURF_FILES=import.meta.glob('./routes/*.surf.json');   // Streckendaten werden pro Strecke nachgeladen (nicht mehr alle im Startpaket)
 // Strecke: Standard ist die Tour vom 5.10.2022 (komoot-GPX); ?route=mittwoch bzw. ?route=halde nur zum Entwickeln
-const ROUTES={mittwoch:{data:MITT1,label:'Mittwochsrunde',surf:'mittwochsrunde',btn:'Mittwochsrunde'},tour2:{data:MIW,label:'MIWORU',surf:'miworu',btn:'MIWORU',nhn0:MIW.nhn0,place:'Bergkamen',dem:'miworu'},wuppertal:{data:WUP,label:'Wuppertal',surf:'wuppertal',btn:'Wuppertal',nhn0:WUP.nhn0,place:'Wuppertal',dem:'wuppertal'},hagen:{data:HAG,label:'Hagen',surf:'hagen',btn:'Hagen',nhn0:HAG.nhn0,place:'Hagen',dem:'hagen'},iserlohn:{data:ISE,label:'Iserlohn',surf:'iserlohn',btn:'Iserlohn',nhn0:ISE.nhn0,place:'Iserlohn',dem:'iserlohn'},hemer:{data:HEM,label:'Hemer',surf:'hemer',btn:'Hemer',nhn0:HEM.nhn0,place:'Hemer',dem:'hemer'},buellberg:{data:BUE,label:'Büllberg',surf:'buellberg',btn:'Büllberg',nhn0:BUE.nhn0,place:'Büllberg',dem:'buellberg'}};
+const ROUTES={mittwoch:{data:MITT1,label:'Mittwochsrunde',surf:'mittwochsrunde',btn:'Mittwochsrunde'},tour2:{data:MIW,label:'MIWORU',surf:'miworu',btn:'MIWORU',nhn0:MIW.nhn0,place:'Bergkamen',dem:'miworu'},wuppertal:{data:WUP,label:'Wuppertal',surf:'wuppertal',btn:'Wuppertal',nhn0:WUP.nhn0,place:'Wuppertal',dem:'wuppertal'},hagen:{data:HAG,label:'Hagen',surf:'hagen',btn:'Hagen',nhn0:HAG.nhn0,place:'Hagen',dem:'hagen'},iserlohn:{data:ISE,label:'Iserlohn',surf:'iserlohn',btn:'Iserlohn',nhn0:ISE.nhn0,place:'Iserlohn',dem:'iserlohn'},hemer:{data:HEM,label:'Hemer',surf:'hemer',btn:'Hemer',nhn0:HEM.nhn0,place:'Hemer',dem:'hemer'},buellberg:{data:BUE,label:'Büllberg',surf:'buellberg',btn:'Büllberg',nhn0:BUE.nhn0,place:'Büllberg',dem:'buellberg'},dortmund:{data:DOR,label:'Dortmund',surf:'dortmund',btn:'Dortmund',nhn0:DOR.nhn0,place:'Dortmund',dem:'dortmund'}};
 const RKEY=new URLSearchParams(location.search).get('route');
 const GPX_ID=RKEY&&RKEY.indexOf('gpx_')===0?RKEY.slice(4):null,CUSTOM=GPX_ID?loadRoute(GPX_ID):null;   // vom Nutzer hochgeladene GPX-Strecke (nur im Browser gespeichert)
 if(CUSTOM)ROUTES[RKEY]={data:CUSTOM,label:CUSTOM.name||'Eigene Strecke',surf:'__eigene',btn:CUSTOM.name,custom:true,nhn0:CUSTOM.nhn0||0,place:'Eigene GPX-Strecke'};
 // Doppelte aufraeumen: eigene GPX-Strecken mit dem Namen einer festen Strecke (Hagen, Iserlohn, Wuppertal, MIWORU) loeschen
-try{listRoutes().forEach(e=>{const nm=String(e.name||'').trim().toLowerCase();if(e.id!==GPX_ID&&['hagen','iserlohn','wuppertal','miworu','hemer','buellberg'].indexOf(nm)>=0)deleteRoute(e.id);});}catch(e){}
+try{listRoutes().forEach(e=>{const nm=String(e.name||'').trim().toLowerCase();if(e.id!==GPX_ID&&['hagen','iserlohn','wuppertal','miworu','hemer','buellberg','dortmund'].indexOf(nm)>=0)deleteRoute(e.id);});}catch(e){}
 const RT=RKEY==='halde'?null:(ROUTES[RKEY]||ROUTES.tour2);   // Standard: die Tour vom 5.10.2022; andere Strecken nur noch per URL (?route=halde|mittwoch) für Entwicklung
 const ROUTE=!!RT,MITT=RT?RT.data:MITT1;
 // Echtes Geländemodell (DGM1 NRW, per npm run terrain erzeugt): Höhenraster in Dezimetern
@@ -1667,7 +1668,7 @@ function routeBtns(){return '';}   // nur eine Strecke im Spiel
 function mineHtml(){   // Streckenliste: feste Strecken + eigene GPX-Strecken (Zusatzstrecken)
   const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const cur=GPX_ID?'gpx_'+GPX_ID:(!ROUTE?'halde':(ROUTES[RKEY]&&!ROUTES[RKEY].custom?RKEY:'tour2'));
-  const base=[['tour2','MIWORU','Bergkamen'],['wuppertal','Wuppertal','Wuppertal und Umland'],['hagen','Hagen','Hagen und Umland'],['iserlohn','Iserlohn','Iserlohn und Umland'],['hemer','Hemer','Hemer und Umland'],['buellberg','Büllberg','Büllberg und Umland']];
+  const base=[['tour2','MIWORU','Bergkamen'],['wuppertal','Wuppertal','Wuppertal und Umland'],['hagen','Hagen','Hagen und Umland'],['iserlohn','Iserlohn','Iserlohn und Umland'],['hemer','Hemer','Hemer und Umland'],['buellberg','Büllberg','Büllberg und Umland'],['dortmund','Dortmund','Dortmund und Umland']];
   let h='<div class="mine"><div class="mh">Strecken</div>'+base.map(b=>'<div class="mr'+(b[0]===cur?' cur':'')+'"><span class="mn">'+b[1]+'<small>'+b[2]+'</small></span>'+(b[0]===cur?'<span class="act">aktiv</span>':'<button class="sec" data-route="'+b[0]+'">Fahren</button>')+'</div>').join('');
   const L=listRoutes();
   if(L.length)h+='<div class="mh" style="margin-top:10px">Meine Strecken (GPX)</div>'+L.map(e=>'<div class="mr'+(e.id===GPX_ID?' cur':'')+'"><span class="mn">'+esc(e.name)+'<small>'+String(e.km).replace('.',',')+' km</small></span>'
@@ -1967,7 +1968,7 @@ const vanPose=(v,x,z,h,fwd)=>{   // Auto aufs Gelaende setzen: Ebene durch 4 Rad
   const q=(a,b)=>gnd(x+fx*a+rx*b,z+fz*a+rz*b),fl=q(hl,-hw),fr=q(hl,hw),bl=q(-hl,-hw),br=q(-hl,hw),mean=(fl+fr+bl+br)/4;
   const pitch=((fl+fr)-(bl+br))/2/(2*hl),roll=((fr+br)-(fl+bl))/2/(2*hw);
   const dev=Math.max(fl-(mean+pitch*hl-roll*hw),fr-(mean+pitch*hl+roll*hw),bl-(mean-pitch*hl-roll*hw),br-(mean-pitch*hl+roll*hw),0);
-  v.g.position.set(x,mean+dev+0.06,z);v.g.rotation.order='YXZ';v.g.rotation.y=H;v.g.rotation.x=-Math.atan(pitch);v.g.rotation.z=Math.atan(roll);
+  v.g.position.set(x,mean+dev*0.5-0.03,z);v.g.rotation.order='YXZ';v.g.rotation.y=H;v.g.rotation.x=-Math.atan(pitch);v.g.rotation.z=Math.atan(roll);
 };
 const vanPos=(s,lat,o)=>{sample(s,o);return [o.x-Math.cos(o.h)*lat,o.z+Math.sin(o.h)*lat];};
 if(nearHouse){
