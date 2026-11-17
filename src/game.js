@@ -337,6 +337,7 @@ const HORIZON=new THREE.Color(0.62,0.74,0.86);
 scene.background=HORIZON;
 scene.fog=new THREE.FogExp2(HORIZON,0.00055);
 const camera=new THREE.PerspectiveCamera(64,16/9,0.4,6000);
+const BK=!!RT&&RT.dem==='miworu';   // Bergkamen: Sonnenstand nach Uhrzeit, fliegende Voegel
 const SUN=new THREE.Vector3(-0.55,0.62,0.42).normalize();
 const hemi=new THREE.HemisphereLight(new THREE.Color(0.72,0.84,1.0),new THREE.Color(0.34,0.31,0.22),0.75);scene.add(hemi);
 const sun=new THREE.DirectionalLight(new THREE.Color(1.0,0.84,0.64),2.35);   // tiefstehende, warme Herbstsonne
@@ -366,24 +367,24 @@ function cycleQ(){quality=quality%3+1;try{localStorage.setItem('miworu_q',qualit
 // ================= Himmel =================
 const sky=new THREE.Mesh(new THREE.SphereGeometry(4500,32,16),new THREE.ShaderMaterial({
   side:THREE.BackSide,depthWrite:false,fog:false,
-  uniforms:{sunDir:{value:SUN},time:{value:0}},
+  uniforms:{sunDir:{value:SUN},time:{value:0},zenCol:{value:new THREE.Vector3(0.10,0.27,0.60)},horCol:{value:new THREE.Vector3(0.62,0.74,0.86)},sunCol:{value:new THREE.Vector3(1.0,0.85,0.6)},cloudTint:{value:new THREE.Vector3(1,1,1)}},
   vertexShader:'varying vec3 vDir;void main(){vDir=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
   fragmentShader:[
-  'uniform vec3 sunDir;uniform float time;varying vec3 vDir;',
+  'uniform vec3 sunDir;uniform float time;uniform vec3 zenCol,horCol,sunCol,cloudTint;varying vec3 vDir;',
   'float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}',
   'float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(hash(i),hash(i+vec2(1.0,0.0)),f.x),mix(hash(i+vec2(0.0,1.0)),hash(i+vec2(1.0,1.0)),f.x),f.y);}',
   'float fbm(vec2 p){float a=0.5,s=0.0;for(int i=0;i<5;i++){s+=a*noise(p);p*=2.03;a*=0.5;}return s;}',
   'void main(){',
   ' vec3 d=normalize(vDir);float h=max(d.y,0.0);',
-  ' vec3 zen=vec3(0.10,0.27,0.60),hor=vec3(0.62,0.74,0.86);',
+  ' vec3 zen=zenCol,hor=horCol;',
   ' vec3 col=mix(hor,zen,pow(h,0.45));',
   ' float sd=max(dot(d,sunDir),0.0);',
-  ' col+=vec3(1.0,0.85,0.6)*(pow(sd,350.0)*6.0+pow(sd,12.0)*0.25);',
+  ' col+=sunCol*(pow(sd,350.0)*6.0+pow(sd,12.0)*0.25);',
   ' vec2 uv=d.xz/(h+0.12)*0.9+vec2(time*0.004,0.0);',
   ' float c=fbm(uv*1.2);float cov=smoothstep(0.46,0.72,c);',
   ' float sh=fbm(uv*1.2+sunDir.xz*0.15);',
   ' vec3 cc=mix(vec3(0.50,0.56,0.66),vec3(1.25,1.2,1.15),smoothstep(0.3,0.8,1.0-sh*0.9+sd*0.3));',
-  ' col=mix(col,cc,cov*smoothstep(0.0,0.12,d.y)*0.9);',
+  ' cc*=cloudTint;col=mix(col,cc,cov*smoothstep(0.0,0.12,d.y)*0.9);',
   ' col=mix(hor,col,smoothstep(-0.02,0.06,d.y));',
   ' gl_FragColor=vec4(col,1.0);',
   ' #include <tonemapping_fragment>',
@@ -391,6 +392,37 @@ const sky=new THREE.Mesh(new THREE.SphereGeometry(4500,32,16),new THREE.ShaderMa
   '}'].join('\n')
 }));
 sky.frustumCulled=false;scene.add(sky);
+
+// Sonnenstand nach Uhrzeit (nur Bergkamen). Nie dunkler als leichte Daemmerung: unter ~5 Grad Sonnenhoehe bleibt das Licht auf diesem Niveau.
+// Test: ?zeit=7.5 (Uhrzeit in Stunden, lokale Zeit)
+let _sunMin=-1;
+function applySun(force){
+  if(!BK)return;
+  const d=new Date(),mn=Math.floor(d.getTime()/60000);if(!force&&mn===_sunMin)return;_sunMin=mn;
+  let utc=d.getUTCHours()+d.getUTCMinutes()/60;
+  const zp=new URLSearchParams(location.search).get('zeit');if(zp!==null&&!isNaN(+zp))utc=+zp+d.getTimezoneOffset()/60;
+  const doy=Math.floor((Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate())-Date.UTC(d.getUTCFullYear(),0,0))/864e5);
+  const phi=51.6*Math.PI/180,dec=23.44*Math.PI/180*Math.sin(2*Math.PI*(284+doy)/365),H=((utc+7.6/15)%24-12)*15*Math.PI/180;
+  const sa=Math.sin(phi)*Math.sin(dec)+Math.cos(phi)*Math.cos(dec)*Math.cos(H),alt=Math.asin(clamp(sa,-1,1));
+  let A=Math.acos(clamp((Math.sin(dec)-Math.sin(phi)*sa)/(Math.cos(phi)*Math.cos(alt)+1e-6),-1,1));if(H>0)A=2*Math.PI-A;   // Azimut ab Nord, im Uhrzeigersinn
+  const altE=Math.max(alt,5*Math.PI/180),ca=Math.cos(altE);
+  SUN.set(ca*Math.sin(A),Math.sin(altE),-ca*Math.cos(A)).normalize();
+  const deg=alt*180/Math.PI,low=1-sstep(6,32,deg),tw=sstep(-4,5,deg);   // low: tiefe Sonne (warm), tw: 1 = Tag, 0 = Daemmerung
+  const mixc=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
+  let sc=mixc([1.0,0.9,0.78],[1.0,0.58,0.34],low);sc=mixc([0.62,0.52,0.7],sc,tw);
+  const inten=(0.95+1.55*sstep(4,30,deg))*(0.72+0.28*tw);
+  sun.color.setRGB(sc[0],sc[1],sc[2]);sun.intensity=Math.max(1.35,inten);
+  let hs=mixc([0.72,0.84,1.0],[0.88,0.72,0.66],low*0.7);hs=mixc([0.46,0.52,0.78],hs,tw);
+  hemi.color.setRGB(hs[0],hs[1],hs[2]);hemi.groundColor.setRGB(0.34-0.1*(1-tw),0.31-0.1*(1-tw),0.22-0.02*(1-tw));hemi.intensity=0.8*(0.86+0.14*tw);
+  renderer.toneMappingExposure=0.95*(1.0+0.12*(1-tw));
+  let hor=mixc([0.62,0.74,0.86],[0.9,0.64,0.5],low*0.8);hor=mixc([0.42,0.45,0.66],hor,tw);
+  let zen=mixc([0.10,0.27,0.60],[0.14,0.25,0.52],low);zen=mixc([0.12,0.15,0.36],zen,tw);
+  const u=sky.material.uniforms;u.horCol.value.set(hor[0],hor[1],hor[2]);u.zenCol.value.set(zen[0],zen[1],zen[2]);u.sunCol.value.set(sc[0],sc[1]*0.95,sc[2]*0.85);
+  const ct=mixc([1,0.82,0.7],[1,1,1],1-low);u.cloudTint.value.set(ct[0]*(0.75+0.25*tw),ct[1]*(0.78+0.22*tw),ct[2]*(0.85+0.15*tw));
+  scene.fog.color.setRGB(hor[0],hor[1],hor[2]);scene.background=scene.background&&scene.background.isColor?new THREE.Color(hor[0],hor[1],hor[2]):scene.background;
+  window.__sun={alt:deg,az:A*180/Math.PI,utc:utc};
+}
+if(BK)applySun(true);
 
 // ================= Foto-Assets (optional; ohne Dateien bleibt alles prozedural) =================
 const ASSETS=import.meta.env.BASE_URL+'assets/';
@@ -410,16 +442,16 @@ new RGBELoader().load(ASSETS+'hdri/kloofendal_48d_partly_cloudy_puresky.hdr',tex
   let best=-1,bx=0,by=0;
   for(let y=0;y<h/2;y+=2)for(let x=0;x<w;x+=2){const k=(y*w+x)*4,l=Math.max(d[k],d[k+1],d[k+2])*Math.pow(2,d[k+3]-136);if(l>best){best=l;bx=x;by=y;}}
   const v=1-(by+0.5)/h,u=(bx+0.5)/w,lat=(v-0.5)*Math.PI,lon=(u-0.5)*2*Math.PI;
-  SUN.set(Math.cos(lon)*Math.cos(lat),Math.max(0.35,Math.sin(lat)),Math.sin(lon)*Math.cos(lat)).normalize();
+  if(!BK)SUN.set(Math.cos(lon)*Math.cos(lat),Math.max(0.35,Math.sin(lat)),Math.sin(lon)*Math.cos(lat)).normalize();
   let r=0,g=0,b=0,n=0;const yy=Math.floor(h*0.485);
   for(let x=0;x<w;x+=8){const k=(yy*w+x)*4,f=Math.pow(2,d[k+3]-136);r+=d[k]*f;g+=d[k+1]*f;b+=d[k+2]*f;n++;}
   const hc=new THREE.Color(Math.min(1.2,r/n),Math.min(1.2,g/n),Math.min(1.2,b/n));
-  scene.fog.color.copy(hc);
+  if(!BK)scene.fog.color.copy(hc);
   tex.mapping=THREE.EquirectangularReflectionMapping;
   const pm=new THREE.PMREMGenerator(renderer);
   scene.environment=pm.fromEquirectangular(tex).texture;pm.dispose();
-  scene.background=tex;sky.visible=false;
-  hemi.intensity=0.5;
+  if(!BK){scene.background=tex;sky.visible=false;}
+  hemi.intensity=0.5;if(BK)applySun(true);
   scene.traverse(o=>{const m=o.material;if(m&&m.isMeshStandardMaterial&&!(m.userData&&m.userData.keepEnv))m.envMapIntensity=0.28;});
   window.__hdr={sun:SUN.toArray(),fog:hc.toArray(),best:best};
 },undefined,()=>{});
@@ -1719,6 +1751,12 @@ function render(dt,now){
     cockpitEl.style.transform='translate(-50%,'+(18.5+Math.abs(deg)*0.062-SHK.y*70-(SHK.buzz||0)*0.12).toFixed(2)+'%) rotate('+(deg+SHK.r*25).toFixed(2)+'deg)';
   }
   sky.position.copy(camera.position);sky.material.uniforms.time.value=now*0.001;
+  if(BK)applySun();
+  if(BK&&BIRDS.length){const t=now*0.001;BIRDS.forEach(b=>{
+    const a=b.ph+b.w*t,x=b.cx+Math.cos(a)*b.r,z=b.cz+Math.sin(a)*b.r,y=b.y0+b.alt+Math.sin(t*0.23+b.ph)*3.5;
+    const sg=Math.sign(b.w);b.g.position.set(x,y,z);b.g.rotation.set(0,Math.atan2(-Math.sin(a)*sg,Math.cos(a)*sg),0.28*sg);
+    const cyc=((t+b.t0)%9)/9,flap=cyc<0.45?Math.sin(t*b.fp*2)*0.75:Math.sin(t*0.9+b.ph)*0.08;   // Fluegelschlag, dann Gleitphase
+    b.L.rotation.z=flap;b.R.rotation.z=-flap;});}
   {   // Sonnenglanz (Lens-Glow) nur wenn man Richtung Sonne schaut
     camera.getWorldDirection(_cd);const fc=_cd.dot(SUN);
     if(fc>0.55){_sv.copy(camera.position).addScaledVector(SUN,1000).project(camera);
@@ -1825,6 +1863,21 @@ function updateTiles(cp){   // weit entfernte Kacheln nicht zeichnen, Schatten n
       const pts=[];lp.forEach(l=>{const h0=9,sag=0.8;let px=l[0],pz=l[1],py=G(px,pz)+h0;for(let i=1;i<=4;i++){const t=i/4,x=l[0]+(l[2]-l[0])*t,z=l[1]+(l[3]-l[1])*t,y=G(x,z)+h0-Math.sin(t*Math.PI)*sag;pts.push(px,py,pz,x,y,z);px=x;py=y;pz=z;}});
       const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));g.computeBoundingSphere();
       scene.add(new THREE.LineSegments(g,new THREE.LineBasicMaterial({color:0x2a2c2e})));}
+  }
+}
+const BIRDS=[];
+if(BK){   // Voegel: kreisen und gleiten um die Strecke, schlagen zwischendurch mit den Fluegeln
+  const bm=new THREE.MeshBasicMaterial({color:0x1c1c1e,side:THREE.DoubleSide});
+  const wg=new THREE.BufferGeometry();wg.setAttribute('position',new THREE.Float32BufferAttribute([0,0,-0.12,1,0,-0.2,1,0,0.2,0,0,-0.12,1,0,0.2,0,0,0.16],3));wg.computeVertexNormals();
+  const bg=new THREE.BoxGeometry(0.14,0.12,0.5);
+  const nB=Math.min(46,Math.floor(N/18));
+  for(let k=0;k<nB;k++){
+    const i=Math.floor((k+rnd()*0.8)/nB*(N-4))+2,r=40+rnd()*110,alt=22+rnd()*45,sp=7+rnd()*5,dir=rnd()<0.5?1:-1;
+    const grp=new THREE.Group(),L=new THREE.Mesh(wg,bm),R=new THREE.Mesh(wg,bm),body=new THREE.Mesh(bg,bm);
+    R.scale.x=-1;[L,R,body].forEach(m=>{m.frustumCulled=false;grp.add(m);});
+    const sz=1.5+rnd()*0.8;grp.scale.set(sz,sz,sz);scene.add(grp);
+    BIRDS.push({g:grp,L:L,R:R,cx:PX[i]+(rnd()-0.5)*80,cz:PZ[i]+(rnd()-0.5)*80,r:r,alt:alt,w:dir*sp/r,ph:rnd()*6.283,fp:6+rnd()*3,t0:rnd()*40,y0:0});
+    BIRDS[k].y0=gnd(BIRDS[k].cx,BIRDS[k].cz);
   }
 }
 {   // Luftbilder laden und in den Spielfarben verwenden
