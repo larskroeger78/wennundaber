@@ -55,6 +55,9 @@ function demH(x,z){
 // ================= Helfer =================
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const airU=()=>SHK.air?SHK.air.t/SHK.air.T:0,airH=()=>SHK.air?SHK.air.H*4*airU()*(1-airU()):0;
+const TABS=[];   // Tables (Sprunghuegel): s0 = Beginn der Anfahrtsrampe, H = Hoehe; Profil: Rampe 3,2 m, Plateau 2,4 m, Landung 3,6 m
+const smoothS=u=>u*u*(3-2*u),tabH=s=>{for(let i=0;i<TABS.length;i++){const t=TABS[i],u=s-t.s0;if(u<0)return 0;if(u>9.2)continue;return u<3.2?t.H*smoothS(u/3.2):u<5.6?t.H:t.H*(1-smoothS((u-5.6)/3.6));}return 0;};
+const tabD=s=>(tabH(s+0.4)-tabH(s-0.4))/0.8;
 const BUMPS=[],FEAT=[],SHK={y:0,vy:0,r:0,vr:0,i:0,fi:0,w:0,wv:0,air:null};   // Stöße (Wurzeln/Steine) -> Cockpit ruppelt
 const lerp=(a,b,t)=>a+(b-a)*t;
 const sstep=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
@@ -1036,8 +1039,7 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
       }
       if(ROUTE&&SURF[i]>=1&&dn>=5&&(FEAT.length===0||i*SEG-FEAT[FEAT.length-1].s>(FEAT[FEAT.length-1].k==='j'?120:22))){   // Abfahrten: Kanten, kleine Drops und ab und zu ein Sprung
         const kv=Math.abs(KV[i]),r=rnd(),pd=Math.min(1,dn/12);
-        if(kv<0.012&&SURF[i]===2&&dn<=16&&r<0.0045*pd){FEAT.push({s:i*SEG,k:'j',a:1});   // Schanze: kleiner Erdhuegel quer zum Weg
-          const hh=HS[i],x=PX[i],z=PZ[i];jumps.push({x:x,y:gnd(x,z),z:z,a:Math.atan2(-Math.cos(hh),-Math.sin(hh))+0});}
+        if(kv<0.02&&SURF[i]===2&&dn<=16&&dn>=4&&r<0.02*pd&&i*SEG>40){const H=0.4+rnd()*0.15,s0=i*SEG;TABS.push({s0:s0,H:H});FEAT.push({s:s0+5.6,k:'j',a:1});}   // Table: Anfahrt, Plateau, Landung
         else if(r<0.012*pd+0.004){const big=rnd()<0.3,a=big?1.5+rnd()*0.8:0.7+rnd()*0.6;FEAT.push({s:i*SEG,k:'e',a:a});   // Kante/Drop: quer liegende Steinplatte oder Absatz
           const hh=HS[i],ox=(rnd()-0.5)*hw0(i)*0.5,x=PX[i]-Math.cos(hh)*ox,z=PZ[i]+Math.sin(hh)*ox;edges.push({x:x,y:gnd(x,z),z:z,h:hh,w:big?1.3:0.8});}
       }
@@ -1057,8 +1059,17 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
     stones.forEach((r,i)=>{DUM.rotation.set((rnd()-0.5)*0.5,rnd()*6.283,(rnd()-0.5)*0.5);DUM.position.set(r.x,r.y,r.z);DUM.scale.set(r.w,r.hh,r.w*(0.6+rnd()*0.6));DUM.updateMatrix();sm.setMatrixAt(i,DUM.matrix);const c=0.10+r.t*0.15,q=(r.t*977)%1;sm.setColorAt(i,q<0.32?TC.setRGB(c*0.7,c*0.95,c*0.5):q<0.45?TC.setRGB(c*1.15,c*0.95,c*0.72):TC.setRGB(c*1.05,c*1.02,c*0.95));});
     sm.castShadow=true;sm.receiveShadow=true;sm.frustumCulled=false;scene.add(sm);
     BUMPS.sort((a,b)=>a.s-b.s);FEAT.sort((a,b)=>a.s-b.s);
-    if(jumps.length){const jg=new THREE.SphereGeometry(1,14,8,0,6.2832,0,1.5708),jm=new THREE.InstancedMesh(jg,new THREE.MeshStandardMaterial({roughness:1,color:0x6a5238,map:barkTex}),jumps.length);   // flacher Erdhuegel (Halbkugel)
-      jumps.forEach((j,i)=>{DUM.rotation.set(0,j.a,0);DUM.position.set(j.x,j.y-0.05,j.z);DUM.scale.set(1.7,0.42,2.6);DUM.updateMatrix();jm.setMatrixAt(i,DUM.matrix);});jm.receiveShadow=true;jm.castShadow=false;jm.frustumCulled=false;scene.add(jm);}
+    if(TABS.length){   // Tables als Erdhuegel mit Rampe, Plateau und Landung
+      const P=[],U=[],I=[],S={};let vi=0;
+      TABS.forEach(t=>{const n=Math.round(9.2/0.4);
+        for(let k=0;k<=n;k++){const ss=t.s0+k*0.4,hh=tabH(ss);sample(ss,S);const ii=Math.min(N-1,Math.floor(ss/SEG)),hw=Math.max(1.1,Math.min(1.5,HW[ii]*0.9)),rx=-Math.cos(S.h),rz=Math.sin(S.h);
+          [[-(hw+0.8),0],[-hw,1],[hw,1],[hw+0.8,0]].forEach(q=>{const x=S.x+rx*q[0],z=S.z+rz*q[0];P.push(x,gnd(x,z)+(q[1]?hh+0.02:-0.04),z);U.push(q[0]/2,ss/2);});
+          if(k<n){const b0=vi;for(let c=0;c<3;c++){I.push(b0+c,b0+c+4,b0+c+1,b0+c+1,b0+c+4,b0+c+5);}}
+          vi+=4;}
+      });
+      const tg=new THREE.BufferGeometry();tg.setAttribute('position',new THREE.Float32BufferAttribute(P,3));tg.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));tg.setIndex(I);tg.computeVertexNormals();
+      const tm2=new THREE.Mesh(tg,new THREE.MeshStandardMaterial({map:texGround,color:0x5a4430,roughness:1,side:THREE.DoubleSide}));tm2.receiveShadow=true;tm2.castShadow=false;tm2.frustumCulled=false;scene.add(tm2);
+    }
     if(edges.length){const em=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({roughness:0.95,color:0x4f4b43}),edges.length);   // Steinplatte/Absatz quer zum Weg
       edges.forEach((e,i)=>{DUM.rotation.set((rnd()-0.5)*0.12,e.h+Math.PI/2+(rnd()-0.5)*0.4,(rnd()-0.5)*0.12);DUM.position.set(e.x,e.y+0.02,e.z);DUM.scale.set(0.5+rnd()*0.3,0.09+rnd()*0.07,e.w);DUM.updateMatrix();em.setMatrixAt(i,DUM.matrix);});em.receiveShadow=true;em.castShadow=true;em.frustumCulled=false;scene.add(em);}
     window.__rs={roots:roots.length,stones:stones.length};
@@ -1575,9 +1586,9 @@ const keys={};
 let running=false,inputMode='keyboard',st,FPV=true;
 const trainer=new Trainer(),click=new ClickPad();let paused=false,gear=0,bleMsg='',lastMenu=null;   // gear: virtuelle Schaltung = Widerstand in %-Steigung (+/-)
 let gearUsed=false,toastT=0;
-const DIFFN={1:'Leicht',2:'Normal',3:'Hardcore'};
-let diff=1;try{const v=+localStorage.getItem('miworu_diff');if(v===1||v===2||v===3)diff=v;}catch(e){}   // Schwierigkeit: 1 Leicht (Steigungen zählen 40 %), 2 Normal
-const gearF=()=>(gear<0?Math.pow(1.26,gear):1+gear*0.05)*(diff===1?0.4:(diff===3?1.5:1));   // Faktor auf die Steigung: Gang x Schwierigkeit
+const DIFFN={1:'Leicht',2:'Normal',3:'Hardcore',4:'Eskalation'};
+let diff=1;try{const v=+localStorage.getItem('miworu_diff');if(v>=1&&v<=4)diff=v;}catch(e){}   // Schwierigkeit: 1 Leicht (Steigungen zählen 40 %), 2 Normal
+const gearF=()=>(gear<0?Math.pow(1.26,gear):1+gear*0.05)*(diff===1?0.4:(diff===3?1.5:(diff===4?1.2:1)));   // Faktor auf die Steigung: Gang x Schwierigkeit
 function setDiff(d){diff=d;try{localStorage.setItem('miworu_diff',d);}catch(e){}gearHud.k=null;hintHud.k=null;toastEl.textContent='Schwierigkeit: '+DIFFN[d];toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1200);}
 const gearEl=document.getElementById('gear'),toastEl=document.getElementById('toast'),hintEl=document.getElementById('hint');
 function shift(d){
@@ -1589,7 +1600,7 @@ function shift(d){
 }
 function hintHud(){
   const key=diff+'|'+quality;if(hintHud.k===key)return;hintHud.k=key;
-  hintEl.innerHTML=[1,2,3].map(n=>'<button type="button" data-act="d'+n+'"'+(diff===n?' class="on"':'')+'><b>'+n+'</b>'+DIFFN[n]+'</button>').join('')+'<button type="button" data-act="q"><b>Q</b>Grafik '+QN[quality]+'</button>';
+  hintEl.innerHTML=[1,2,3,4].map(n=>'<button type="button" data-act="d'+n+'"'+(diff===n?' class="on"':'')+'><b>'+n+'</b>'+DIFFN[n]+'</button>').join('')+'<button type="button" data-act="q"><b>Q</b>Grafik '+QN[quality]+'</button>';
 }
 function gearHud(){
   hintHud();
@@ -1618,6 +1629,7 @@ window.addEventListener('keydown',e=>{
   if(e.key==='1')setDiff(1);
   if(e.key==='2')setDiff(2);
   if(e.key==='3')setDiff(3);
+  if(e.key==='4')setDiff(4);
   if(e.key==='+'||e.key==='PageUp')shift(1);
   if(e.key==='-'||e.key==='PageDown')shift(-1);
 });
@@ -1650,7 +1662,7 @@ function update(dt){
   while(SHK.fi<FEAT.length&&FEAT[SHK.fi].s<st.pos){   // Kanten, Drops und Sprung
     const f=FEAT[SHK.fi++];if(!(f.s>=p0-0.01&&st.v>2.2))continue;
     if(f.k==='e'){const a=f.a*(0.55+0.45*Math.min(1,st.v/9));SHK.vy+=a;SHK.vr+=(rnd()-0.5)*a*9;SHK.wv+=(rnd()<0.5?-1:1)*a*110;}
-    else if(f.k==='j'&&!SHK.air&&st.v>3.5){SHK.air={t:0,T:clamp(0.36+st.v*0.032,0.5,0.95),H:clamp(0.16+st.v*0.03,0.25,0.65)};SHK.vy+=0.5;}
+    else if(f.k==='j'&&!SHK.air&&st.v>4.5){SHK.air={t:0,T:clamp(0.3+st.v*0.03,0.45,0.85),H:clamp(0.12+st.v*0.025,0.2,0.55)};SHK.vy+=0.3;}
   }
   if(SHK.air){SHK.air.t+=dt;if(SHK.air.t>=SHK.air.T){const H=SHK.air.H;SHK.air=null;SHK.vy-=3.2*Math.min(1,H/0.5);SHK.vr+=(rnd()-0.5)*22;SHK.wv+=(rnd()<0.5?-1:1)*110*Math.min(1,H/0.4);}}
   SHK.wv+=(-900*SHK.w-9*SHK.wv)*dt;SHK.w+=SHK.wv*dt;   // Lenker flattert nach Stoessen
@@ -1767,7 +1779,7 @@ function showHelp(){
     '<div><b>↑</b> treten &nbsp;·&nbsp; <b>↓</b> bremsen &nbsp;·&nbsp; mit Trainer: einfach treten</div>'+
     '<div><b>+</b> / <b>−</b> (oder Bild↑/↓): Gang schwerer / leichter</div>'+
     '<div>Zwift Click (rechts): <b>+</b> kurz drücken = schwerer · gedrückt halten oder andere Taste = leichter</div>'+
-    '<div><b>1</b> Leicht (Steigungen nur 40 %) · <b>2</b> Normal · <b>3</b> Hardcore (Steigungen 150 %) · auch oben rechts antippbar</div>'+
+    '<div><b>1</b> Leicht (Steigungen nur 40 %) · <b>2</b> Normal · <b>3</b> Hardcore (Steigungen 150 %) · <b>4</b> Eskalation (20 % härter als realistisch) · auch oben rechts antippbar</div>'+
     '<div><b>Q</b> Grafik: Niedrig / Mittel / Hoch · <b>C</b> Ansicht (Cockpit/Außen) · <b>R</b> Neustart · <b>Esc</b> Pause und Menü</div>'+
     '<div><b>Gruppenfahrt</b>: im Menü einen Gruppencode eingeben (alle Freunde denselben, dieselbe Strecke wählen). Mitfahrer erscheinen als farbige Punkte, in Minikarte und Profil immer.</div>'+
     '<div>Ins <b>Höhenprofil</b> klicken oder ziehen: an diese Stelle der Strecke springen</div>'+
@@ -1794,7 +1806,7 @@ function menu(title,sub){
   const gpxf=document.getElementById('gpxf');
   const go=id=>{const q='?route=gpx_'+id;const same=location.search===q;location.href=location.pathname+q+'#go';if(same)location.reload();};
   document.getElementById('gpx').onclick=()=>gpxf.click();
-  document.getElementById('dif').onclick=()=>{setDiff(diff%3+1);menu(title,sub);};
+  document.getElementById('dif').onclick=()=>{setDiff(diff%4+1);menu(title,sub);};
   document.getElementById('qual').onclick=()=>{cycleQ();menu(title,sub);};
   document.getElementById('grpb').onclick=()=>{const c=window.prompt('Gruppencode für die gemeinsame Fahrt (alle Freunde geben denselben Code ein, leer = aus):',GRP_CODE);if(c===null)return;GRP_CODE=c.trim().toLowerCase().replace(/[^a-z0-9äöüß]+/g,'').slice(0,24);try{localStorage.setItem('miworu_group',GRP_CODE);}catch(_){}grpJoin();menu(title,sub);};
   gpxf.onchange=async()=>{
@@ -1822,7 +1834,7 @@ function menu(title,sub){
 // Pause + Hauptmenue (Esc oder Menue-Knopf oben rechts, z. B. fuer iPad ohne Tastatur)
 function pauseGame(){if(!running)return;running=false;paused=true;trainer.setGrade(0,0.005,true);offEl.style.display='none';menu('Weiterfahren','Pause · '+(st.pos/1000).toFixed(2)+' km · '+fmtT(st.t));}
 const menuBtn=document.getElementById('menuBtn');menuBtn.onclick=pauseGame;
-hintEl.onclick=e=>{const b=e.target.closest('[data-act]');if(!b)return;const a=b.getAttribute('data-act');if(a==='d1')setDiff(1);else if(a==='d2')setDiff(2);else if(a==='d3')setDiff(3);else if(a==='q')cycleQ();};
+hintEl.onclick=e=>{const b=e.target.closest('[data-act]');if(!b)return;const a=b.getAttribute('data-act');if(a==='d1')setDiff(1);else if(a==='d2')setDiff(2);else if(a==='d3')setDiff(3);else if(a==='d4')setDiff(4);else if(a==='q')cycleQ();};
 function resume(){if(GRP_CODE&&!GRP.peer)grpJoin();menuBtn.style.display='';paused=false;running=true;ov.style.display='none';hudBox.style.display='block';}
 const PK='miworu_prog2_'+RKEY;let SAVED=null;   // prog2: alte Fortschritte gehoerten zu anderen Strecken
 try{const o=JSON.parse(localStorage.getItem(PK)||'null');if(o&&o.pos>50&&Date.now()-o.ts<864e5)SAVED=o;}catch(e){}
@@ -1845,7 +1857,7 @@ const OR=ROUTE?{cx:MCX,cz:MCZ,r:1000,h:420,ly:55,cr:260}:{cx:0,cz:0,r:540,h:170,
 function render(dt,now){
   sample(st.pos,smp);
   const rx=-Math.cos(smp.h),rz=Math.sin(smp.h);
-  const bx=smp.x+rx*st.x,bz=smp.z+rz*st.x,by=smp.y+0.07;
+  const bx=smp.x+rx*st.x,bz=smp.z+rz*st.x,by=smp.y+0.07+(running||st.done?tabH(st.pos):0);
   bike.position.set(bx,by,bz);
   const gi=Math.min(N-1,Math.floor(st.pos/SEG));
   st.pitch+=(-Math.atan(GR[gi]/100)-st.pitch)*Math.min(1,dt*5);
@@ -1882,7 +1894,7 @@ function render(dt,now){
   camera.lookAt(lookC);
   if(fp){
     camera.rotateZ(-st.lean*0.55+SHK.r*0.5);             // Neigung in Kurven + Ruppeln
-    camera.rotateX(SHK.y*0.9+(SHK.air?0.1*Math.cos(Math.PI*airU()):0));
+    camera.rotateX((running?Math.atan(tabD(st.pos))*0.7:0)+SHK.y*0.9+(SHK.air?0.1*Math.cos(Math.PI*airU()):0));
     const deg=clamp(st.bar,-17,17);                     // Lenker dreht mit
     cockpitEl.style.transform='translate(-50%,'+(18.5+Math.abs(deg)*0.062-(SHK.y+airH())*70-(SHK.buzz||0)*0.12).toFixed(2)+'%) rotate('+(deg+SHK.r*25+SHK.w).toFixed(2)+'deg)';
   }
@@ -2249,7 +2261,7 @@ function loop(now){
   update(dt);render(dt,now);
   requestAnimationFrame(loop);
 }
-window.__dbg={renderer:renderer,scene:scene,SHK:SHK,BUMPS:BUMPS,gnd:gnd,HS:HS,PX:PX,PZ:PZ,HW:HW,KV:KV,ROUTE:ROUTE,SURF:SURF,cam:camera,joggers:joggers,get st(){return st;},set pos(v){st.pos=v;camInit=false;},N:N,TOTAL:TOTAL,iTrail:iTrail,SEC:SEC,PY:PY,GR:GR,forestD:forestD,lu:(k,x,z)=>LU?lu(LU[k],x,z):-1};
+window.__dbg={renderer:renderer,scene:scene,SHK:SHK,BUMPS:BUMPS,gnd:gnd,HS:HS,PX:PX,PZ:PZ,HW:HW,KV:KV,ROUTE:ROUTE,SURF:SURF,cam:camera,joggers:joggers,TABS:TABS,tabH:tabH,get st(){return st;},set pos(v){st.pos=v;camInit=false;},N:N,TOTAL:TOTAL,iTrail:iTrail,SEC:SEC,PY:PY,GR:GR,forestD:forestD,lu:(k,x,z)=>LU?lu(LU[k],x,z):-1};
 if(SAVED)menu('Weiterfahren bei '+(SAVED.pos/1000).toFixed(2).replace('.',',')+' km','Gespeicherte Fahrt · '+fmtT(SAVED.t));else menu('Start');
 if(location.hash==='#go')start();
 requestAnimationFrame(loop);
