@@ -959,7 +959,7 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
   if(ROUTE){   // Kopffreiheit: Kronen ueber dem Fahrbereich beginnen erst hoch ueber dem Boden, Baeume im Fahrbereich entfallen
     for(let i=trees.length-1;i>=0;i--){const t=trees[i];
       if(!nearest(allHash,t.x,t.z))continue;
-      const reach=t.cw*0.62+(HW[nI]||2)+1.3,base=nD<reach?6.2:(nD<reach+3?4.6:3.4);
+      const reach=t.cw*0.62+(HW[nI]||2)+1.3,base=nD<reach?5.0:(nD<reach+3?4.0:3.2);
       if(nD<(HW[nI]||2)+0.6){trees.splice(i,1);continue;}
       if(t.H-t.ch<base){if(t.H<base+2.5&&nD<reach){trees.splice(i,1);continue;}t.ch=Math.max(2,t.H-base);}
     }
@@ -1050,12 +1050,12 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
     roots.forEach((r,i)=>{DUM.rotation.set(0,r.a,0);DUM.position.set(r.x,r.y,r.z);DUM.scale.set(r.L,r.r,r.r);DUM.updateMatrix();rm.setMatrixAt(i,DUM.matrix);rm.setColorAt(i,TC.setRGB(0.36+r.t*0.4,0.32+r.t*0.32,0.28+r.t*0.24));});
     rm.castShadow=false;rm.receiveShadow=true;rm.frustumCulled=false;scene.add(rm);
     const sm=new THREE.InstancedMesh(stoneG,new THREE.MeshStandardMaterial({roughness:0.95,color:0xffffff,flatShading:true}),Math.max(1,stones.length));sm.count=stones.length;
-    stones.forEach((r,i)=>{DUM.rotation.set((rnd()-0.5)*0.5,rnd()*6.283,(rnd()-0.5)*0.5);DUM.position.set(r.x,r.y,r.z);DUM.scale.set(r.w,r.hh,r.w*(0.6+rnd()*0.6));DUM.updateMatrix();sm.setMatrixAt(i,DUM.matrix);const c=0.14+r.t*0.2,q=(r.t*977)%1;sm.setColorAt(i,q<0.32?TC.setRGB(c*0.7,c*0.95,c*0.5):q<0.45?TC.setRGB(c*1.15,c*0.95,c*0.72):TC.setRGB(c*1.05,c*1.02,c*0.95));});
+    stones.forEach((r,i)=>{DUM.rotation.set((rnd()-0.5)*0.5,rnd()*6.283,(rnd()-0.5)*0.5);DUM.position.set(r.x,r.y,r.z);DUM.scale.set(r.w,r.hh,r.w*(0.6+rnd()*0.6));DUM.updateMatrix();sm.setMatrixAt(i,DUM.matrix);const c=0.10+r.t*0.15,q=(r.t*977)%1;sm.setColorAt(i,q<0.32?TC.setRGB(c*0.7,c*0.95,c*0.5):q<0.45?TC.setRGB(c*1.15,c*0.95,c*0.72):TC.setRGB(c*1.05,c*1.02,c*0.95));});
     sm.castShadow=true;sm.receiveShadow=true;sm.frustumCulled=false;scene.add(sm);
     BUMPS.sort((a,b)=>a.s-b.s);FEAT.sort((a,b)=>a.s-b.s);
     if(jumps.length){const jg=new THREE.SphereGeometry(1,14,8,0,6.2832,0,1.5708),jm=new THREE.InstancedMesh(jg,new THREE.MeshStandardMaterial({roughness:1,color:0x6a5238,map:barkTex}),jumps.length);   // flacher Erdhuegel (Halbkugel)
       jumps.forEach((j,i)=>{DUM.rotation.set(0,j.a,0);DUM.position.set(j.x,j.y-0.05,j.z);DUM.scale.set(1.7,0.42,2.6);DUM.updateMatrix();jm.setMatrixAt(i,DUM.matrix);});jm.receiveShadow=true;jm.castShadow=false;jm.frustumCulled=false;scene.add(jm);}
-    if(edges.length){const em=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({roughness:0.95,color:0x7a766c}),edges.length);   // Steinplatte/Absatz quer zum Weg
+    if(edges.length){const em=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({roughness:0.95,color:0x4f4b43}),edges.length);   // Steinplatte/Absatz quer zum Weg
       edges.forEach((e,i)=>{DUM.rotation.set((rnd()-0.5)*0.12,e.h+Math.PI/2+(rnd()-0.5)*0.4,(rnd()-0.5)*0.12);DUM.position.set(e.x,e.y+0.02,e.z);DUM.scale.set(0.5+rnd()*0.3,0.09+rnd()*0.07,e.w);DUM.updateMatrix();em.setMatrixAt(i,DUM.matrix);});em.receiveShadow=true;em.castShadow=true;em.frustumCulled=false;scene.add(em);}
     window.__rs={roots:roots.length,stones:stones.length};
   }
