@@ -956,6 +956,7 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
       TILES.push({m:m,x:cx,z:cz,sh:shadow});
     });
   }
+  trees.forEach(t=>{t.rad=Math.max(t.rad,0.05+t.H*0.0075);});   // hohe Baeume bekommen kraeftigere Staemme (keine Stangen)
   if(ROUTE){   // Kopffreiheit: Kronen ueber dem Fahrbereich beginnen erst hoch ueber dem Boden, Baeume im Fahrbereich entfallen
     for(let i=trees.length-1;i>=0;i--){const t=trees[i];
       if(!nearest(allHash,t.x,t.z))continue;
