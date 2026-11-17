@@ -1,9 +1,3 @@
-    // Abfahrten auf Schotter/Trail: nur leises, dumpfes Knistern (Steinchen, Laub) - tief gefiltert
-    if (v > 0.6 && (surf === 1 || surf === 2)) {
-      stoneAcc += dt * v * (surf === 1 ? 9 : 4);
-      let n = stoneAcc | 0; stoneAcc -= n; n = Math.min(n, 6);
-      while (n--) burst(t + Math.random() * dt, 0.03 + Math.random() * 0.04, 'lowpass', 380 + Math.random() * 520, 0.8, (surf === 1 ? 0.05 : 0.035) * (0.4 + Math.random()));
-    }
 // Prozeduraler Fahrsound (WebAudio, keine Dateien): Reifen je Untergrund, Freilauf, Wind, Voegel, Stoesse, Sprung, Bremse, Regen.
 // Alles wird aus Rauschen und kurzen Impulsen erzeugt; AUDIO.init() muss aus einer Nutzergeste kommen (Start-Knopf).
 export const AUDIO = (() => {
@@ -90,11 +84,11 @@ export const AUDIO = (() => {
     set(N.asph, surf === 0 ? 0.075 * rv : 0, dt, 5); N.asph.f.frequency.value = 330 + 220 * rv;   // nur auf Asphalt, tief
     set(N.road, surf === 0 ? 0.06 * rv : 0, dt, 5);
     set(N.trail, 0, dt, 5);
-    // Schotter: knirschende Einzelimpulse (Steinchen), Trail: knackende Zweige/Blaetter
+    // Abfahrten auf Schotter/Trail: nur leises, dumpfes Knistern (Steinchen, Laub) - tief gefiltert
     if (v > 0.6 && (surf === 1 || surf === 2)) {
-      stoneAcc += dt * v * (surf === 1 ? 20 : 7);
-      let n = stoneAcc | 0; stoneAcc -= n; n = Math.min(n, 10);
-      while (n--) burst(t + Math.random() * dt, 0.02 + Math.random() * 0.03, 'bandpass', (surf === 1 ? 1800 : 700) + Math.random() * 2400, 2 + Math.random() * 3, (surf === 1 ? 0.08 : 0.05) * (0.4 + Math.random()));
+      stoneAcc += dt * v * (surf === 1 ? 9 : 4);
+      let n = stoneAcc | 0; stoneAcc -= n; n = Math.min(n, 6);
+      while (n--) burst(t + Math.random() * dt, 0.03 + Math.random() * 0.04, 'lowpass', 380 + Math.random() * 520, 0.8, (surf === 1 ? 0.05 : 0.035) * (0.4 + Math.random()));
     }
     // Freilauf (0 Watt): Hope-Pro-Surren, Tonhoehe folgt dem Tempo (44 Einrastpunkte x Radumdrehungen pro Sekunde, Radumfang ca. 2,3 m)
     {const coast = v > 0.4 && s.pedal < 0.15 ? 1 : 0, f = Math.min(520, 44 * v / 2.3);
