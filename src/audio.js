@@ -60,8 +60,8 @@ export const AUDIO = (() => {
       brakeG = loop('bandpass', 3400, 7);
       // Freilaufnabe (Hope Pro 4: 44 Einrastpunkte): Saegezahn-Pulszug mit Frequenz = Radumdrehungen x 44, hell gefiltert -> schnarrendes Surren
       { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 60;
-        const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2200; hp.Q.value = 0.9;
-        const bp = ctx.createBiquadFilter(); bp.type = 'peaking'; bp.frequency.value = 3600; bp.Q.value = 2.5; bp.gain.value = 9;
+        const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 3600; hp.Q.value = 0.9;
+        const bp = ctx.createBiquadFilter(); bp.type = 'peaking'; bp.frequency.value = 5200; bp.Q.value = 2.2; bp.gain.value = 9;
         const g = ctx.createGain(); g.gain.value = 0;
         o.connect(hp); hp.connect(bp); bp.connect(g); g.connect(master); o.start();
         N.hub = { o, g, hp }; }
@@ -91,7 +91,7 @@ export const AUDIO = (() => {
       while (n--) burst(t + Math.random() * dt, 0.03 + Math.random() * 0.04, 'lowpass', 380 + Math.random() * 520, 0.8, (surf === 1 ? 0.05 : 0.035) * (0.4 + Math.random()));
     }
     // Freilauf (0 Watt): Hope-Pro-Surren, Tonhoehe folgt dem Tempo (44 Einrastpunkte x Radumdrehungen pro Sekunde, Radumfang ca. 2,3 m)
-    {const coast = v > 0.4 && s.pedal < 0.15 ? 1 : 0, f = Math.min(520, 44 * v / 2.3);
+    {const coast = v > 0.4 && s.pedal < 0.15 ? 1 : 0, f = Math.min(1100, 95 * v / 2.3);
       N.hub.o.frequency.setTargetAtTime(Math.max(12, f), t, 0.03);
       set(N.hub, coast * (0.05 + 0.07 * Math.min(1, v / 9)), dt, coast ? 14 : 22);}
     // Bremse: hohes Quietschen bei Tempo
