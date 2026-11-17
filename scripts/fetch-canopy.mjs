@@ -83,6 +83,31 @@ const inB = (x, z) => polys.some(p => {
   return ins || md < 2.5;
 });
 
+// Nahinfrarot-Luftbild (WMS, Rot-Kanal = NIR) fuer die Baumart: Laub reflektiert deutlich mehr NIR als Nadeln
+let NIR = null;
+try {
+  const { default: jpeg } = await import('jpeg-js');
+  const WMS = 'https://www.wms.nrw.de/geobasis/wms_nw_dop';
+  const cap = await (await get(`${WMS}?REQUEST=GetCapabilities&SERVICE=WMS&VERSION=1.3.0`)).text();
+  const names = [...cap.matchAll(/<Layer[^>]*>\s*<Name>([^<]+)<\/Name>/g)].map(m => m[1]);
+  const lay = names.find(n => /nir/i.test(n) && !/cir/i.test(n)) || names.find(n => /cir/i.test(n));
+  if (!lay) throw new Error('keine NIR/CIR-Ebene im Dienst (' + names.join(', ') + ')');
+  console.log('NIR-Ebene:', lay);
+  NIR = new Uint8Array(W * H);
+  const T = 1000; let k = 0;
+  for (let n1 = N1; n1 > N0; n1 -= T) for (let e0 = E0; e0 < E1; e0 += T) {
+    const e1 = Math.min(E1, e0 + T), n0 = Math.max(N0, n1 - T), w = e1 - e0, h = n1 - n0;
+    const r = await get(`${WMS}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=${encodeURIComponent(lay)}&STYLES=&CRS=EPSG:25832&BBOX=${e0},${n0},${e1},${n1}&WIDTH=${w}&HEIGHT=${h}&FORMAT=image/jpeg`);
+    const img = jpeg.decode(Buffer.from(await r.arrayBuffer()), { useTArray: true });
+    for (let j = 0; j < img.height; j++) for (let i = 0; i < img.width; i++) {
+      const gc = e0 - E0 + i, gr = (n1 - N0) - 1 - j;
+      if (gc >= 0 && gc < W && gr >= 0 && gr < H) NIR[gr * W + gc] = img.data[(j * img.width + i) * 4];
+    }
+    process.stdout.write(`\r  NIR Kachel ${++k}   `);
+  }
+  console.log();
+} catch (e) { console.log('NIR nicht verfuegbar (' + e.message + ') – Baumart nur aus der Kronenform.'); NIR = null; }
+
 // Baumspitzen = lokale Maxima
 const out = []; let nB = 0;
 for (let r = 3; r < H - 3; r++) for (let c = 3; c < W - 3; c++) {
@@ -99,10 +124,12 @@ for (let r = 3; r < H - 3; r++) for (let c = 3; c < W - 3; c++) {
   const [lat, lon] = fromUTM(E0 + c + 0.5, N0 + r + 0.5), x = (lon - LON0) * KX, z = -(lat - LAT0) * KY;
   if (x < gx0 || x > gx1 || z < gz0 || z > gz1) continue;
   if (inB(x, z)) { nB++; continue; }
-  out.push(Math.round(x * 10), Math.round(z * 10), Math.round(h * 10), Math.round(rad * 10));
+  let nv = 0;
+  if (NIR) { let sum = 0, cn = 0; const rr = Math.max(1, Math.floor(rad * 0.6)); for (let j = -rr; j <= rr; j++) for (let i = -rr; i <= rr; i++) { if (i * i + j * j > rr * rr) continue; const cc = c + i, ro = r + j; if (cc >= 0 && cc < W && ro >= 0 && ro < H) { sum += NIR[ro * W + cc]; cn++; } } nv = cn ? Math.round(sum / cn) : 0; }
+  out.push(Math.round(x * 10), Math.round(z * 10), Math.round(h * 10), Math.round(rad * 10), nv);
 }
-const n = out.length / 4;
+const STR = 5, n = out.length / STR;
 console.log(`${n} Baeume erkannt (${nB} an Gebaeuden verworfen)`);
 if (!n) process.exit(1);
-fs.writeFileSync(OUT, JSON.stringify({ name: NAME, origin: ROUTE.origin, n, t: Buffer.from(new Int16Array(out).buffer).toString('base64') }));
+fs.writeFileSync(OUT, JSON.stringify({ name: NAME, origin: ROUTE.origin, n, k: STR, nir: !!NIR, t: Buffer.from(new Int16Array(out).buffer).toString('base64') }));
 console.log(`Fertig → src/routes/${NAME}.canopy.json (${(fs.statSync(OUT).size / 1e6).toFixed(1)} MB)`);

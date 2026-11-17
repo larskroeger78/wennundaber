@@ -13,6 +13,7 @@
     "lod2": "node scripts/fetch-lod2.mjs",
     "dop": "node scripts/fetch-dop.mjs",
     "canopy": "node scripts/fetch-canopy.mjs",
+    "dgm1": "node scripts/fetch-dgm1.mjs",
     "objekte": "node scripts/fetch-objects.mjs",
     "terrain": "node scripts/fetch-terrain.mjs",
     "wuppertal": "npm run terrain -- wuppertal && npm run osm -- wuppertal && npm run surfaces -- wuppertal",
@@ -24,10 +25,11 @@
     "strecken": "npm run miworu && npm run hagen && npm run iserlohn && npm run hemer && npm run buellberg"
   },
   "dependencies": {
+    "jpeg-js": "^0.4.4",
     "three": "0.128.0"
   },
   "devDependencies": {
-    "vite": "^5.4.0",
-    "geotiff": "^2.1.3"
+    "geotiff": "^2.1.3",
+    "vite": "^5.4.0"
   }
 }

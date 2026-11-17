@@ -240,10 +240,16 @@ function routePresence(x,z){return fld(FG.S2,x,z)/FG.s2m;}
 // Luftbilder (DOP): kommen asynchron; Gelaende- und Dachfarben werden danach nachgefaerbt
 const DOP_J=import.meta.glob('./routes/*.dop.json',{eager:true}),DOP_I=import.meta.glob('./routes/*.dop-*.jpg',{eager:true,query:'?url',import:'default'});
 const DOPHOOK=[];let dopAt=()=>null;
+const R1_F=import.meta.glob('./routes/*.dgm1.json',{eager:true});
+const RES1=(()=>{const k=Object.keys(R1_F).find(k=>k.split('/').pop()===((RT&&RT.dem)?RT.dem+'.dgm1.json':'dgm1.json'));if(!(RT&&!RT.custom&&k))return null;
+  const j=R1_F[k].default||R1_F[k],bin=atob(j.d),u=new Int8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i)<<24>>24;return {x0:j.x0,z0:j.z0,w:j.w,h:j.h,c:j.cell,q:j.q,d:u};})();   // 1-m-Gelaende: Abweichung vom 4-m-Raster in Streckennaehe
+const resid=(x,z)=>{if(!RES1)return 0;const u=(x-RES1.x0)/RES1.c,v=(z-RES1.z0)/RES1.c;if(u<0||v<0||u>=RES1.w-1.001||v>=RES1.h-1.001)return 0;
+  const i=u|0,j=v|0,fu=u-i,fv=v-j,o=j*RES1.w+i,D=RES1.d;return ((D[o]*(1-fu)+D[o+1]*fu)*(1-fv)+(D[o+RES1.w]*(1-fu)+D[o+RES1.w+1]*fu)*fv)*RES1.q;};
 const OBJ_F=import.meta.glob('./routes/*.objekte.json',{eager:true});
 const CAN_F=import.meta.glob('./routes/*.canopy.json',{eager:true});
+let CANK=4;
 const CAN=(()=>{const k=Object.keys(CAN_F).find(k=>k.split('/').pop()===((RT&&RT.dem)?RT.dem+'.canopy.json':'canopy.json'));if(!(RT&&!RT.custom&&k))return null;
-  const j=CAN_F[k].default||CAN_F[k],bin=atob(j.t),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return new Int16Array(u.buffer);})();   // Baeume aus Laserscan: x,z,Hoehe,Kronenradius (dm)
+  const j=CAN_F[k].default||CAN_F[k],bin=atob(j.t),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);CANK=j.k||4;return new Int16Array(u.buffer);})();   // Baeume aus Laserscan: x,z,Hoehe,Kronenradius (dm)
 const OSM_F=import.meta.glob('./routes/*umgebung.json',{eager:true});
 const OSM=(()=>{const k=DATA_KEY(OSM_F,0,'umgebung.json');return ROUTE&&!CUS&&k?(OSM_F[k].default||OSM_F[k]):null;})();
 // Amtliche 3D-Gebaeude LoD2 (npm run lod2 -- <strecke>): echte Dachformen und Hoehen, ersetzen die OSM-Gebaeude
@@ -279,7 +285,7 @@ function baseRoute(x,z){
 function baseH(x,z){
   if(useDem){            // echtes Gelände, am Rand weich zur Umland-Ebene auslaufend
     const e=Math.min(x-FG.ox,FG.ox+(FG.nx-1)*FG.G-x,z-FG.oz,FG.oz+(FG.nz-1)*FG.G-z);
-    return lerp(-1.2,demH(x,z),sstep(0,110,e));
+    return lerp(-1.2,demH(x,z)+resid(x,z),sstep(0,110,e));
   }
   if(ROUTE)return baseRoute(x,z);
   const r=Math.hypot(x,z),e=Math.max(Math.abs(x),Math.abs(z));
@@ -514,15 +520,13 @@ function forestD(x,z){
   const G=4,X0=ROUTE?FG.ox:-660,Z0=ROUTE?FG.oz:-660;
   const nx=ROUTE?Math.floor((FG.nx-1)*FG.G/G):330,nz=ROUTE?Math.floor((FG.nz-1)*FG.G/G):330,VX=nx+1,VZ=nz+1;
   const dopM=new Float32Array(VX*VZ).fill(1),pos=new Float32Array(VX*VZ*3),col=new Float32Array(VX*VZ*3),col2=new Float32Array(VX*VZ*3),uv=new Float32Array(VX*VZ*2);
-  let p=0,q=0,u=0;
-  for(let iz=0;iz<VZ;iz++){
-    for(let ix=0;ix<VX;ix++){
-      const x=X0+ix*G,z=Z0+iz*G,r=Math.hypot(x,z);
+  const put=(x,z,P,C,C2,U,M,vi)=>{
+      const r=Math.hypot(x,z);
       const h=gnd(x,z);
       const found=nI>=0&&nD<OUTR[nI]+4,d=nD,i=nI;
-      pos[p++]=x;pos[p++]=h;pos[p++]=z;
-      uv[u++]=x/7;uv[u++]=z/7;
-      if(found&&d<HW[i]+3)dopM[iz*VX+ix]=0;
+      P[vi*3]=x;P[vi*3+1]=h;P[vi*3+2]=z;
+      U[vi*2]=x/7;U[vi*2+1]=z/7;
+      if(found&&d<HW[i]+3)M[vi]=0.42;   // Wegnaehe: Luftbild nur schwach (Wegfarbe/Randbewuchs)
       let c=mix3(cGrassA,cGrassB,fbm(x/22+1,z/22+4));
       if(ROUTE){
         c=mix3(c,cDry,0.3*fbm(x/40+8,z/40)+0.35*sstep(38,64,h));
@@ -547,10 +551,10 @@ function forestD(x,z){
         const k=0.78+0.5*n3;b=[b[0]*k,b[1]*k,b[2]*k];
         c=mix3(c,b,Math.min(1,wR*(0.8+0.3*n2)));
       }
-      col2[q]=Math.min(1.6,c[0]/0.50);col2[q+1]=Math.min(1.6,c[1]/0.42);col2[q+2]=Math.min(1.6,c[2]/0.20);
-      col[q++]=c[0];col[q++]=c[1];col[q++]=c[2];
-    }
-  }
+      C2[vi*3]=Math.min(1.6,c[0]/0.50);C2[vi*3+1]=Math.min(1.6,c[1]/0.42);C2[vi*3+2]=Math.min(1.6,c[2]/0.20);
+      C[vi*3]=c[0];C[vi*3+1]=c[1];C[vi*3+2]=c[2];
+  };
+  for(let iz=0;iz<VZ;iz++)for(let ix=0;ix<VX;ix++)put(X0+ix*G,Z0+iz*G,pos,col,col2,uv,dopM,iz*VX+ix);
   const idx=new Uint32Array(nx*nz*6);let k=0;
   for(let iz=0;iz<nz;iz++)for(let ix=0;ix<nx;ix++){
     const a=iz*VX+ix,b=a+1,c2=a+VX,d2=c2+1;
@@ -562,9 +566,9 @@ function forestD(x,z){
   g.setAttribute('uv',new THREE.BufferAttribute(uv,2));
   g.setIndex(new THREE.BufferAttribute(idx,1));
   g.computeVertexNormals();
-  {   // steile Hänge: Erde/Geröll statt Rasen (Böschungen wirken gewachsen statt tapeziert)
+  const slopeDirt=(g,pos,col,col2,dopM,cnt)=>{   // steile Hänge: Erde/Geröll statt Rasen (Böschungen wirken gewachsen statt tapeziert)
     const nr=g.attributes.normal.array;
-    for(let v=0;v<VX*VZ;v++){
+    for(let v=0;v<cnt;v++){
       const ny=nr[v*3+1],t=sstep(0.93,0.8,ny)*0.7*(0.6+0.8*fbm(pos[v*3]/3,pos[v*3+2]/3));
       dopM[v]=Math.min(dopM[v],1-Math.min(1,t*2));
       if(t<=0.01)continue;
@@ -573,34 +577,80 @@ function forestD(x,z){
       col2[v*3]=Math.min(1.6,e[0]/0.50);col2[v*3+1]=Math.min(1.6,e[1]/0.42);col2[v*3+2]=Math.min(1.6,e[2]/0.20);
     }
     g.attributes.color.needsUpdate=true;
-  }
+  };
+  slopeDirt(g,pos,col,col2,dopM,VX*VZ);
   const tm=new THREE.MeshStandardMaterial({map:texGround,vertexColors:true,roughness:1,metalness:0});
   // In Kacheln zerlegt (je 40x40 Zellen = 160 m), damit nur sichtbare Gelaendestuecke gezeichnet werden (Frustum-Culling)
-  const CH=40,chunks=[],col2A=new THREE.BufferAttribute(col2,3);
-  DOPHOOK.push(()=>{   // Luftbild: Farbton vom Foto, Helligkeit/Struktur bleiben vom Spiel
-    for(let v=0;v<VX*VZ;v++){
-      if(dopM[v]<=0.02)continue;
-      const s=dopAt(pos[v*3],pos[v*3+2],2);if(!s)continue;
+  const CH=40,chunks=[],col2A=new THREE.BufferAttribute(col2,3),FINES=[];
+  const dopApply=(pos,col,col2,M,cnt)=>{   // Luftbild: Farbton vom Foto, Helligkeit/Struktur bleiben vom Spiel
+    for(let v=0;v<cnt;v++){
+      if(M[v]<=0.02)continue;
+      const s=dopAt(pos[v*3],pos[v*3+2],M[v]<0.9?1:2);if(!s)continue;
       const lt=0.3*col[v*3]+0.59*col[v*3+1]+0.11*col[v*3+2],ld=0.3*s[0]+0.59*s[1]+0.11*s[2]+1e-3,k=Math.max(0.6,Math.min(1.6,lt/ld));
-      const e=mix3([col[v*3],col[v*3+1],col[v*3+2]],[s[0]*k,s[1]*k,s[2]*k],0.55*dopM[v]);
+      const e=mix3([col[v*3],col[v*3+1],col[v*3+2]],[s[0]*k,s[1]*k,s[2]*k],0.55*M[v]);
       col[v*3]=e[0];col[v*3+1]=e[1];col[v*3+2]=e[2];
       col2[v*3]=Math.min(1.6,e[0]/0.50);col2[v*3+1]=Math.min(1.6,e[1]/0.42);col2[v*3+2]=Math.min(1.6,e[2]/0.20);
     }
-    g.attributes.color.needsUpdate=true;col2A.needsUpdate=true;
+  };
+  DOPHOOK.push(()=>{
+    dopApply(pos,col,col2,dopM,VX*VZ);g.attributes.color.needsUpdate=true;col2A.needsUpdate=true;
+    FINES.forEach(f=>{dopApply(f.P,f.C,f.C2,f.M,f.cnt);f.ca.needsUpdate=true;f.c2a.needsUpdate=true;});
   });
-  for(let cz=0;cz<nz;cz+=CH)for(let cx=0;cx<nx;cx+=CH){
-    const ex=Math.min(nx,cx+CH),ez=Math.min(nz,cz+CH),ia=new Uint32Array((ex-cx)*(ez-cz)*6);let kk=0,y0=1e9,y1=-1e9;
+  // Feines Netz (2 m statt 4 m) in Streckennaehe (nur Bergkamen): Wegraender, Boeschungen, Rinnen werden schaerfer
+  const GF=2,SUB=10,FINE=ROUTE&&RT.dem==='miworu',fineMemo=new Map();
+  const isFine=(sx,sz)=>{      // Teilkachel (10x10 Zellen = 40 m) liegt nahe der Strecke?
+    const key=sx+','+sz;if(fineMemo.has(key))return fineMemo.get(key);
+    let f=false;
+    if(FINE&&sx>=0&&sz>=0&&sx*SUB<nx&&sz*SUB<nz){
+      for(let a=0;a<=2&&!f;a++)for(let b=0;b<=2&&!f;b++){const x=X0+(sx*SUB+a*SUB/2)*G,z=Z0+(sz*SUB+b*SUB/2)*G;if(nearest(allHash,x,z)&&nD<30)f=true;}
+    }
+    fineMemo.set(key,f);return f;
+  };
+  const addChunk=(cg,c2a)=>{chunks.push({g:cg,c2:c2a});const m=new THREE.Mesh(cg,tm);m.receiveShadow=true;scene.add(m);};
+  const coarseChunk=(cx,cz,ex,ez)=>{
+    const ia=new Uint32Array((ex-cx)*(ez-cz)*6);let kk=0,y0=1e9,y1=-1e9;
     for(let iz=cz;iz<ez;iz++)for(let ix=cx;ix<ex;ix++){const a=iz*VX+ix,b=a+1,c2=a+VX,d2=c2+1;ia[kk++]=a;ia[kk++]=c2;ia[kk++]=b;ia[kk++]=b;ia[kk++]=c2;ia[kk++]=d2;}
     for(let iz=cz;iz<=ez;iz+=4)for(let ix=cx;ix<=ex;ix+=4){const y=pos[(iz*VX+ix)*3+1];if(y<y0)y0=y;if(y>y1)y1=y;}
     const cg=new THREE.BufferGeometry();cg.setAttribute('position',g.attributes.position);cg.setAttribute('normal',g.attributes.normal);cg.setAttribute('color',g.attributes.color);cg.setAttribute('uv',g.attributes.uv);
     cg.setIndex(new THREE.BufferAttribute(ia,1));
     const mx=X0+(cx+ex)/2*G,mz=Z0+(cz+ez)/2*G,my=(y0+y1)/2,rad=Math.hypot((ex-cx)*G/2,(ez-cz)*G/2,(y1-y0)/2+4);
     cg.boundingSphere=new THREE.Sphere(new THREE.Vector3(mx,my,mz),rad);cg.boundingBox=new THREE.Box3(new THREE.Vector3(X0+cx*G,y0-2,Z0+cz*G),new THREE.Vector3(X0+ex*G,y1+2,Z0+ez*G));
-    chunks.push(cg);
-    const m=new THREE.Mesh(cg,tm);m.receiveShadow=true;scene.add(m);
+    addChunk(cg,col2A);
+  };
+  const fineChunk=(sx,sz,cx,cz,ex,ez)=>{
+    const n=(ex-cx)*G/GF,m=(ez-cz)*G/GF,V=(n+1)*(m+1),P=new Float32Array(V*3),C=new Float32Array(V*3),C2=new Float32Array(V*3),U=new Float32Array(V*2),M=new Float32Array(V).fill(1);
+    const wx=X0+cx*G,wz=Z0+cz*G;
+    for(let j=0;j<=m;j++)for(let i=0;i<=n;i++)put(wx+i*GF,wz+j*GF,P,C,C2,U,M,j*(n+1)+i);
+    // Rand zu groeberen Nachbarn: Mittelpunkte auf die gerade Linie zwischen den Grobpunkten legen (keine Risse)
+    const sm=(vi,va,vb)=>{P[vi*3+1]=(P[va*3+1]+P[vb*3+1])/2;};
+    if(!isFine(sx-1,sz))for(let j=1;j<m;j+=2)sm(j*(n+1),(j-1)*(n+1),(j+1)*(n+1));
+    if(!isFine(sx+1,sz))for(let j=1;j<m;j+=2)sm(j*(n+1)+n,(j-1)*(n+1)+n,(j+1)*(n+1)+n);
+    if(!isFine(sx,sz-1))for(let i=1;i<n;i+=2)sm(i,i-1,i+1);
+    if(!isFine(sx,sz+1))for(let i=1;i<n;i+=2)sm(m*(n+1)+i,m*(n+1)+i-1,m*(n+1)+i+1);
+    const ia=new Uint32Array(n*m*6);let kk=0,y0=1e9,y1=-1e9;
+    for(let j=0;j<m;j++)for(let i=0;i<n;i++){const a=j*(n+1)+i,b=a+1,c2=a+n+1,d2=c2+1;ia[kk++]=a;ia[kk++]=c2;ia[kk++]=b;ia[kk++]=b;ia[kk++]=c2;ia[kk++]=d2;}
+    for(let v=0;v<V;v++){const y=P[v*3+1];if(y<y0)y0=y;if(y>y1)y1=y;}
+    const fg=new THREE.BufferGeometry(),ca=new THREE.BufferAttribute(C,3),c2a=new THREE.BufferAttribute(C2,3);
+    fg.setAttribute('position',new THREE.BufferAttribute(P,3));fg.setAttribute('color',ca);fg.setAttribute('uv',new THREE.BufferAttribute(U,2));fg.setIndex(new THREE.BufferAttribute(ia,1));
+    fg.computeVertexNormals();slopeDirt(fg,P,C,C2,M,V);
+    fg.boundingSphere=new THREE.Sphere(new THREE.Vector3(wx+n*GF/2,(y0+y1)/2,wz+m*GF/2),Math.hypot(n*GF/2,m*GF/2,(y1-y0)/2+2));
+    fg.boundingBox=new THREE.Box3(new THREE.Vector3(wx,y0-1,wz),new THREE.Vector3(wx+n*GF,y1+1,wz+m*GF));
+    FINES.push({P:P,C:C,C2:C2,M:M,cnt:V,ca:ca,c2a:c2a,g:fg});
+    addChunk(fg,c2a);
+  };
+  for(let cz=0;cz<nz;cz+=CH)for(let cx=0;cx<nx;cx+=CH){
+    const ex=Math.min(nx,cx+CH),ez=Math.min(nz,cz+CH);
+    let any=false;
+    if(FINE)for(let sz=cz/SUB;sz<ez/SUB&&!any;sz++)for(let sx=cx/SUB;sx<ex/SUB;sx++)if(isFine(sx,sz)){any=true;break;}
+    if(!any){coarseChunk(cx,cz,ex,ez);continue;}
+    for(let sz=cz/SUB;sz<Math.ceil(ez/SUB);sz++)for(let sx=cx/SUB;sx<Math.ceil(ex/SUB);sx++){
+      const x0=sx*SUB,z0=sz*SUB,x1=Math.min(ex,x0+SUB),z1=Math.min(ez,z0+SUB);
+      if(isFine(sx,sz))fineChunk(sx,sz,x0,z0,x1,z1);else coarseChunk(x0,z0,x1,z1);
+    }
   }
+  window.__fineChunks=FINES.length;
   window.__terrainChunks=chunks.length;
-  applyPhoto(tm,'forrest_ground_01',1.75,1.75,{arm:true,normalScale:1.2,onDiffuse:()=>{chunks.forEach(cg=>cg.setAttribute('color',col2A));}});
+  applyPhoto(tm,'forrest_ground_01',1.75,1.75,{arm:true,normalScale:1.2,onDiffuse:()=>{chunks.forEach(c=>c.g.setAttribute('color',c.c2));}});
 })();
 // Umland: Felder, Kanal
 (function(){
@@ -739,13 +789,18 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
     if(!clearOf(x,z,0))continue;
     addTree(x,z,1);
   }
-  if(ROUTE&&CAN){      // echte Baeume (DOM-DGM): Position, Hoehe, Kronenradius wie im Laserscan
-    for(let i=0;i<CAN.length;i+=4){
-      const x=CAN[i]/10,z=CAN[i+1]/10,h=CAN[i+2]/10,r=CAN[i+3]/10;
+  if(ROUTE&&CAN){      // echte Baeume (DOM-DGM): Position, Hoehe, Kronenradius wie im Laserscan; Baumart aus Kronenform (+ Infrarot)
+    const nv=[];if(CANK>=5)for(let i=4;i<CAN.length;i+=CANK)if(CAN[i]>0)nv.push(CAN[i]);nv.sort((a,b)=>a-b);
+    const nMed=nv.length?nv[nv.length>>1]:0;
+    for(let i=0;i<CAN.length;i+=CANK){
+      const x=CAN[i]/10,z=CAN[i+1]/10,h=CAN[i+2]/10,r=CAN[i+3]/10,nir=CANK>=5?CAN[i+4]:0;
       if(!clearOf(x,z,h<6?0.6:0.3))continue;
       if(h<5.5){if(rnd()<0.85)bushes.push({x:x,y:gnd(x,z)-0.1,z:z,w:Math.max(0.9,r*1.7),h:Math.max(0.7,h*0.75)});continue;}
+      const ratio=h/Math.max(1,r),dark=nMed>0&&nir>0&&nir<nMed*0.8;
+      const fir=h>8&&((ratio>3.7)||(dark&&ratio>2.5));   // schmal und hoch (und im Infrarot dunkel) = Nadelbaum
+      if(fir){trees.push({sp:'f',x:x,y:gnd(x,z)-0.2,z:z,H:h,cw:Math.max(2,r*2.1),ch:h*(0.82+rnd()*0.08),rad:0.16+rnd()*0.1,rot:rnd()*6.283});continue;}
       const ch=h*(0.5+rnd()*0.15);
-      trees.push({x:x,y:gnd(x,z)-0.2,z:z,H:h,cw:Math.max(1.6,r*1.55),ch:Math.min(ch,h-2.2),rad:0.07+rnd()*0.07,rot:rnd()*6.283});
+      trees.push({sp:'b',x:x,y:gnd(x,z)-0.2,z:z,H:h,cw:Math.max(1.6,r*1.55),ch:Math.min(ch,h-2.2),rad:0.07+rnd()*0.07,rot:rnd()*6.283});
     }
   }
   if(ROUTE&&LU&&!CAN){       // Wälder aus OpenStreetMap auch abseits der Strecke
@@ -834,13 +889,20 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
       TILES.push({m:m,x:cx,z:cz,sh:shadow});
     });
   }
-  tiled(trees,SPEC==='fir'?firGeo:foliageGeo,SPEC==='fir'?firMat:leafMat,(t,i,m,cx,cz)=>{
+  const trF=trees.filter(t=>t.sp==='f'),trB=trees.filter(t=>t.sp!=='f');
+  if(trF.length){
+    tiled(trF,firGeo,firMat,(t,i,m,cx,cz)=>{DUM.rotation.set(0,t.rot,0);DUM.position.set(t.x-cx,t.y+t.H-t.ch,t.z-cz);DUM.scale.set(t.cw,t.ch,t.cw);DUM.updateMatrix();m.setMatrixAt(i,DUM.matrix);
+      const tb=1.1+rnd()*0.6;m.setColorAt(i,TC.setRGB(tb*(0.85+rnd()*0.2),tb,tb*(0.8+rnd()*0.2)));},true,null);
+    tiled(trF,trunkGeo,trunkMat,(t,i,m,cx,cz)=>{DUM.rotation.set(0,t.rot,0);DUM.position.set(t.x-cx,t.y,t.z-cz);DUM.scale.set(t.rad,t.H-t.ch*0.45,t.rad);DUM.updateMatrix();m.setMatrixAt(i,DUM.matrix);
+      const tg=0.65+rnd()*0.6;m.setColorAt(i,TC.setRGB(tg,tg*0.97,tg*0.92));},true,null);
+  }
+  tiled(trB,SPEC==='fir'?firGeo:foliageGeo,SPEC==='fir'?firMat:leafMat,(t,i,m,cx,cz)=>{
     DUM.rotation.set(0,t.rot,0);DUM.position.set(t.x-cx,t.y+t.H-t.ch,t.z-cz);DUM.scale.set(t.cw,t.ch,t.cw);DUM.updateMatrix();m.setMatrixAt(i,DUM.matrix);
     if(SPEC==='fir'){const tb=1.1+rnd()*0.6;m.setColorAt(i,TC.setRGB(tb*(0.85+rnd()*0.2),tb,tb*(0.8+rnd()*0.2)));}
     else if(SPEC==='birch'){const tb=0.95+rnd()*0.4;m.setColorAt(i,TC.setRGB(tb*1.08,tb*1.12,tb*0.6));}
     else{const tb=0.8+rnd()*0.45;m.setColorAt(i,TC.setRGB(tb*(0.85+rnd()*0.35),tb,tb*(0.7+rnd()*0.25)));}
   },true,SPEC==='fir'?null:leafDepth);
-  tiled(trees,trunkGeo,SPEC==='birch'?birchTrunkMat:trunkMat,(t,i,m,cx,cz)=>{
+  tiled(trB,trunkGeo,SPEC==='birch'?birchTrunkMat:trunkMat,(t,i,m,cx,cz)=>{
     DUM.rotation.set(0,t.rot,0);DUM.position.set(t.x-cx,t.y,t.z-cz);DUM.scale.set(t.rad,t.H-t.ch*0.45,t.rad);DUM.updateMatrix();m.setMatrixAt(i,DUM.matrix);
     const tg=SPEC==='birch'?0.85+rnd()*0.25:0.65+rnd()*0.6;m.setColorAt(i,TC.setRGB(tg,tg*0.97,tg*0.92));
   },true,null);
@@ -1283,7 +1345,7 @@ if(OSM){
         const ca=g.attributes.color,arr=ca.array;
         rB.forEach(r=>{let R=0,G=0,B=0,c=0;
           for(let i=0;i<r.pts.length;i+=2){const s=dopAt(r.pts[i],r.pts[i+1],1);if(s){R+=s[0];G+=s[1];B+=s[2];c++;}}
-          if(!c)return;R/=c;G/=c;B/=c;const m=Math.max(R,G,B,0.01),lift=Math.min(1.5,0.5/m*0.9+0.4);   // Schattenseiten im Foto etwas aufhellen
+          if(!c)return;R/=c;G/=c;B/=c;const m=Math.max(R,G,B,0.01),lift=Math.max(0.8,Math.min(1.7,0.58/m));   // Foto-Schatten ausgleichen: Helligkeit auf mittleres Niveau ziehen
           for(let i=r.a;i<r.b;i+=3){arr[i]=Math.min(1,R*lift)*r.sh;arr[i+1]=Math.min(1,G*lift)*r.sh;arr[i+2]=Math.min(1,B*lift)*r.sh;}
         });ca.needsUpdate=true;
       });}
@@ -1704,8 +1766,9 @@ function updateTiles(cp){   // weit entfernte Kacheln nicht zeichnen, Schatten n
       else if(k==='shelter'){box(x,y+2.2,z,3.4,0.15,2.4,rot,0x6a4a2e);[[-1.5,-1],[1.5,-1],[-1.5,1],[1.5,1]].forEach(a=>post(x+a[0]*Math.cos(rot)+a[1]*Math.sin(rot),z-a[0]*Math.sin(rot)+a[1]*Math.cos(rot),2.2,0.14,0x6a4a2e));}
       else if(k==='bin'){post(x,z,0.9,0.4,0x3d5a45);}
     });
-    const hedge=[];
+    const hedge=[],RP=[],RC=[],MP=[],MC=[],roadSegs=[];
     O.lines.forEach(L=>{const k=L[0],q=L[1];
+      if(k==='road'){roadSegs.push(L);return;}
       for(let i=0;i+3<q.length;i+=2){
         const ax=q[i],az=q[i+1],bx=q[i+2],bz=q[i+3],dx=bx-ax,dz=bz-az,len=Math.hypot(dx,dz);if(len<0.3||len>400)continue;
         const ry=Math.atan2(dx,dz)-Math.PI/2;
@@ -1721,6 +1784,35 @@ function updateTiles(cp){   // weit entfernte Kacheln nicht zeichnen, Schatten n
         }
       }
     });
+    // Strassen (ohne die Strecke selbst): Asphaltband mit Mittellinie, Randlinien und Bordsteinen, auf das Gelaende gelegt
+    roadSegs.forEach(L=>{
+      const q=L[1],ex=L[2]||{},w=ex.w||5,hw=ex.h,paved=!ex.u&&hw!=='service'||(hw==='service'&&!ex.u);
+      if(ex.u||ex.br)return;
+      const pts=[];for(let i=0;i+3<q.length;i+=2){const ax=q[i],az=q[i+1],bx=q[i+2],bz=q[i+3],l=Math.hypot(bx-ax,bz-az),n=Math.max(1,Math.ceil(l/2));for(let t=(i?1:0);t<=n;t++)pts.push([ax+(bx-ax)*t/n,az+(bz-az)*t/n]);}
+      const mid=(hw==='primary'||hw==='secondary'||hw==='tertiary'||hw==='trunk'||(hw==='unclassified'&&w>=5.4)),edge=(hw==='primary'||hw==='secondary'||hw==='trunk'),kerb=(hw==='residential'||hw==='living_street'||hw==='tertiary'||hw==='unclassified');
+      const near=p=>{const f=nearest(allHash,p[0],p[1]);return f&&nD<HW[nI]+w/2+2.5;};
+      let dist=0;
+      for(let i=0;i+1<pts.length;i++){
+        const a=pts[i],b=pts[i+1];if(near(a)||near(b))continue;
+        const dx=b[0]-a[0],dz=b[1]-a[1],l=Math.hypot(dx,dz)||1,nx=-dz/l,nz=dx/l;
+        const ya=G(a[0],a[1]),yb=G(b[0],b[1]),lift=0.13;
+        const cA=[a[0]+nx*w/2,a[1]+nz*w/2],dA=[a[0]-nx*w/2,a[1]-nz*w/2],cB=[b[0]+nx*w/2,b[1]+nz*w/2],dB=[b[0]-nx*w/2,b[1]-nz*w/2];
+        const hA1=G(cA[0],cA[1])+lift,hA2=G(dA[0],dA[1])+lift,hB1=G(cB[0],cB[1])+lift,hB2=G(dB[0],dB[1])+lift;
+        const sh=0.9+0.12*fbm(a[0]/4,a[1]/4);
+        [[cA,hA1],[dA,hA2],[cB,hB1],[dA,hA2],[dB,hB2],[cB,hB1]].forEach(v=>{RP.push(v[0][0],v[1],v[0][1]);RC.push(0.11*sh,0.115*sh,0.12*sh);});
+        const flat=(x0,z0,x1,z1,ww,col,y0,y1)=>{const ddx=x1-x0,ddz=z1-z0,ll=Math.hypot(ddx,ddz)||1,nn=[-ddz/ll*ww/2,ddx/ll*ww/2];
+          [[x0+nn[0],y0,z0+nn[1]],[x0-nn[0],y0,z0-nn[1]],[x1+nn[0],y1,z1+nn[1]],[x0-nn[0],y0,z0-nn[1]],[x1-nn[0],y1,z1-nn[1]],[x1+nn[0],y1,z1+nn[1]]].forEach(v=>{MP.push(v[0],v[1],v[2]);MC.push(col[0],col[1],col[2]);});};
+        if(mid&&((dist/6)|0)%2===0)flat(a[0],a[1],b[0],b[1],0.14,[0.85,0.85,0.8],ya+0.16,yb+0.16);
+        if(edge){const o=w/2-0.35;flat(a[0]+nx*o,a[1]+nz*o,b[0]+nx*o,b[1]+nz*o,0.12,[0.8,0.8,0.76],G(a[0]+nx*o,a[1]+nz*o)+0.16,G(b[0]+nx*o,b[1]+nz*o)+0.16);flat(a[0]-nx*o,a[1]-nz*o,b[0]-nx*o,b[1]-nz*o,0.12,[0.8,0.8,0.76],G(a[0]-nx*o,a[1]-nz*o)+0.16,G(b[0]-nx*o,b[1]-nz*o)+0.16);}
+        if(kerb&&i%1===0){const ang=Math.atan2(dx,dz)-Math.PI/2,ca=[a[0]+nx*(w/2+0.12),a[1]+nz*(w/2+0.12)],cb=[a[0]-nx*(w/2+0.12),a[1]-nz*(w/2+0.12)];
+          box((ca[0]+b[0]+nx*(w/2+0.12))/2,Math.max(hA1,hB1)-0.02,(ca[1]+b[1]+nz*(w/2+0.12))/2,l+0.05,0.2,0.25,ang,0x9b9b96);
+          box((cb[0]+b[0]-nx*(w/2+0.12))/2,Math.max(hA2,hB2)-0.02,(cb[1]+b[1]-nz*(w/2+0.12))/2,l+0.05,0.2,0.25,ang,0x9b9b96);}
+        dist+=l;
+      }
+    });
+    const mkRibbon=(arr,carr,off)=>{if(!arr.length)return;const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(arr,3));g.setAttribute('color',new THREE.Float32BufferAttribute(carr,3));g.computeVertexNormals();g.computeBoundingSphere();
+      const m=new THREE.Mesh(g,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:off,polygonOffsetUnits:off}));m.receiveShadow=true;scene.add(m);};
+    mkRibbon(RP,RC,-2);mkRibbon(MP,MC,-4);
     if(window.__counts)window.__counts.objV=P.length/3;
     if(P.length){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(Nn,3));g.setAttribute('color',new THREE.Float32BufferAttribute(Cc,3));
       g.computeBoundingSphere();const m=new THREE.Mesh(g,new THREE.MeshLambertMaterial({vertexColors:true}));m.castShadow=false;m.receiveShadow=true;scene.add(m);}

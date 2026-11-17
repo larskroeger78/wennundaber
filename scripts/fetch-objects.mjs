@@ -15,6 +15,7 @@ const q = `[out:json][timeout:120];(
  node["power"~"^(pole|tower)$"](${bb});node["man_made"~"^(mast|tower|chimney|water_tower|flagpole)$"](${bb});node["barrier"~"^(bollard|gate|stile|lift_gate)$"](${bb});
  node["amenity"~"^(shelter|waste_basket|drinking_water)$"](${bb});node["leisure"="picnic_table"](${bb});
  way["barrier"~"^(fence|wall|hedge|guard_rail|retaining_wall|city_wall)$"](${bb});way["power"~"^(line|minor_line)$"](${bb});
+ way["highway"~"^(trunk|primary|secondary|tertiary|unclassified|residential|living_street|service)$"](${bb});
 );out geom;`;
 const j = await overpass(q, 3, 1);
 const L = (lat, lon) => [Math.round((lon - LON0) * KX * 10) / 10, Math.round(-(lat - LAT0) * KY * 10) / 10];
@@ -41,11 +42,16 @@ for (const e of j.elements || []) {
   } else if (e.type === 'way' && e.geometry) {
     let k = null;
     if (t.barrier === 'fence') k = 'fence'; else if (/^(wall|retaining_wall|city_wall)$/.test(t.barrier)) k = 'wall'; else if (t.barrier === 'hedge') k = 'hedge';
-    else if (t.barrier === 'guard_rail') k = 'rail'; else if (t.power) k = 'line';
+    else if (t.barrier === 'guard_rail') k = 'rail'; else if (t.power) k = 'line'; else if (t.highway) k = 'road';
     if (!k) continue;
     const pts = e.geometry.map(g => L(g.lat, g.lon)); if (!pts.some(inside)) continue;
     cnt[k] = (cnt[k] || 0) + 1;
-    lines.push([k, pts.flat()]);
+    if (k === 'road') {
+      const W0 = { trunk: 8, primary: 7.5, secondary: 7, tertiary: 6.2, unclassified: 5.2, residential: 5, living_street: 4.2, service: 3.2 };
+      const w = parseFloat(t.width) || W0[t.highway] || 5;
+      if (t.tunnel === 'yes' || t.tunnel === 'building_passage') continue;
+      lines.push([k, pts.flat(), { w, h: t.highway, br: t.bridge ? 1 : 0, u: /unpaved|gravel|dirt|ground|compacted|fine_gravel|grass/.test(t.surface || '') ? 1 : 0 }]);
+    } else lines.push([k, pts.flat()]);
   }
 }
 console.log('Gefunden:', JSON.stringify(cnt));
