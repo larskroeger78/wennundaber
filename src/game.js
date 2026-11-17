@@ -934,6 +934,7 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
       const o=(HW[i]+0.2+rnd()*(1.2+fd*3.2))*(rnd()<0.5?-1:1),x=PX[i]+rx*o+(rnd()-0.5),z=PZ[i]+rz*o+(rnd()-0.5);
       if(clearOf(x,z,0.1))tufts.push({x:x,y:gnd(x,z)-0.05,z:z,w:0.45+rnd()*0.55,h:0.25+rnd()*0.5+fd*0.25,dry:0.15+rnd()*0.55});   // Farn/Gras, im Herbst teils verbraunt
     }
+    if(SURF[i]===0&&i%11===0&&[-9,9,-16,16].some(q=>inBuilding(PX[i]+rx*q,PZ[i]+rz*q))){const o=(HW[i]+2.7)*((i/11|0)%2?1:-1),x=PX[i]+rx*o,z=PZ[i]+rz*o;if(clearOf(x,z,0.6))addTree(x,z,0.8);}   // Strassenbaeume in bebauten Abschnitten
     if(fd>0.3&&rnd()<0.1*open){const o=(HW[i]+1.4+rnd()*4.5)*(rnd()<0.5?-1:1),x=PX[i]+rx*o,z=PZ[i]+rz*o;if(clearOf(x,z,0.4))bushes.push({x:x,y:gnd(x,z)-0.1,z:z,w:0.9+rnd()*1.4,h:0.6+rnd()*1.0});}   // Brombeere/Hasel
   }}
   // Wegränder Uphill
@@ -1197,6 +1198,18 @@ if(MW){
     const rf=cab(2.1,0.08,2.1,mRf,0,4.6,0);rf.rotation.x=0.06;
     [[-0.7,0.7],[0.7,0.7]].forEach(q=>{const r=cab(0.07,3.5,0.07,mBar,q[0]*0.5,1.65,q[1]+0.55);r.rotation.x=-0.28;});for(let k=0;k<7;k++)cab(0.9,0.05,0.06,mBar,0,0.4+k*0.45,1.25-k*0.12);   // Leiter
     g.position.set(p.x,y,p.z);g.rotation.y=p.a;scene.add(g);});
+  // Strassenlaternen in bebauten Abschnitten (alle ~40 m, wechselseitig), Auslegerkopf zur Fahrbahn
+  {const lamps=[];let lastL=-1e9;
+    for(let i=4;i<N-4;i++){if(SURF[i]!==0||i*SEG-lastL<38)continue;const h=HS[i],rx=-Math.cos(h),rz=Math.sin(h);
+      if(![-9,9,-16,16].some(q=>inBuilding(PX[i]+rx*q,PZ[i]+rz*q)))continue;
+      const side=(lamps.length%2?1:-1),o=(HW[i]+1.5)*side,x=PX[i]+rx*o,z=PZ[i]+rz*o;if(!clearOf(x,z,0.4))continue;lamps.push({x:x,z:z,a:h,side:side});lastL=i*SEG;}
+    if(lamps.length){const pm=new THREE.MeshStandardMaterial({color:0x4a4d52,roughness:0.7,metalness:0.4}),hm=new THREE.MeshStandardMaterial({color:0xfff2c0,emissive:0xffe9a8,emissiveIntensity:0.35,roughness:0.6});
+      const pole=new THREE.InstancedMesh(new THREE.CylinderGeometry(0.06,0.09,5.6,8),pm,lamps.length),head=new THREE.InstancedMesh(new THREE.BoxGeometry(0.9,0.14,0.32),hm,lamps.length),arm=new THREE.InstancedMesh(new THREE.BoxGeometry(1.2,0.08,0.08),pm,lamps.length);
+      lamps.forEach((l,k)=>{const y=gnd(l.x,l.z),ax=Math.cos(l.a)*l.side*0.55,az=-Math.sin(l.a)*l.side*0.55;   // Richtung zur Fahrbahn = -side * rechts
+        DM.rotation.set(0,0,0);DM.scale.set(1,1,1);DM.position.set(l.x,y+2.8,l.z);DM.updateMatrix();pole.setMatrixAt(k,DM.matrix);
+        DM.rotation.set(0,l.a+Math.PI/2,0);DM.position.set(l.x+ax,y+5.5,l.z+az);DM.updateMatrix();arm.setMatrixAt(k,DM.matrix);
+        DM.position.set(l.x+ax*1.9,y+5.45,l.z+az*1.9);DM.updateMatrix();head.setMatrixAt(k,DM.matrix);});
+      [pole,arm,head].forEach(m=>{m.castShadow=true;m.frustumCulled=false;scene.add(m);});}}
   // Spurrillen: zwei dunkle Streifen in Schotter- und Trailabschnitten, an den Raendern leicht aufgehellt (Gras in der Mitte)
   {const rp=[],ri=[];let vi=0;
     for(let i=2;i<N-2;i++){if(SURF[i]<1||SURF[i+1]<1){continue;}
@@ -1783,9 +1796,9 @@ function update(dt){
     if(b.s>=p0-0.01&&st.x>b.o0&&st.x<b.o1&&st.v>0.8){const f=0.5+0.5*Math.min(1,st.v/7);SHK.vy+=b.a*f*(rnd()<0.5?1:0.7);if(b.a>0.04)AUDIO.bump(b.a*f,SURF[i]);SHK.vr+=(rnd()-0.5)*b.a*f*5;}
   }
   while(SHK.fi<FEAT.length&&FEAT[SHK.fi].s<st.pos){   // Kanten, Drops und Sprung
-    const f=FEAT[SHK.fi++];if(!(f.s>=p0-0.01&&st.v>2.2))continue;
+    const f=FEAT[SHK.fi++];if(!(f.s>=p0-0.01&&st.v>1.8))continue;
     if(f.k==='e'){const a=f.a*(0.55+0.45*Math.min(1,st.v/9));AUDIO.edge(a);SHK.vy+=a;SHK.vr+=(rnd()-0.5)*a*9;SHK.wv+=(rnd()<0.5?-1:1)*a*110;}
-    else if(f.k==='j'&&!SHK.air&&st.v>4.5){SHK.air={t:0,T:clamp(0.42+st.v*0.03,0.55,0.95),H:clamp(0.14+st.v*0.018,0.25,0.5)};AUDIO.takeoff();}
+    else if(f.k==='j'&&!SHK.air&&st.v>2.5){const vk=clamp(st.v/6,0.55,1);SHK.air={t:0,T:clamp(0.42+st.v*0.03,0.55,0.95)*vk,H:clamp(0.14+st.v*0.018,0.25,0.5)*vk};AUDIO.takeoff();}
   }
   if(SHK.air){SHK.air.t+=dt;if(SHK.air.t>=SHK.air.T){const H=SHK.air.H;SHK.air=null;AUDIO.land(H);SHK.vy-=2.4*Math.min(1,H/0.4);SHK.vr+=(rnd()-0.5)*6;SHK.wv+=(rnd()<0.5?-1:1)*26*Math.min(1,H/0.4);st.v*=0.96;}}
   SHK.wv+=(-900*SHK.w-9*SHK.wv)*dt;SHK.w+=SHK.wv*dt;   // Lenker flattert nach Stoessen
