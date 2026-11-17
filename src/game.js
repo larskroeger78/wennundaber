@@ -1937,7 +1937,7 @@ Object.keys(CARS).forEach(k=>{const C=CARS[k];C.tpl=null;C.wait=[];
   new GLTFLoader().load(C.url,gl=>{const m=gl.scene;m.position.y=C.dy/C.sc[1];m.traverse(o=>{if(o.isMesh){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(q=>{q.roughness=Math.max(q.roughness||0,0.5);q.metalness=Math.min(q.metalness||0,0.15);});}});
     const w=new THREE.Group();w.add(m);w.scale.set(...C.sc);C.tpl=w;C.wait.forEach(g=>g.add(w.clone(true)));C.wait.length=0;},undefined,()=>{});});
 const makeCar=k=>{const C=CARS[k],g=new THREE.Group();g.userData.wheels=[];g.userData.hw=C.hw;if(C.tpl)g.add(C.tpl.clone(true));else C.wait.push(g);return g;};
-const pickCar=r=>r<0.3?makeVan(Math.random()<0.5):r<0.6?makeCar('pv5'):r<0.85?makeCar('ae86'):makeCar('gmc');
+const pickCar=r=>r<0.4?makeCar('pv5'):r<0.8?makeCar('ae86'):makeCar('gmc');
 var VANS=[],vanWait=14;
 const nearHouse=(()=>{if(!BK||!OSM)return null;
   const H=new Map(),K=(x,z)=>Math.floor(x/30)*10000+Math.floor(z/30);
@@ -1956,10 +1956,10 @@ if(nearHouse){
     gap-=5;if(gap>0)continue;
     const side=rs()<0.6?1:-1,g=pickCar(rs()),lat=side*(HW[i]+0.4+(g.userData.hw||1)),[x,z]=vanPos(s,lat,o);
     const v={g:g,parked:true,s:s};vanPose(v,x,z,o.h,side>0?1:-1);scene.add(v.g);VANS.push(v);
-    gap=260+rs()*340;
+    gap=110+rs()*150;
   }
   if(window.__counts)window.__counts.vans=VANS.length;
-  for(let k=0;k<3;k++){const v={g:k===0?makeVan(true):makeCar(k===1?'pv5':'ae86'),parked:false,active:false,s:0,dir:1,v:0,lat:0,hw:0};v.g.visible=false;scene.add(v.g);VANS.push(v);}
+  for(let k=0;k<0;k++){const v={g:makeCar('pv5'),parked:false,active:false,s:0,dir:1,v:0,lat:0,hw:0};v.g.visible=false;scene.add(v.g);VANS.push(v);}
 }
 const vo={x:0,y:0,z:0,h:0};
 function updateVans(dt){
