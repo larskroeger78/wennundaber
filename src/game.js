@@ -7,16 +7,6 @@ import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import './style.css';
 import { makeVan } from './van.js';
 import { makeGroup, GROUP_COLORS } from './group.js';
-import PV5URL from './assets/cars/pv5.glb?url';
-import AE86URL from './assets/cars/ae86.glb?url';
-import GMCURL from './assets/cars/gmc.glb?url';
-import C10URL from './assets/cars/c10.glb?url';
-import JEEPURL from './assets/cars/jeep.glb?url';
-import RANGERURL from './assets/cars/ranger.glb?url';
-import VOLVO740URL from './assets/cars/volvo740.glb?url';
-import AMAZONURL from './assets/cars/amazon.glb?url';
-import SANTANAURL from './assets/cars/santana.glb?url';
-import RAMURL from './assets/cars/ram.glb?url';
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Trainer, ClickPad, BLE_OK } from './ble.js';
 import MITT1 from './routes/mittwochsrunde.json';
@@ -39,6 +29,7 @@ try{listRoutes().forEach(e=>{const nm=String(e.name||'').trim().toLowerCase();if
 const RT=RKEY==='halde'?null:(ROUTES[RKEY]||ROUTES.tour2);   // Standard: die Tour vom 5.10.2022; andere Strecken nur noch per URL (?route=halde|mittwoch) für Entwicklung
 const ROUTE=!!RT,MITT=RT?RT.data:MITT1;
 // Echtes Geländemodell (DGM1 NRW, per npm run terrain erzeugt): Höhenraster in Dezimetern
+const TERR=[];   // Gelaendekacheln (fuer die Bodenhoehe der Autos)
 const BOOT=(t,p)=>{const m=document.getElementById('bootmsg'),b=document.querySelector('#bootbar i');if(m)m.textContent=t;if(b&&p!==undefined)b.style.width=p+'%';return new Promise(r=>requestAnimationFrame(()=>setTimeout(r,0)));};
 await BOOT('Lade Streckendaten …',5);
 const GEL_F=import.meta.glob('./routes/*gelaende.json'),OSM_F=import.meta.glob('./routes/*umgebung.json'),LOD2_F=import.meta.glob('./routes/*.lod2.json'),CAN_F=import.meta.glob('./routes/*.canopy.json'),R1_F=import.meta.glob('./routes/*.dgm1.json'),STR_F=import.meta.glob('./routes/*.strassen.json'),OBJ_F=import.meta.glob('./routes/*.objekte.json'),DOP_J=import.meta.glob('./routes/*.dop.json'),DOP_I=import.meta.glob('./routes/*.dop-*.jpg',{eager:true,query:'?url',import:'default'});
@@ -674,7 +665,7 @@ function forestD(x,z){
     }
     fineMemo.set(key,f);return f;
   };
-  const addChunk=(cg,c2a)=>{chunks.push({g:cg,c2:c2a});const m=new THREE.Mesh(cg,tm);m.receiveShadow=true;scene.add(m);};
+  const addChunk=(cg,c2a)=>{chunks.push({g:cg,c2:c2a});const m=new THREE.Mesh(cg,tm);m.receiveShadow=true;scene.add(m);TERR.push(m);};
   const coarseChunk=(cx,cz,ex,ez)=>{
     const ia=new Uint32Array((ex-cx)*(ez-cz)*6);let kk=0,y0=1e9,y1=-1e9;
     for(let iz=cz;iz<ez;iz++)for(let ix=cx;ix<ex;ix++){const a=iz*VX+ix,b=a+1,c2=a+VX,d2=c2+1;ia[kk++]=a;ia[kk++]=c2;ia[kk++]=b;ia[kk++]=b;ia[kk++]=c2;ia[kk++]=d2;}
@@ -1349,6 +1340,7 @@ function updateJoggers(dt){
     }
     j.s-=j.speed*dt;j.phase+=dt*9.5;
     if(j.s<st.pos-30||j.s<4||(ROUTE&&SURF[Math.floor(j.s/SEG)]===2)){j.active=false;j.g.visible=false;j.wait=7+Math.random()*16;return;}
+    if(window.__vans&&window.__vans.some(c=>!c.parked&&c.active&&Math.abs(c.s-j.s)<10)){j.active=false;j.g.visible=false;j.wait=6+Math.random()*10;return;}   // nie durch ein Auto laufen
     if(Math.abs(j.s-st.pos)<1.1&&Math.abs(j.x-st.x)<0.55)st.v*=0.4;   // Rempler bremst
     sample(j.s,jS);
     j.g.position.set(jS.x-Math.cos(jS.h)*j.x,jS.y+0.05,jS.z+Math.sin(jS.h)*j.x);
@@ -2005,19 +1997,19 @@ if(BK){   // Voegel: kreisen und gleiten um die Strecke, schlagen zwischendurch 
 var VANS=[],vanWait=14;
 // Fremdmodelle (Sketchfab, siehe #credits): GLB-Dateien, Front +z, auf echte Groesse skaliert; Hersteller-Laden erst wenn geladen
 const CARS={
-  pv5:{hl:2.2,url:PV5URL,sc:[3.1,3.9,4.1],hw:0.98},            // Kia PV5, teenlin3, CC BY
-  ae86:{hl:2.1,url:AE86URL,sc:[0.01,0.01,0.01],hw:0.85},       // Toyota AE86 Trueno
-  gmc:{hl:4.2,url:GMCURL,sc:[0.9,0.9,0.9],hw:1.45},            // GMC Motorhome
-  c10:{hl:2.4,url:C10URL,sc:[0.01,0.01,0.01],hw:1.05},         // Chevrolet C10 1963
-  jeep:{hl:2.45,url:JEEPURL,sc:[0.97,0.97,0.97],hw:1.1},        // Jeep Wrangler Rubicon 4xe
-  ranger:{hl:2.7,url:RANGERURL,sc:[0.96,0.96,0.96],rot:Math.PI,hw:1.07},   // Ford Ranger Offroad (Front war -z)
-  volvo740:{hl:2.4,url:VOLVO740URL,sc:[1.73,1.73,1.73],rot:Math.PI,hw:1.05},   // Volvo 740 (Front war -z)
-  amazon:{hl:2.2,url:AMAZONURL,sc:[4.45,4.45,4.45],hw:0.99},    // Volvo Amazon Kombi (stilisiert)
-  santana:{hl:1.95,url:SANTANAURL,sc:[1,1,1],rot:-Math.PI/2,hw:0.99},      // Santana S3 (Front war +x)
-  ram:{hl:3.0,url:RAMURL,sc:[0.92,0.92,0.92],hw:1.15},        // Ram 2500 Power Wagon (Front +z)
+  pv5:{hl:2.2,url:null,sc:[3.1,3.9,4.1],hw:0.98},            // Kia PV5, teenlin3, CC BY
+  ae86:{hl:2.1,url:null,sc:[0.01,0.01,0.01],hw:0.85},       // Toyota AE86 Trueno
+  gmc:{hl:4.2,url:null,sc:[0.9,0.9,0.9],hw:1.45},            // GMC Motorhome
+  c10:{hl:2.4,url:null,sc:[0.01,0.01,0.01],hw:1.05},         // Chevrolet C10 1963
+  jeep:{hl:2.45,url:null,sc:[0.97,0.97,0.97],hw:1.1},        // Jeep Wrangler Rubicon 4xe
+  ranger:{hl:2.7,url:null,sc:[0.96,0.96,0.96],rot:Math.PI,hw:1.07},   // Ford Ranger Offroad (Front war -z)
+  volvo740:{hl:2.4,url:null,sc:[1.73,1.73,1.73],rot:Math.PI,hw:1.05},   // Volvo 740 (Front war -z)
+  amazon:{hl:2.2,url:null,sc:[4.45,4.45,4.45],hw:0.99},    // Volvo Amazon Kombi (stilisiert)
+  santana:{hl:1.95,url:null,sc:[1,1,1],rot:-Math.PI/2,hw:0.99},      // Santana S3 (Front war +x)
+  ram:{hl:3.0,url:null,sc:[0.92,0.92,0.92],hw:1.15},        // Ram 2500 Power Wagon (Front +z)
 };
 const shadowTex=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d'),gr=g.createRadialGradient(32,32,6,32,32,32);gr.addColorStop(0,'rgba(0,0,0,0.75)');gr.addColorStop(0.7,'rgba(0,0,0,0.35)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,64,64);return new THREE.CanvasTexture(c);})();
-if(BK&&OSM)Object.keys(CARS).forEach(k=>{const C=CARS[k];C.tpl=null;C.wait=[];
+if(false)Object.keys(CARS).forEach(k=>{const C=CARS[k];C.tpl=null;C.wait=[];
   new GLTFLoader().load(C.url,gl=>{const m=gl.scene;m.traverse(o=>{if(o.isMesh){o.castShadow=true;o.frustumCulled=true;const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(q=>{q.roughness=Math.max(q.roughness||0,0.38);q.metalness=Math.min(q.metalness||0,0.45);q.envMapIntensity=0.9;q.userData.keepEnv=true;if(q.map)q.map.anisotropy=8;if(q.normalMap)q.normalMap.anisotropy=4;});}});
     const b=new THREE.Box3().setFromObject(m),c=b.getCenter(new THREE.Vector3());m.position.set(-c.x,-b.min.y,-c.z);   // mittig auf den Boden stellen
     const r=new THREE.Group();r.add(m);r.rotation.y=C.rot||0;const w=new THREE.Group();w.add(r);w.scale.set(...C.sc);C.tpl=w;C.wait.forEach(g=>g.add(w.clone(true)));C.wait.length=0;},undefined,()=>{});});
@@ -2035,7 +2027,7 @@ let GRND=null;const grc=new THREE.Raycaster();grc.ray.direction.set(0,-1,0);
 // nur kleine Gelaendekacheln (<30000 Dreiecke): riesige Netze (Gebaeude, Grobgelaende) wuerden jeden Strahl sekundenlang ausbremsen
 const groundY=(x,z)=>{   // Hoehe des tatsaechlich gezeichneten Bodens (Gelaende, Wege): Strahl von knapp ueber dem Boden nach unten
   const g0=gnd(x,z);
-  if(!GRND){GRND=[];scene.children.forEach(o=>{if(o.isMesh&&!o.isInstancedMesh&&o.geometry&&o.geometry.attributes&&o.geometry.attributes.position){o.geometry.computeBoundingSphere();if(o.geometry.boundingSphere.radius>15&&!o.material.transparent&&(o.geometry.index?o.geometry.index.count:o.geometry.attributes.position.count)/3<30000)GRND.push(o);}});}
+  if(!GRND)GRND=TERR;
   grc.far=6;grc.ray.origin.set(x,g0+2.5,z);const h=grc.intersectObjects(GRND,false);
   for(const k of h)if(Math.abs(k.point.y-g0)<2)return k.point.y;return g0;};
 const vanPose=(v,x,z,h,fwd)=>{   // Auto aufs Gelaende setzen: Ebene durch 4 Radpunkte (Nick und Rollen), Hoehe so, dass kein Rad im Boden steckt
@@ -2052,6 +2044,18 @@ const vanFast=(v,x,z,h,fwd,dt)=>{   // fahrende Autos: guenstige Pose aus gnd() 
   v.g.position.set(x,(a+b)/2+v.off-0.02,z);v.g.rotation.order='YXZ';v.g.rotation.y=H;v.g.rotation.x=-Math.atan(pitch);v.g.rotation.z=0;
 };
 const vanPos=(s,lat,o)=>{sample(s,o);return [o.x-Math.cos(o.h)*lat,o.z+Math.sin(o.h)*lat];};
+const carInHouse=(()=>{   // Grundrisse (OSM und LOD2): kein Auto in oder unter einem Haus
+  const polys=[];if(OSM)OSM.buildings.forEach(b=>polys.push(b.p));
+  if(LOD2)LOD2.b.forEach(poly=>poly.forEach(f=>{if(f[0]==='g'){const q=f[1],a=[];for(let i=0;i<q.length/3;i++)a.push(q[i*3],q[i*3+2]);polys.push(a);}}));
+  const G=new Map(),K=(x,z)=>Math.floor(x/25)*10000+Math.floor(z/25);
+  polys.forEach(p=>{let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(let i=0;i<p.length;i+=2){x0=Math.min(x0,p[i]);x1=Math.max(x1,p[i]);z0=Math.min(z0,p[i+1]);z1=Math.max(z1,p[i+1]);}
+    const o={p:p,x0:x0-1.5,x1:x1+1.5,z0:z0-1.5,z1:z1+1.5};for(let cx=Math.floor(o.x0/25);cx<=Math.floor(o.x1/25);cx++)for(let cz=Math.floor(o.z0/25);cz<=Math.floor(o.z1/25);cz++){const k=cx*10000+cz;(G.get(k)||G.set(k,[]).get(k)).push(o);}});
+  return (x,z,m)=>{const l=G.get(K(x,z));if(!l)return false;
+    for(const o of l){if(x<o.x0||x>o.x1||z<o.z0||z>o.z1)continue;const P=o.p;let c=false;
+      for(let u=0,w=P.length-2;u<P.length;w=u,u+=2){if((P[u+1]>z)!==(P[w+1]>z)&&x<(P[w]-P[u])*(z-P[u+1])/(P[w+1]-P[u+1])+P[u])c=!c;}
+      if(c)return true;
+      for(let i=0;i<P.length;i+=2){const ax=P[i],az=P[i+1],bx=P[(i+2)%P.length],bz=P[(i+3)%P.length],dx=bx-ax,dz=bz-az,l2=dx*dx+dz*dz||1,t=Math.max(0,Math.min(1,((x-ax)*dx+(z-az)*dz)/l2)),ex=ax+dx*t-x,ez=az+dz*t-z;if(ex*ex+ez*ez<m*m)return true;}}
+    return false;};})();
 const carRoad=(()=>{   // nur echte Autostrassen aus OSM (keine Wirtschaftswege, Zufahrten, Radwege, Unbefestigtes): Asphalt allein heisst nicht Autostrasse
   if(!OBJ_RAW)return ()=>false;
   const OK=/^(trunk|primary|secondary|tertiary|unclassified|residential|living_street)$/,G=new Map(),K=(x,z)=>Math.floor(x/20)*10000+Math.floor(z/20);
@@ -2060,7 +2064,7 @@ const carRoad=(()=>{   // nur echte Autostrassen aus OSM (keine Wirtschaftswege,
       for(let t=0;t<=n;t++){const k=K(a[0]+(a[2]-a[0])*t/n,a[1]+(a[3]-a[1])*t/n);(G.get(k)||G.set(k,new Set()).get(k)).add(a);}}});
   return (x,z)=>{for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const c=G.get(K(x+a*20,z+b*20));if(!c)continue;
     for(const g of c){const dx=g[2]-g[0],dz=g[3]-g[1],l2=dx*dx+dz*dz||1,t=clamp(((x-g[0])*dx+(z-g[1])*dz)/l2,0,1);if(Math.hypot(x-g[0]-dx*t,z-g[1]-dz*t)<g[4])return true;}}return false;};})();
-if(nearHouse){
+if(false&&nearHouse){
   const o={x:0,y:0,z:0,h:0};let rs=Math.random;let seed=7;rs=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
   const cand=[];for(let s=30;s<TOTAL-30;s+=5){const i=Math.floor(s/SEG);if(SURF[i]!==0)continue;sample(s,o);if(nearHouse(o.x,o.z,55,1)&&carRoad(o.x,o.z))cand.push(s);}
   const spacing=42;let lastS=-1e9,clu=0,cluN=0,prevC=-1e9;   // gleichmaessig verteilt: mindestens 85 m Abstand, je Siedlungsabschnitt hoechstens 4 Autos
@@ -2075,6 +2079,7 @@ if(nearHouse){
       for(const [a,b] of [[hl,-hw],[hl,hw],[-hl,-hw],[-hl,hw],[0,-hw],[0,hw],[hl,0],[-hl,0]]){
         const px=x+Math.sin(H)*a+Math.cos(H)*b,pz=z+Math.cos(H)*a-Math.sin(H)*b;
         for(let j=0;j<=N&&ok;j++){const hr=HW[Math.min(N-1,j)]*(SURF[Math.min(N-1,j)]===0?1:SURF[Math.min(N-1,j)]===1?1.5:1.7);if(Math.hypot(PX[j]-px,PZ[j]-pz)<hr+0.6)ok=false;}
+        if(ok&&carInHouse(px,pz,1.2))ok=false;
         if(!ok)break;}
       if(ok){   // nur auf ebenem Boden parken: Hoehenunterschied unter den Raedern klein
         const hl2=hl*0.75,hw2=hw*0.85,hs=[[hl2,-hw2],[hl2,hw2],[-hl2,-hw2],[-hl2,hw2]].map(([a,b])=>groundY(x+Math.sin(H)*a+Math.cos(H)*b,z+Math.cos(H)*a-Math.sin(H)*b));
@@ -2101,7 +2106,7 @@ function updateVans(dt){   // fahrende Autos: kommen entgegen, bremsen rechtzeit
     const i=Math.floor(clamp(v.s,0,TOTAL-1)/SEG);
     sample(v.s,vo);
     v.g.userData.wheels&&v.g.userData.wheels.forEach(w=>{w.rotation.x+=v.v*dt/0.41;});
-    if(v.s<6||v.s>TOTAL-10||SURF[i]!==0||st.pos-v.s>25||Math.abs(v.s-st.pos)>260||!carRoad(vo.x,vo.z)){v.active=false;v.g.visible=false;return;}
+    if(v.s<6||v.s>TOTAL-10||SURF[i]!==0||st.pos-v.s>25||Math.abs(v.s-st.pos)>260||!carRoad(vo.x,vo.z)||carInHouse(vo.x,vo.z,3.5)){v.active=false;v.g.visible=false;return;}
     const lat=-Math.max(HW[i]-(v.g.userData.hw||1)-0.15,0.95);
     vanFast(v,vo.x-Math.cos(vo.h)*lat,vo.z+Math.sin(vo.h)*lat,vo.h,v.dir,dt);
   });
@@ -2110,8 +2115,8 @@ function updateVans(dt){   // fahrende Autos: kommen entgegen, bremsen rechtzeit
     const v=mv.find(q=>!q.active);vanWait=3;if(!v)return;
     const s=st.pos+50+Math.random()*50;   // nur dort starten, wo die Strasse auf den naechsten 50 m durchgehend befahrbar ist
     if(s<8||s>TOTAL-30)return;
-    for(let d=0;d<=40;d+=10){const q=s-d,qi=Math.floor(q/SEG);if(q<st.pos+8)break;if(qi<0||SURF[qi]!==0){return;}sample(q,vo);if(!carRoad(vo.x,vo.z))return;}
-    if(VANS.some(q=>q.parked&&Math.abs(q.s-s)<8))return;
+    for(let d=0;d<=40;d+=10){const q=s-d,qi=Math.floor(q/SEG);if(q<st.pos+8)break;if(qi<0||SURF[qi]!==0){return;}sample(q,vo);if(!carRoad(vo.x,vo.z)||carInHouse(vo.x,vo.z,3.5))return;}
+    if(VANS.some(q=>q.parked&&Math.abs(q.s-s)<8)||joggers.some(j=>j.active&&Math.abs(j.s-s)<45))return;
     v.s=s;v.dir=-1;v.cruise=6+Math.random()*2.5;v.v=v.cruise;v.off=undefined;v.active=true;v.g.visible=true;vanWait=8+Math.random()*16;
   }
 }
