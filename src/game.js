@@ -5,6 +5,7 @@ import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import './style.css';
+import { makeVan } from './van.js';
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Trainer, ClickPad, BLE_OK } from './ble.js';
 import MITT1 from './routes/mittwochsrunde.json';
@@ -190,6 +191,15 @@ for(let i=0;i<=N;i++){
   HW[i]=s===5?0.7:2.0;
   FLAT[i]=s===5?2.3:(s===2?13:5);
   OUTR[i]=s===5?7:(s===2?24:14);
+}
+if(ROUTE&&!CUS&&OBJ_RAW){   // Asphaltbreite der Strecke aus der naechsten OSM-Strasse (width-Tag oder Typ-Standard)
+  const rs=[];OBJ_RAW.lines.forEach(L=>{if(L[0]!=='road')return;const e=L[2]||{};if(e.u||e.br)return;const q=L[1];for(let i=0;i+3<q.length;i+=2)rs.push(q[i],q[i+1],q[i+2],q[i+3],e.w||5);});
+  for(let i=0;i<=N;i++){if(SEC[i]!==0)continue;let bd=36,bw=0;const px=PX[i],pz=PZ[i];
+    for(let k=0;k<rs.length;k+=5){const ax=rs[k],az=rs[k+1],dx=rs[k+2]-ax,dz=rs[k+3]-az;
+      if(Math.abs(ax-px)>60||Math.abs(az-pz)>60)continue;
+      const l2=dx*dx+dz*dz||1,t=Math.max(0,Math.min(1,((px-ax)*dx+(pz-az)*dz)/l2)),ex=ax+dx*t-px,ez=az+dz*t-pz,d2=ex*ex+ez*ez;
+      if(d2<bd){bd=d2;bw=rs[k+4];}}
+    if(bw)HW[i]=Math.max(1.5,Math.min(4,bw/2));}
 }
 smoothArr(HW,10);smoothArr(FLAT,10);smoothArr(OUTR,10);
 const RW=new Float32Array(N+1);      // halbe Breite des sichtbaren Wegbandes
@@ -1481,7 +1491,7 @@ let bleKey='';
 const bleChange=()=>{if(trainer.connected)inputMode='trainer';else if(inputMode==='trainer')inputMode='keyboard';const ck=click.connected+'|'+click.devs.length;if(bleKey.indexOf(ck)<0&&bleMsg.indexOf('Click')===0)bleMsg='';const k=trainer.connected+'|'+ck+'|'+bleMsg;if(k===bleKey)return;bleKey=k;if(ov.style.display!=='none'&&lastMenu&&!helpOpen)menu(lastMenu[0],lastMenu[1]);};
 trainer.onChange=bleChange;click.onChange=bleChange;   // FPV: Cockpit-Ansicht aus Fahrersicht (Taste C wechselt)
 const cockpitEl=document.getElementById('cockpit'),glowEl=document.getElementById('glow'),_cd=new THREE.Vector3(),_sv=new THREE.Vector3();
-function reset(){SHK.y=SHK.vy=SHK.r=SHK.vr=0;SHK.i=0;st={pos:0,v:0,x:0.4,power:0,t:0,crank:0.6,wheel:0,lean:0,bar:0,pitch:0,done:false};resetJoggers();}
+function reset(){SHK.y=SHK.vy=SHK.r=SHK.vr=0;SHK.i=0;st={pos:0,v:0,x:0.4,power:0,t:0,crank:0.6,wheel:0,lean:0,bar:0,pitch:0,done:false};resetJoggers();vanWait=12;VANS&&VANS.forEach(v=>{if(!v.parked){v.active=false;v.g.visible=false;}});}
 reset();
 window.addEventListener('keydown',e=>{
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].indexOf(e.key)>=0)e.preventDefault();
@@ -1525,7 +1535,7 @@ function update(dt){
   SHK.vy+=(-420*SHK.y-17*SHK.vy)*dt;SHK.y+=SHK.vy*dt;SHK.vr+=(-380*SHK.r-16*SHK.vr)*dt;SHK.r+=SHK.vr*dt;
   const rough=(ROUTE?[0,0.4,1][SURF[i]]:(i>=iTrail?1:0.2))*(1+Math.max(0,-GR[i])*0.06)*Math.min(1,st.v/6);
   SHK.buzz=rough*(Math.sin(st.pos*9.3)+Math.sin(st.pos*17.9+1.3)*0.7+Math.sin(st.pos*31.7)*0.4);
-  updateJoggers(dt);
+  updateJoggers(dt);updateVans(dt);
   const steer=(right?1:0)-(left?1:0);
   // Automatische Lenkung (Rollentrainer wie D100 oder KICKR können nicht lenken): Lenker und Neigung folgen dem
   // Streckenverlauf, Ausweichen übernimmt das Spiel. Auf Asphalt/Schotter fährt das Rad rechts (Gegenverkehr links),
@@ -1875,6 +1885,52 @@ if(BK){   // Voegel: kreisen und gleiten um die Strecke, schlagen zwischendurch 
     const sz=1.5+rnd()*0.8;grp.scale.set(sz,sz,sz);scene.add(grp);
     BIRDS.push({g:grp,L:L,R:R,cx:PX[i]+(rnd()-0.5)*80,cz:PZ[i]+(rnd()-0.5)*80,r:r,alt:alt,w:dir*sp/r,ph:rnd()*6.283,fp:6+rnd()*3,t0:rnd()*40,y0:0});
     BIRDS[k].y0=gnd(BIRDS[k].cx,BIRDS[k].cz);
+  }
+}
+// Lars' Van: parkt am Strassenrand und faehrt vorbei - nur auf Asphalt im Bereich von Haeusern (feste Strecken)
+var VANS=[],vanWait=14;
+const nearHouse=(()=>{if(!BK||!OSM)return null;
+  const H=new Map(),K=(x,z)=>Math.floor(x/30)*10000+Math.floor(z/30);
+  OSM.buildings.forEach(b=>{const p=b.p;let cx=0,cz=0;for(let i=0;i<p.length;i+=2){cx+=p[i];cz+=p[i+1];}cx/=p.length/2;cz/=p.length/2;const k=K(cx,cz);(H.get(k)||H.set(k,[]).get(k)).push(cx,cz);});
+  return (x,z,r,n)=>{let c=0;for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const l=H.get(K(x+a*30,z+b*30));if(!l)continue;for(let i=0;i<l.length;i+=2)if(Math.hypot(l[i]-x,l[i+1]-z)<r)c++;}return c>=n;};})();
+const vanPose=(v,x,z,h,fwd)=>{   // Van auf das Gelaende setzen (Nick-Winkel aus Vorder- und Hinterachse)
+  const fx=Math.sin(h)*fwd,fz=Math.cos(h)*fwd,yF=gnd(x+fx*2,z+fz*2),yR=gnd(x-fx*1.75,z-fz*1.75),yM=gnd(x,z);
+  v.g.position.set(x,Math.min(yM,(yF+yR)/2)+0.02,z);v.g.rotation.order='YXZ';v.g.rotation.y=fwd>0?h:h+Math.PI;v.g.rotation.x=-Math.atan2(yF-yR,3.75);
+};
+const vanPos=(s,lat,o)=>{sample(s,o);return [o.x-Math.cos(o.h)*lat,o.z+Math.sin(o.h)*lat];};
+if(nearHouse){
+  const o={x:0,y:0,z:0,h:0};let rs=Math.random;let seed=7;rs=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
+  for(let s=30,gap=0;s<TOTAL-30;s+=5){
+    const i=Math.floor(s/SEG);if(SURF[i]!==0)continue;
+    sample(s,o);if(!nearHouse(o.x,o.z,45,2))continue;
+    gap-=5;if(gap>0)continue;
+    const side=rs()<0.6?1:-1,lat=side*Math.max(HW[i]-0.9,1.95),[x,z]=vanPos(s,lat,o);
+    const v={g:makeVan(rs()<0.5),parked:true,s:s};vanPose(v,x,z,o.h,side>0?1:-1);scene.add(v.g);VANS.push(v);
+    gap=60+rs()*120;
+  }
+  if(window.__counts)window.__counts.vans=VANS.length;
+  for(let k=0;k<2;k++){const v={g:makeVan(true),parked:false,active:false,s:0,dir:1,v:0,lat:0,hw:0};v.g.visible=false;scene.add(v.g);VANS.push(v);}
+}
+const vo={x:0,y:0,z:0,h:0};
+function updateVans(dt){
+  if(!nearHouse)return;
+  const mv=VANS.filter(v=>!v.parked);if(!mv.length)return;
+  mv.forEach(v=>{
+    if(!v.active)return;
+    v.s+=v.dir*v.v*dt;
+    const i=Math.floor(clamp(v.s,0,TOTAL-1)/SEG);
+    sample(v.s,vo);
+    if(v.s<6||v.s>TOTAL-10||SURF[i]!==0||Math.abs(v.s-st.pos)>260||!nearHouse(vo.x,vo.z,45,1)){v.active=false;v.g.visible=false;return;}
+    const lat=v.dir>0?-Math.max(HW[i]*0.5,1.2):-Math.max(HW[i]*0.55,1.3);
+    v.g.userData.wheels.forEach(w=>{w.rotation.x+=v.v*dt/0.41;});
+    vanPose(v,vo.x-Math.cos(vo.h)*lat,vo.z+Math.sin(vo.h)*lat,vo.h,v.dir);
+  });
+  vanWait-=dt;
+  if(vanWait<=0){   // naechsten Einsatz suchen: entgegenkommend oder von hinten ueberholend
+    const v=mv.find(q=>!q.active);vanWait=3;if(!v)return;
+    const over=Math.random()<0.35,s=over?st.pos-90:st.pos+90+Math.random()*80;
+    if(s<8||s>TOTAL-30||SURF[Math.floor(s/SEG)]!==0)return;sample(s,vo);if(!nearHouse(vo.x,vo.z,45,1))return;
+    v.s=s;v.dir=over?1:-1;v.v=over?Math.max(st.v+5,9):8+Math.random()*3;v.active=true;v.g.visible=true;vanWait=30+Math.random()*60;
   }
 }
 {   // Luftbilder laden und in den Spielfarben verwenden
