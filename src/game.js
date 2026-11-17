@@ -1975,12 +1975,18 @@ const nearHouse=(()=>{if(!BK||!OSM)return null;
   const H=new Map(),K=(x,z)=>Math.floor(x/30)*10000+Math.floor(z/30);
   OSM.buildings.forEach(b=>{const p=b.p;let cx=0,cz=0;for(let i=0;i<p.length;i+=2){cx+=p[i];cz+=p[i+1];}cx/=p.length/2;cz/=p.length/2;const k=K(cx,cz);(H.get(k)||H.set(k,[]).get(k)).push(cx,cz);});
   return (x,z,r,n)=>{let c=0;for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const l=H.get(K(x+a*30,z+b*30));if(!l)continue;for(let i=0;i<l.length;i+=2)if(Math.hypot(l[i]-x,l[i+1]-z)<r)c++;}return c>=n;};})();
+let GRND=null;const grc=new THREE.Raycaster();grc.ray.direction.set(0,-1,0);
+const groundY=(x,z)=>{   // Hoehe des tatsaechlich gezeichneten Bodens (Gelaende, Wege): Strahl von knapp ueber dem Boden nach unten
+  const g0=gnd(x,z);
+  if(!GRND){GRND=[];scene.children.forEach(o=>{if(o.isMesh&&!o.isInstancedMesh&&o.geometry&&o.geometry.attributes&&o.geometry.attributes.position){o.geometry.computeBoundingSphere();if(o.geometry.boundingSphere.radius>60)GRND.push(o);}});}
+  grc.ray.origin.set(x,g0+2.5,z);const h=grc.intersectObjects(GRND,false);
+  for(const k of h)if(Math.abs(k.point.y-g0)<2)return k.point.y;return g0;};
 const vanPose=(v,x,z,h,fwd)=>{   // Auto aufs Gelaende setzen: Ebene durch 4 Radpunkte (Nick und Rollen), Hoehe so, dass kein Rad im Boden steckt
   const H=fwd>0?h:h+Math.PI,hl=(v.g.userData.hl||2.6)*0.75,hw=(v.g.userData.hw||1)*0.85,fx=Math.sin(H),fz=Math.cos(H),rx=Math.cos(H),rz=-Math.sin(H);   // Modell: Front +z, rechts +x
-  const q=(a,b)=>gnd(x+fx*a+rx*b,z+fz*a+rz*b),fl=q(hl,-hw),fr=q(hl,hw),bl=q(-hl,-hw),br=q(-hl,hw),mean=(fl+fr+bl+br)/4;
+  const q=(a,b)=>groundY(x+fx*a+rx*b,z+fz*a+rz*b),fl=q(hl,-hw),fr=q(hl,hw),bl=q(-hl,-hw),br=q(-hl,hw),mean=(fl+fr+bl+br)/4;
   const pitch=((fl+fr)-(bl+br))/2/(2*hl),roll=((fr+br)-(fl+bl))/2/(2*hw);
   const dev=Math.max(fl-(mean+pitch*hl-roll*hw),fr-(mean+pitch*hl+roll*hw),bl-(mean-pitch*hl-roll*hw),br-(mean-pitch*hl+roll*hw),0);
-  v.g.position.set(x,mean+dev*0.5-0.03,z);v.g.rotation.order='YXZ';v.g.rotation.y=H;v.g.rotation.x=-Math.atan(pitch);v.g.rotation.z=Math.atan(roll);
+  v.g.position.set(x,mean+dev*0.5-0.02,z);v.g.rotation.order='YXZ';v.g.rotation.y=H;v.g.rotation.x=-Math.atan(pitch);v.g.rotation.z=Math.atan(roll);
 };
 const vanPos=(s,lat,o)=>{sample(s,o);return [o.x-Math.cos(o.h)*lat,o.z+Math.sin(o.h)*lat];};
 if(nearHouse){
@@ -1997,8 +2003,11 @@ if(nearHouse){
       const H=fwd>0?o.h:o.h+Math.PI,hl=g.userData.hl||2.2,hw=g.userData.hw||1;ok=true;
       for(const [a,b] of [[hl,-hw],[hl,hw],[-hl,-hw],[-hl,hw],[0,-hw],[0,hw],[hl,0],[-hl,0]]){
         const px=x+Math.sin(H)*a+Math.cos(H)*b,pz=z+Math.cos(H)*a-Math.sin(H)*b;
-        for(let j=Math.max(0,i-16);j<=Math.min(N,i+16)&&ok;j++){const hr=HW[Math.min(N-1,j)]*(SURF[Math.min(N-1,j)]===0?1:SURF[Math.min(N-1,j)]===1?1.5:1.7);if(Math.hypot(PX[j]-px,PZ[j]-pz)<hr+0.6)ok=false;}
+        for(let j=0;j<=N&&ok;j++){const hr=HW[Math.min(N-1,j)]*(SURF[Math.min(N-1,j)]===0?1:SURF[Math.min(N-1,j)]===1?1.5:1.7);if(Math.hypot(PX[j]-px,PZ[j]-pz)<hr+0.6)ok=false;}
         if(!ok)break;}
+      if(ok){   // nur auf ebenem Boden parken: Hoehenunterschied unter den Raedern klein
+        const hl2=hl*0.75,hw2=hw*0.85,hs=[[hl2,-hw2],[hl2,hw2],[-hl2,-hw2],[-hl2,hw2]].map(([a,b])=>groundY(x+Math.sin(H)*a+Math.cos(H)*b,z+Math.cos(H)*a-Math.sin(H)*b));
+        if(Math.max(...hs)-Math.min(...hs)>0.32)ok=false;}
     }
     if(!ok){scene.remove(g);continue;}
     const v={g:g,parked:true,s:s};vanPose(v,x,z,o.h,fwd);scene.add(v.g);VANS.push(v);lastS=s;cluN++;
@@ -2032,7 +2041,7 @@ function updateVans(dt){
 // ================= Gruppenfahrt: farbige Punkte der Mitfahrer =================
 const GRP=makeGroup(),GRP_ROUTE=GPX_ID?'gpx_'+GPX_ID:(RKEY||'tour2');
 let GRP_CODE='';try{GRP_CODE=localStorage.getItem('miworu_group')||'';}catch(e){}
-const DOT_RANGE=10;   // ab dieser Entfernung (m) verschwindet der Punkt im Sichtfeld (nur noch in Minikarte und Profil)
+const DOT_RANGE=500;   // ab dieser Entfernung (m) verschwindet der Punkt im Sichtfeld (nur noch in Minikarte und Profil)
 const dotTex=[0,1,2,3].map(l=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d'),r=[22,22,22,22][l];
   if(l===0){g.fillStyle='rgba(0,0,0,0.85)';g.beginPath();g.arc(32,32,r+4,0,7);g.fill();g.fillStyle='#fff';g.beginPath();g.arc(32,32,r,0,7);g.fill();}   // scharfer Punkt mit dunklem Rand
   else{const bl=[0,5,10,16][l],gr=g.createRadialGradient(32,32,Math.max(0,r-bl-2),32,32,r+bl+4);gr.addColorStop(0,'rgba(255,255,255,1)');gr.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=gr;g.fillRect(0,0,64,64);}   // je weiter weg, desto unschaerfer
@@ -2049,8 +2058,8 @@ function updateGroup(dt){
     sample(clamp(r.d,0,TOTAL-1),grpO);const x=grpO.x-Math.cos(grpO.h)*r.x,z=grpO.z+Math.sin(grpO.h)*r.x,y=gnd(x,z)+1.45;
     const d=Math.hypot(x-camera.position.x,y-camera.position.y,z-camera.position.z);
     if(d>DOT_RANGE||d<1.2)return;
-    const t=d/DOT_RANGE,lv=t<0.3?0:t<0.55?1:t<0.8?2:3;
-    sp.material.map=dotTex[lv];sp.material.opacity=1-t*0.7;sp.scale.setScalar(0.30+d*0.06+lv*0.06);sp.position.set(x,y,z);sp.visible=true;
+    const t=d/DOT_RANGE,lv=t<0.08?0:t<0.25?1:t<0.55?2:3;   // je weiter weg, desto unschaerfer
+    sp.material.map=dotTex[lv];sp.material.opacity=1-t*0.6;sp.scale.setScalar(Math.max(0.3,d*0.012)*(1+lv*0.35));sp.position.set(x,y,z);sp.visible=true;
   });
 }
 {   // Luftbilder laden und in den Spielfarben verwenden
