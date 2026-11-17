@@ -15,7 +15,7 @@ import ISE from './routes/iserlohn.json';
 import HEM from './routes/hemer.json';
 import HAG from './routes/hagen.json';
 import { parseGpx, listRoutes, loadRoute, saveRoute, renameRoute, deleteRoute } from './gpx.js';
-const SURF_FILES=import.meta.glob('./routes/*.surf.json',{eager:true});
+const SURF_FILES=import.meta.glob('./routes/*.surf.json');   // Streckendaten werden pro Strecke nachgeladen (nicht mehr alle im Startpaket)
 // Strecke: Standard ist die Tour vom 5.10.2022 (komoot-GPX); ?route=mittwoch bzw. ?route=halde nur zum Entwickeln
 const ROUTES={mittwoch:{data:MITT1,label:'Mittwochsrunde',surf:'mittwochsrunde',btn:'Mittwochsrunde'},tour2:{data:MIW,label:'MIWORU',surf:'miworu',btn:'MIWORU',nhn0:MIW.nhn0,place:'Bergkamen',dem:'miworu'},wuppertal:{data:WUP,label:'Wuppertal',surf:'wuppertal',btn:'Wuppertal',nhn0:WUP.nhn0,place:'Wuppertal',dem:'wuppertal'},hagen:{data:HAG,label:'Hagen',surf:'hagen',btn:'Hagen',nhn0:HAG.nhn0,place:'Hagen',dem:'hagen'},iserlohn:{data:ISE,label:'Iserlohn',surf:'iserlohn',btn:'Iserlohn',nhn0:ISE.nhn0,place:'Iserlohn',dem:'iserlohn'},hemer:{data:HEM,label:'Hemer',surf:'hemer',btn:'Hemer',nhn0:HEM.nhn0,place:'Hemer',dem:'hemer'},buellberg:{data:BUE,label:'Büllberg',surf:'buellberg',btn:'Büllberg',nhn0:BUE.nhn0,place:'Büllberg',dem:'buellberg'}};
 const RKEY=new URLSearchParams(location.search).get('route');
@@ -26,11 +26,15 @@ try{listRoutes().forEach(e=>{const nm=String(e.name||'').trim().toLowerCase();if
 const RT=RKEY==='halde'?null:(ROUTES[RKEY]||ROUTES.tour2);   // Standard: die Tour vom 5.10.2022; andere Strecken nur noch per URL (?route=halde|mittwoch) für Entwicklung
 const ROUTE=!!RT,MITT=RT?RT.data:MITT1;
 // Echtes Geländemodell (DGM1 NRW, per npm run terrain erzeugt): Höhenraster in Dezimetern
-const GEL_F=import.meta.glob('./routes/*gelaende.json',{eager:true});
+const GEL_F=import.meta.glob('./routes/*gelaende.json'),OSM_F=import.meta.glob('./routes/*umgebung.json'),LOD2_F=import.meta.glob('./routes/*.lod2.json'),CAN_F=import.meta.glob('./routes/*.canopy.json'),R1_F=import.meta.glob('./routes/*.dgm1.json'),OBJ_F=import.meta.glob('./routes/*.objekte.json'),DOP_J=import.meta.glob('./routes/*.dop.json'),DOP_I=import.meta.glob('./routes/*.dop-*.jpg',{eager:true,query:'?url',import:'default'});
 const DATA_KEY=(F,_,ext)=>Object.keys(F).find(k=>k.split('/').pop()===((RT&&RT.dem)?RT.dem+'.'+ext:ext));   // Standard: gelaende.json / umgebung.json; eigene Strecken: <name>.gelaende.json / <name>.umgebung.json
+const LZ=async(F,ext)=>{const k=DATA_KEY(F,0,ext);if(!k)return null;const m=await F[k]();return m.default||m;};
+const _OK=!!RT&&!RT.custom;
+const [GEL_RAW,OSM_RAW,LOD2_RAW,CAN_RAW,R1_RAW,OBJ_RAW,DOP_RAW,SURF_RAW]=await Promise.all([LZ(GEL_F,'gelaende.json'),_OK?LZ(OSM_F,'umgebung.json'):null,_OK?LZ(LOD2_F,'lod2.json'):null,_OK?LZ(CAN_F,'canopy.json'):null,_OK?LZ(R1_F,'dgm1.json'):null,_OK?LZ(OBJ_F,'objekte.json'):null,_OK?LZ(DOP_J,'dop.json'):null,
+  (async()=>{if(!RT)return null;const ov=Object.keys(SURF_FILES).find(k=>k.indexOf('/'+RT.surf+'.surf')>=0);if(!ov)return null;const m=await SURF_FILES[ov]();return m.default||m;})()]);
 const GEL=(()=>{
-  const k=DATA_KEY(GEL_F,0,'gelaende.json');if(!k)return null;
-  const g=GEL_F[k].default||GEL_F[k],bin=atob(g.dm),u=new Uint8Array(bin.length);
+  if(!GEL_RAW)return null;
+  const g=GEL_RAW,bin=atob(g.dm),u=new Uint8Array(bin.length);
   for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
   return {g:g,h:new Int16Array(u.buffer)};
 })();
@@ -78,8 +82,7 @@ function buildRouteRaw(){
     for(let i=0;i<n;i++){raw[i].x=nx[i];raw[i].z=nz[i];}
   }
   // Untergrund: 0 Asphalt, 1 Schotter, 2 Trail. Mit OSM-Datei (npm run surfaces) sonst frei aus der Steigung geschätzt.
-  const ov=Object.keys(SURF_FILES).find(k=>k.indexOf('/'+RT.surf+'.surf')>=0);
-  if(ov){const a=SURF_FILES[ov].default||SURF_FILES[ov];for(let i=0;i<n;i++)raw[i].sec=a[Math.min(a.length-1,i)];return;}
+  if(SURF_RAW){const a=SURF_RAW;for(let i=0;i<n;i++)raw[i].sec=a[Math.min(a.length-1,i)];return;}
   let cls=raw.map((r,i)=>{
     const a=raw[Math.max(0,i-10)],b=raw[Math.min(n-1,i+10)],g=(b.y-a.y)/(Math.hypot(b.x-a.x,b.z-a.z)||1)*100;
     return g<-5.5?2:g<-2?1:g>7?2:g>2?0:1;
@@ -238,23 +241,17 @@ function fld(a,x,z){
 function routePresence(x,z){return fld(FG.S2,x,z)/FG.s2m;}
 // Landschaft aus OpenStreetMap (npm run osm -> src/routes/umgebung.json): Wald, Felder, Siedlung, Wasser, Gebäude
 // Luftbilder (DOP): kommen asynchron; Gelaende- und Dachfarben werden danach nachgefaerbt
-const DOP_J=import.meta.glob('./routes/*.dop.json',{eager:true}),DOP_I=import.meta.glob('./routes/*.dop-*.jpg',{eager:true,query:'?url',import:'default'});
 const DOPHOOK=[];let dopAt=()=>null;
-const R1_F=import.meta.glob('./routes/*.dgm1.json',{eager:true});
-const RES1=(()=>{const k=Object.keys(R1_F).find(k=>k.split('/').pop()===((RT&&RT.dem)?RT.dem+'.dgm1.json':'dgm1.json'));if(!(RT&&!RT.custom&&k))return null;
-  const j=R1_F[k].default||R1_F[k],bin=atob(j.d),u=new Int8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i)<<24>>24;return {x0:j.x0,z0:j.z0,w:j.w,h:j.h,c:j.cell,q:j.q,d:u};})();   // 1-m-Gelaende: Abweichung vom 4-m-Raster in Streckennaehe
+const RES1=(()=>{if(!R1_RAW)return null;
+  const j=R1_RAW,bin=atob(j.d),u=new Int8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i)<<24>>24;return {x0:j.x0,z0:j.z0,w:j.w,h:j.h,c:j.cell,q:j.q,d:u};})();   // 1-m-Gelaende: Abweichung vom 4-m-Raster in Streckennaehe
 const resid=(x,z)=>{if(!RES1)return 0;const u=(x-RES1.x0)/RES1.c,v=(z-RES1.z0)/RES1.c;if(u<0||v<0||u>=RES1.w-1.001||v>=RES1.h-1.001)return 0;
   const i=u|0,j=v|0,fu=u-i,fv=v-j,o=j*RES1.w+i,D=RES1.d;return ((D[o]*(1-fu)+D[o+1]*fu)*(1-fv)+(D[o+RES1.w]*(1-fu)+D[o+RES1.w+1]*fu)*fv)*RES1.q;};
-const OBJ_F=import.meta.glob('./routes/*.objekte.json',{eager:true});
-const CAN_F=import.meta.glob('./routes/*.canopy.json',{eager:true});
 let CANK=4;
-const CAN=(()=>{const k=Object.keys(CAN_F).find(k=>k.split('/').pop()===((RT&&RT.dem)?RT.dem+'.canopy.json':'canopy.json'));if(!(RT&&!RT.custom&&k))return null;
-  const j=CAN_F[k].default||CAN_F[k],bin=atob(j.t),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);CANK=j.k||4;return new Int16Array(u.buffer);})();   // Baeume aus Laserscan: x,z,Hoehe,Kronenradius (dm)
-const OSM_F=import.meta.glob('./routes/*umgebung.json',{eager:true});
-const OSM=(()=>{const k=DATA_KEY(OSM_F,0,'umgebung.json');return ROUTE&&!CUS&&k?(OSM_F[k].default||OSM_F[k]):null;})();
+const CAN=(()=>{if(!CAN_RAW)return null;
+  const j=CAN_RAW,bin=atob(j.t),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);CANK=j.k||4;return new Int16Array(u.buffer);})();   // Baeume aus Laserscan: x,z,Hoehe,Kronenradius (dm)
+const OSM=ROUTE&&!CUS?OSM_RAW:null;
 // Amtliche 3D-Gebaeude LoD2 (npm run lod2 -- <strecke>): echte Dachformen und Hoehen, ersetzen die OSM-Gebaeude
-const LOD2_F=import.meta.glob('./routes/*.lod2.json',{eager:true});
-const LOD2=(()=>{const k=DATA_KEY(LOD2_F,0,'lod2.json');return ROUTE&&!CUS&&OSM&&k?(LOD2_F[k].default||LOD2_F[k]):null;})();
+const LOD2=ROUTE&&!CUS&&OSM?LOD2_RAW:null;
 const LUC=4,LW=OSM?Math.ceil((FG.nx-1)*FG.G/LUC)+2:0,LH=OSM?Math.ceil((FG.nz-1)*FG.G/LUC)+2:0;
 const LU=OSM?{K:new Float32Array(LW*LH),FD:new Float32Array(LW*LH),OP:new Float32Array(LW*LH),UR:new Float32Array(LW*LH),WA:new Float32Array(LW*LH),B:new Uint8Array(LW*LH)}:null;
 if(LU){
@@ -337,7 +334,7 @@ const HORIZON=new THREE.Color(0.62,0.74,0.86);
 scene.background=HORIZON;
 scene.fog=new THREE.FogExp2(HORIZON,0.00055);
 const camera=new THREE.PerspectiveCamera(64,16/9,0.4,6000);
-const BK=!!RT&&RT.dem==='miworu';   // Bergkamen: Sonnenstand nach Uhrzeit, fliegende Voegel
+const BK=!!RT&&!RT.custom&&!!RT.dem;   // feste Strecken: Sonnenstand nach Uhrzeit, fliegende Voegel
 const SUN=new THREE.Vector3(-0.55,0.62,0.42).normalize();
 const hemi=new THREE.HemisphereLight(new THREE.Color(0.72,0.84,1.0),new THREE.Color(0.34,0.31,0.22),0.75);scene.add(hemi);
 const sun=new THREE.DirectionalLight(new THREE.Color(1.0,0.84,0.64),2.35);   // tiefstehende, warme Herbstsonne
@@ -629,7 +626,7 @@ function forestD(x,z){
     FINES.forEach(f=>{dopApply(f.P,f.C,f.C2,f.M,f.cnt);f.ca.needsUpdate=true;f.c2a.needsUpdate=true;});
   });
   // Feines Netz (2 m statt 4 m) in Streckennaehe (nur Bergkamen): Wegraender, Boeschungen, Rinnen werden schaerfer
-  const GF=2,SUB=10,FINE=ROUTE&&RT.dem==='miworu',fineMemo=new Map();
+  const GF=2,SUB=10,FINE=ROUTE&&!CUS&&useDem,fineMemo=new Map();
   const isFine=(sx,sz)=>{      // Teilkachel (10x10 Zellen = 40 m) liegt nahe der Strecke?
     const key=sx+','+sz;if(fineMemo.has(key))return fineMemo.get(key);
     let f=false;
@@ -829,7 +826,7 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
       if(!clearOf(x,z,h<6?0.6:0.3))continue;
       if(h<5.5){if(rnd()<0.85)bushes.push({x:x,y:gnd(x,z)-0.1,z:z,w:Math.max(0.9,r*1.7),h:Math.max(0.7,h*0.75)});continue;}
       const ratio=h/Math.max(1,r),dark=nMed>0&&nir>0&&nir<nMed*0.8;
-      const fir=h>9&&((ratio>6.5)||(dark&&ratio>3.6));   // schmal und hoch (und im Infrarot dunkel) = Nadelbaum
+      const bright=nMed>0&&nir>nMed*1.12,fir=SPEC==='fir'?!(bright&&ratio<5.5):(h>9&&((ratio>6.5)||(dark&&ratio>3.6)));   // schmal und hoch (und im Infrarot dunkel) = Nadelbaum
       if(fir){trees.push({sp:'f',x:x,y:gnd(x,z)-0.2,z:z,H:h,cw:Math.max(2,r*2.1),ch:h*(0.82+rnd()*0.08),rad:0.16+rnd()*0.1,rot:rnd()*6.283});continue;}
       const ch=h*(0.5+rnd()*0.15);
       trees.push({sp:'b',x:x,y:gnd(x,z)-0.2,z:z,H:h,cw:Math.max(1.6,r*1.55),ch:Math.min(ch,h-2.2),rad:0.07+rnd()*0.07,rot:rnd()*6.283});
@@ -928,15 +925,16 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
     tiled(trF,trunkGeo,trunkMat,(t,i,m,cx,cz)=>{DUM.rotation.set(0,t.rot,0);DUM.position.set(t.x-cx,t.y,t.z-cz);DUM.scale.set(t.rad,t.H-t.ch*0.45,t.rad);DUM.updateMatrix();m.setMatrixAt(i,DUM.matrix);
       const tg=0.65+rnd()*0.6;m.setColorAt(i,TC.setRGB(tg,tg*0.97,tg*0.92));},true,null);
   }
-  tiled(trB,SPEC==='fir'?firGeo:foliageGeo,SPEC==='fir'?firMat:leafMat,(t,i,m,cx,cz)=>{
+  const SPB=(CAN&&SPEC==='fir')?null:SPEC;   // Laubbaeume in Nadelwald-Strecken: normale Laubdarstellung
+  tiled(trB,SPB==='fir'?firGeo:foliageGeo,SPB==='fir'?firMat:leafMat,(t,i,m,cx,cz)=>{
     DUM.rotation.set(0,t.rot,0);DUM.position.set(t.x-cx,t.y+t.H-t.ch,t.z-cz);DUM.scale.set(t.cw,t.ch,t.cw);DUM.updateMatrix();m.setMatrixAt(i,DUM.matrix);
-    if(SPEC==='fir'){const tb=1.1+rnd()*0.6;m.setColorAt(i,TC.setRGB(tb*(0.85+rnd()*0.2),tb,tb*(0.8+rnd()*0.2)));}
-    else if(SPEC==='birch'){const tb=0.95+rnd()*0.4;m.setColorAt(i,TC.setRGB(tb*1.08,tb*1.12,tb*0.6));}
+    if(SPB==='fir'){const tb=1.1+rnd()*0.6;m.setColorAt(i,TC.setRGB(tb*(0.85+rnd()*0.2),tb,tb*(0.8+rnd()*0.2)));}
+    else if(SPB==='birch'){const tb=0.95+rnd()*0.4;m.setColorAt(i,TC.setRGB(tb*1.08,tb*1.12,tb*0.6));}
     else{const tb=0.8+rnd()*0.45;m.setColorAt(i,TC.setRGB(tb*(0.85+rnd()*0.35),tb,tb*(0.7+rnd()*0.25)));}
-  },true,SPEC==='fir'?null:leafDepth);
-  tiled(trB,trunkGeo,SPEC==='birch'?birchTrunkMat:trunkMat,(t,i,m,cx,cz)=>{
+  },true,SPB==='fir'?null:leafDepth);
+  tiled(trB,trunkGeo,SPB==='birch'?birchTrunkMat:trunkMat,(t,i,m,cx,cz)=>{
     DUM.rotation.set(0,t.rot,0);DUM.position.set(t.x-cx,t.y,t.z-cz);DUM.scale.set(t.rad,t.H-t.ch*0.45,t.rad);DUM.updateMatrix();m.setMatrixAt(i,DUM.matrix);
-    const tg=SPEC==='birch'?0.85+rnd()*0.25:0.65+rnd()*0.6;m.setColorAt(i,TC.setRGB(tg,tg*0.97,tg*0.92));
+    const tg=SPB==='birch'?0.85+rnd()*0.25:0.65+rnd()*0.6;m.setColorAt(i,TC.setRGB(tg,tg*0.97,tg*0.92));
   },true,null);
   tiled(bushes,foliageGeo,leafMat,(b,i,m,cx,cz)=>{
     DUM.rotation.set(0,rnd()*6.283,0);DUM.position.set(b.x-cx,b.y,b.z-cz);DUM.scale.set(b.w,b.h,b.w);DUM.updateMatrix();m.setMatrixAt(i,DUM.matrix);
@@ -1777,9 +1775,8 @@ function updateTiles(cp){   // weit entfernte Kacheln nicht zeichnen, Schatten n
   for(let i=0;i<TILES.length;i++){const T=TILES[i],dx=T.x-cp.x,dz=T.z-cp.z,d2=dx*dx+dz*dz;T.m.visible=d2<far2;if(T.sh)T.m.castShadow=d2<sh2;}
 }
 {   // Kleinobjekte aus OpenStreetMap: Zaeune, Mauern, Hecken, Leitplanken, Laternen, Baenke, Wegweiser, Masten, Stromleitungen
-  const ok=Object.keys(OBJ_F).find(k=>k.split('/').pop()===((RT&&RT.dem)?RT.dem+'.objekte.json':'objekte.json'));
-  if(ok&&ROUTE&&!CUS){
-    const O=OBJ_F[ok].default||OBJ_F[ok],P=[],Cc=[],Nn=[];
+  if(OBJ_RAW&&ROUTE&&!CUS){
+    const O=OBJ_RAW,P=[],Cc=[],Nn=[];
     const ca=new THREE.Color(),lp=[];
     // Quader (Mitte, Groesse, Drehung um Y, Farbe) in einen gemeinsamen Puffer
     const box=(cx,cy,cz,sx,sy,sz,ry,hex,sh)=>{
@@ -1881,9 +1878,8 @@ if(BK){   // Voegel: kreisen und gleiten um die Strecke, schlagen zwischendurch 
   }
 }
 {   // Luftbilder laden und in den Spielfarben verwenden
-  const dk=DATA_KEY(DOP_J,0,'dop.json');
-  if(dk&&ROUTE&&!CUS&&DOPHOOK.length){
-    const M=DOP_J[dk].default||DOP_J[dk],res=M.res||1,ids=M.tiles.map(t=>{const k=Object.keys(DOP_I).find(q=>q.split('/').pop()===t.f);return k?DOP_I[k]:null;});
+  if(DOP_RAW&&ROUTE&&!CUS&&DOPHOOK.length){
+    const M=DOP_RAW,res=M.res||1,ids=M.tiles.map(t=>{const k=Object.keys(DOP_I).find(q=>q.split('/').pop()===t.f);return k?DOP_I[k]:null;});
     const E0=Math.min(...M.tiles.map(t=>t.e0)),E1=Math.max(...M.tiles.map(t=>t.e0+t.w*res)),N1=Math.max(...M.tiles.map(t=>t.n1)),N0=Math.min(...M.tiles.map(t=>t.n1-t.h*res));
     const W=Math.ceil((E1-E0)/res),H=Math.ceil((N1-N0)/res),cv=document.createElement('canvas');cv.width=W;cv.height=H;const cx=cv.getContext('2d',{willReadFrequently:true});
     Promise.all(M.tiles.map((t,i)=>new Promise(ok=>{if(!ids[i])return ok();const im=new Image();im.onload=()=>{cx.drawImage(im,Math.round((t.e0-E0)/res),Math.round((N1-t.n1)/res),t.w,t.h);ok();};im.onerror=()=>ok();im.src=ids[i];}))).then(()=>{

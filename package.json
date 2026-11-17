@@ -14,6 +14,7 @@
     "dop": "node scripts/fetch-dop.mjs",
     "canopy": "node scripts/fetch-canopy.mjs",
     "dgm1": "node scripts/fetch-dgm1.mjs",
+    "real": "node scripts/real.mjs",
     "objekte": "node scripts/fetch-objects.mjs",
     "terrain": "node scripts/fetch-terrain.mjs",
     "wuppertal": "npm run terrain -- wuppertal && npm run osm -- wuppertal && npm run surfaces -- wuppertal",
