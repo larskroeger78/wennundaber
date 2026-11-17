@@ -383,6 +383,7 @@ sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.3;
 scene.add(sun);scene.add(sun.target);
 function resize(){const w=window.innerWidth,h=window.innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
 window.addEventListener('resize',resize);resize();
+let HDRTEX=null;const WXB={},PUDH={};
 const WXN=['Klar','Nebel','Nieselregen'];let WX=0;const WXS={rain:0,fog:0,day:1};
 try{const q=new URLSearchParams(location.search).get('wetter');WX=q!==null&&!isNaN(+q)?clamp(+q|0,0,2):clamp(+localStorage.getItem('miworu_wx')|0,0,2);}catch(e){}
 // Qualitaetsstufen (Taste Q): Aufloesung, Schattenkarte
@@ -496,8 +497,8 @@ new RGBELoader().load(ASSETS+'hdri/kloofendal_48d_partly_cloudy_puresky.hdr',tex
   tex.mapping=THREE.EquirectangularReflectionMapping;
   const pm=new THREE.PMREMGenerator(renderer);
   scene.environment=pm.fromEquirectangular(tex).texture;pm.dispose();
-  if(!BK){scene.background=tex;sky.visible=false;}
-  hemi.intensity=0.5;if(BK)applySun(true);
+  if(!BK){HDRTEX=tex;scene.background=tex;sky.visible=false;}
+  hemi.intensity=0.5;if(BK)applySun(true);else{WXB.sun=undefined;applyWXOther();}
   scene.traverse(o=>{const m=o.material;if(m&&m.isMeshStandardMaterial&&!(m.userData&&m.userData.keepEnv))m.envMapIntensity=0.28;});
   window.__hdr={sun:SUN.toArray(),fog:hc.toArray(),best:best};
 },undefined,()=>{});
@@ -1122,6 +1123,7 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
         leaves.push({x:x,y:gnd(x,z)+0.03,z:z,s:0.13+rnd()*0.2,r:rnd()*6.283,t:rnd()});
       }
     }
+    pud.forEach(q=>{const k=Math.floor(q.x/8)+','+Math.floor(q.z/8);(PUDH[k]||(PUDH[k]=[])).push(q);});
     // Pfuetzen: unregelmaessige, weich auslaufende Form; dunkel, Spiegelung entsteht durch den Fresnel-Effekt (flacher Blick = mehr Himmel)
     const blob=(soft)=>canvasTex(128,128,(g,w,h)=>{
       g.fillStyle='#000';g.fillRect(0,0,w,h);
@@ -1685,7 +1687,16 @@ if(OSM){
 }
 await BOOT('Starte Physik …',88);
 // ================= Wetter (Taste W): Klar, Nebel, Nieselregen =================
-function cycleWX(){WX=(WX+1)%3;try{localStorage.setItem('miworu_wx',WX);}catch(_){}if(BK)applySun(true);toastEl.textContent='Wetter: '+WXN[WX];toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}
+
+function applyWXOther(){   // Strecken ohne Sonnenstand-Modell: Himmel/Dunst grau, Sonne schwaecher
+  if(BK)return;
+  if(WXB.sun===undefined){WXB.sun=sun.intensity;WXB.hemi=hemi.intensity;WXB.fog=scene.fog.color.clone();}
+  WXS.rain=WX===2?1:0;
+  if(WX){const g=WX===1?0.72:0.5,c=new THREE.Color(g,g*1.01,g*1.04);scene.background=c;scene.fog.color.copy(c);sky.visible=false;sun.intensity=WXB.sun*(WX===1?0.42:0.3);hemi.intensity=WXB.hemi*(WX===1?1.15:0.95);}
+  else{scene.background=HDRTEX||HORIZON;scene.fog.color.copy(WXB.fog);sky.visible=!HDRTEX;sun.intensity=WXB.sun;hemi.intensity=WXB.hemi;}
+  scene.fog.density=[0,0.0009,0.00055,0.0004][quality]*[1,5,2.2][WX];
+}
+function cycleWX(){WX=(WX+1)%3;try{localStorage.setItem('miworu_wx',WX);}catch(_){}if(BK)applySun(true);else applyWXOther();toastEl.textContent='Wetter: '+WXN[WX];toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}
 
 // ================= Zustand, Eingabe, Physik =================
 const M=95,CDA=0.38,RHO=1.2,GRAV=9.81,PMAX=300,BRAKE=260;
@@ -1781,6 +1792,12 @@ function update(dt){
   SHK.vy+=(-420*SHK.y-17*SHK.vy)*dt;SHK.y+=SHK.vy*dt;SHK.vr+=(-380*SHK.r-16*SHK.vr)*dt;SHK.r+=SHK.vr*dt;
   const rough=(ROUTE?[0,0.4,1][SURF[i]]:(i>=iTrail?1:0.2))*(1+Math.max(0,-GR[i])*0.06)*Math.min(1,st.v/6);
   SHK.buzz=rough*(Math.sin(st.pos*9.3)+Math.sin(st.pos*17.9+1.3)*0.7+Math.sin(st.pos*31.7)*0.4);
+  {   // Pfuetze erwischt? Tropfen aufs Bild (nur steigende Flanke, ab 1,5 m/s)
+    sample(st.pos,smp);const bwx=smp.x-Math.cos(smp.h)*st.x,bwz=smp.z+Math.sin(smp.h)*st.x,gx=Math.floor(bwx/8),gz=Math.floor(bwz/8);let hit=false;
+    for(let a=-1;a<=1&&!hit;a++)for(let b=-1;b<=1&&!hit;b++){const L=PUDH[(gx+a)+','+(gz+b)];if(!L)continue;
+      for(let k=0;k<L.length;k++){const q=L[k],dx=bwx-q.x,dz=bwz-q.z,c=Math.cos(q.r),sn=Math.sin(q.r),lx=(dx*c-dz*sn)/(q.a*0.6),lz=(dx*sn+dz*c)/(q.b*0.6);if(lx*lx+lz*lz<1){hit=true;break;}}}
+    if(hit&&!update.inPud&&st.v>1.5)splashDrops(st.v);update.inPud=hit;
+  }
   if(AUDIO.on&&AUDIO.suspended&&st.t>3&&!update.sndT){update.sndT=1;toastEl.textContent='Sound aktivieren: einmal klicken oder eine Taste drücken';toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),4000);}
   {const fd=forestD(PX[i],PZ[i]);AUDIO.update(dt,{running:true,v:st.v,surf:SHK.air?-1:SURF[i],pedal:st.power>20?1:0,brake:!!down,forest:fd,rain:WXS.rain,day:WXS.day});}
   updateJoggers(dt);updateVans(dt);updateGroup(dt);
@@ -1914,7 +1931,7 @@ function menu(title,sub){
       (sub?'<div class="res">'+sub+'</div>':'')+
       '<div class="route">'+(ROUTE?RT.label:TRACK_NAME)+'<span>'+(ROUTE&&RT.place?RT.place:'Bergkamen und Umland')+'</span></div>'+
       '<div class="stats"><div><b>'+km+'</b><i>km</i></div><div><b>'+HM+'</b><i>Höhenmeter</i></div></div>'+
-      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused||SAVED?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(()=>{const n=click.devs.filter(x=>!x.lost).length;return n>=2?'Zwift Click: beide Hälften ✓':n===1&&click.connected?'Zwift Click ✓ · zweite Hälfte koppeln (stabiler)':(click.devs.length?'Zwift Click: getrennt – neu koppeln':'Zwift Click koppeln');})()+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button>'+'<button id="dif" class="sec">Schwierigkeit: '+DIFFN[diff]+'</button><button id="qual" class="sec">Grafik: '+QN[quality]+'</button><button id="grpb" class="sec">'+(GRP_CODE?'Gruppe: '+GRP_CODE:'Gruppenfahrt')+'</button><button id="gpx" class="sec">GPX-Strecke laden</button><button id="hlp" class="sec">So fährst du</button><input id="gpxf" type="file" accept=".gpx,.xml,application/gpx+xml" style="display:none"></div>'+mineHtml()+
+      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused||SAVED?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(()=>{const n=click.devs.filter(x=>!x.lost).length;return n>=2?'Zwift Click: beide Hälften ✓':n===1&&click.connected?'Zwift Click ✓ · zweite Hälfte koppeln (stabiler)':(click.devs.length?'Zwift Click: getrennt – neu koppeln':'Zwift Click koppeln');})()+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button>'+'<button id="dif" class="sec">Schwierigkeit: '+DIFFN[diff]+'</button><button id="qual" class="sec">Grafik: '+QN[quality]+'</button><button id="snd" class="sec">Sound: '+(AUDIO.on?'an':'aus')+'</button><button id="wxb" class="sec">Wetter: '+WXN[WX]+'</button><button id="grpb" class="sec">'+(GRP_CODE?'Gruppe: '+GRP_CODE:'Gruppenfahrt')+'</button><button id="gpx" class="sec">GPX-Strecke laden</button><button id="hlp" class="sec">So fährst du</button><input id="gpxf" type="file" accept=".gpx,.xml,application/gpx+xml" style="display:none"></div>'+mineHtml()+
       '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?(IOS?'iPad: Seite in der App Bluefy öffnen (Safari kann kein Bluetooth).':'Bluetooth nur in Chrome/Edge (nicht Safari).'):'D100 oder KICKR einschalten, dann „Trainer koppeln“.')+(bleMsg?'<br>'+bleMsg:'')+''+(click.connected?'<br>'+click.name+' verbunden'+'<br>Click: kurz drücken = schwerer · gedrückt halten = leichter':'')+'</div>'+
     '</div></div>';
   const gpxf=document.getElementById('gpxf');
@@ -1922,6 +1939,8 @@ function menu(title,sub){
   document.getElementById('gpx').onclick=()=>gpxf.click();
   document.getElementById('dif').onclick=()=>{setDiff(diff%5+1);menu(title,sub);};
   document.getElementById('qual').onclick=()=>{cycleQ();menu(title,sub);};
+  document.getElementById('snd').onclick=()=>{AUDIO.toggle();menu(title,sub);};
+  document.getElementById('wxb').onclick=()=>{cycleWX();menu(title,sub);};
   document.getElementById('grpb').onclick=()=>{const c=window.prompt('Gruppencode für die gemeinsame Fahrt (alle Freunde geben denselben Code ein, leer = aus):',GRP_CODE);if(c===null)return;GRP_CODE=c.trim().toLowerCase().replace(/[^a-z0-9äöüß]+/g,'').slice(0,24);try{localStorage.setItem('miworu_group',GRP_CODE);}catch(_){}grpJoin();menu(title,sub);};
   gpxf.onchange=async()=>{
     const f=gpxf.files&&gpxf.files[0];if(!f)return;
@@ -1983,8 +2002,27 @@ function updateRain(dt){
   }
   rainG.attributes.position.needsUpdate=true;
 }
+// Tropfen auf der "Linse": spritzen bei Pfuetzen auf, laufen leicht ab, verformen sich und verschwinden nach einigen Sekunden
+const dropC=document.createElement('canvas');dropC.id='drops';dropC.style.cssText='position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;';document.getElementById('wrap').appendChild(dropC);
+const dropX=dropC.getContext('2d'),DROPS=[];
+function splashDrops(v){
+  const W=dropC.width||window.innerWidth,H=dropC.height||window.innerHeight,n=Math.min(26,6+Math.round(v*1.6));
+  for(let k=0;k<n;k++){const rr=(0.004+Math.random()*0.012)*Math.min(W,H);DROPS.push({x:W*(0.12+Math.random()*0.76),y:H*(0.25+Math.random()*0.7),r:rr,life:2.8+Math.random()*3.2,age:-Math.random()*0.15,vy:(2+Math.random()*7)*H/700});}
+}
+function drawDrops(dt){
+  const W=window.innerWidth,H=window.innerHeight;if(dropC.width!==W||dropC.height!==H){dropC.width=W;dropC.height=H;}
+  if(WX===2&&running&&Math.random()<dt*2.2)DROPS.push({x:W*Math.random(),y:H*(0.1+Math.random()*0.8),r:(0.003+Math.random()*0.007)*Math.min(W,H),life:2.5+Math.random()*3,age:0,vy:(1+Math.random()*4)*H/700});
+  dropX.clearRect(0,0,W,H);if(!running)return;
+  for(let i=DROPS.length-1;i>=0;i--){const d=DROPS[i];d.age+=dt;if(d.age<0)continue;const u=d.age/d.life;if(u>=1){DROPS.splice(i,1);continue;}
+    const fin=Math.min(1,u/0.12),fout=u<0.55?1:1-(u-0.55)/0.45,al=fin*fout;if(u>0.35)d.y+=d.vy*dt*(u-0.2);
+    const rx=d.r*(1-0.35*u*u),ry=d.r*(1+1.1*Math.max(0,u-0.3));   // wird mit der Zeit schmaler und laeuft nach unten aus
+    const g=dropX.createRadialGradient(d.x-rx*0.25,d.y-ry*0.3,rx*0.1,d.x,d.y,Math.max(rx,ry));
+    g.addColorStop(0,'rgba(255,255,255,'+(0.16*al).toFixed(3)+')');g.addColorStop(0.7,'rgba(210,225,235,'+(0.16*al).toFixed(3)+')');g.addColorStop(1,'rgba(20,28,36,'+(0.5*al).toFixed(3)+')');
+    dropX.fillStyle=g;dropX.beginPath();dropX.ellipse(d.x,d.y,rx,ry,0,0,6.2832);dropX.fill();
+    dropX.fillStyle='rgba(255,255,255,'+(0.8*al).toFixed(3)+')';dropX.beginPath();dropX.ellipse(d.x-rx*0.3,d.y-ry*0.4,rx*0.22,ry*0.16,0,0,6.2832);dropX.fill();}
+}
 function render(dt,now){
-  updateRain(dt);
+  updateRain(dt);drawDrops(dt);
   sample(st.pos,smp);
   const rx=-Math.cos(smp.h),rz=Math.sin(smp.h);
   const bx=smp.x+rx*st.x,bz=smp.z+rz*st.x,by=smp.y+0.07+(running||st.done?tabH(st.pos):0);
@@ -2423,7 +2461,7 @@ function loop(now){
   update(dt);render(dt,now);
   requestAnimationFrame(loop);
 }
-window.__dbg={AUDIO:AUDIO,renderer:renderer,scene:scene,SHK:SHK,BUMPS:BUMPS,gnd:gnd,HS:HS,PX:PX,PZ:PZ,HW:HW,KV:KV,ROUTE:ROUTE,SURF:SURF,cam:camera,joggers:joggers,groundY:groundY,TABS:TABS,tabH:tabH,get st(){return st;},set pos(v){st.pos=v;camInit=false;},N:N,TOTAL:TOTAL,iTrail:iTrail,SEC:SEC,PY:PY,GR:GR,forestD:forestD,lu:(k,x,z)=>LU?lu(LU[k],x,z):-1};
+window.__dbg={splash:splashDrops,PUDH:PUDH,AUDIO:AUDIO,renderer:renderer,scene:scene,SHK:SHK,BUMPS:BUMPS,gnd:gnd,HS:HS,PX:PX,PZ:PZ,HW:HW,KV:KV,ROUTE:ROUTE,SURF:SURF,cam:camera,joggers:joggers,groundY:groundY,TABS:TABS,tabH:tabH,get st(){return st;},set pos(v){st.pos=v;camInit=false;},N:N,TOTAL:TOTAL,iTrail:iTrail,SEC:SEC,PY:PY,GR:GR,forestD:forestD,lu:(k,x,z)=>LU?lu(LU[k],x,z):-1};
 if(SAVED)menu('Weiterfahren bei '+(SAVED.pos/1000).toFixed(2).replace('.',',')+' km','Gespeicherte Fahrt · '+fmtT(SAVED.t));else menu('Start');
 if(location.hash==='#go')start();
 requestAnimationFrame(loop);

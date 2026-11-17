@@ -77,12 +77,12 @@ export const AUDIO = (() => {
     master.gain.value += ((on ? vol : 0) - master.gain.value) * Math.min(1, dt * 5);
     const surf = s.surf;
     // Wind: quadratisch mit Tempo, heller bei hoher Geschwindigkeit
-    set(N.wind, (0.02 + 0.5 * sp * sp) * (s.running ? 1 : 0.3), dt, 4); N.wind.f.frequency.value = 350 + 1500 * sp;
+    set(N.wind, (0.015 + 0.3 * sp * sp) * (s.running ? 1 : 0.3), dt, 4); N.wind.f.frequency.value = 350 + 1500 * sp;
     set(N.amb, (0.035 + 0.035 * s.forest) * (0.4 + 0.6 * s.day), dt, 1); N.amb.f.frequency.value = 600 + 600 * (1 - s.forest);
     // Reifen je Untergrund (weiche Ueberblendung)
     const rv = Math.min(1, v / 9);
-    set(N.asph, surf === 0 ? 0.075 * rv : 0, dt, 5); N.asph.f.frequency.value = 330 + 220 * rv;   // nur auf Asphalt, tief
-    set(N.road, surf === 0 ? 0.06 * rv : 0, dt, 5);
+    set(N.asph, surf === 0 ? 0.05 * rv : 0, dt, 5); N.asph.f.frequency.value = 330 + 220 * rv;   // nur auf Asphalt, tief
+    set(N.road, surf === 0 ? 0.04 * rv : 0, dt, 5);
     set(N.trail, 0, dt, 5);
     // Abfahrten auf Schotter/Trail: nur leises, dumpfes Knistern (Steinchen, Laub) - tief gefiltert
     if (v > 0.6 && (surf === 1 || surf === 2)) {
