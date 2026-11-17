@@ -1,3 +1,9 @@
+    // Abfahrten auf Schotter/Trail: nur leises, dumpfes Knistern (Steinchen, Laub) - tief gefiltert
+    if (v > 0.6 && (surf === 1 || surf === 2)) {
+      stoneAcc += dt * v * (surf === 1 ? 9 : 4);
+      let n = stoneAcc | 0; stoneAcc -= n; n = Math.min(n, 6);
+      while (n--) burst(t + Math.random() * dt, 0.03 + Math.random() * 0.04, 'lowpass', 380 + Math.random() * 520, 0.8, (surf === 1 ? 0.05 : 0.035) * (0.4 + Math.random()));
+    }
 // Prozeduraler Fahrsound (WebAudio, keine Dateien): Reifen je Untergrund, Freilauf, Wind, Voegel, Stoesse, Sprung, Bremse, Regen.
 // Alles wird aus Rauschen und kurzen Impulsen erzeugt; AUDIO.init() muss aus einer Nutzergeste kommen (Start-Knopf).
 export const AUDIO = (() => {
@@ -52,8 +58,8 @@ export const AUDIO = (() => {
       noise = mkNoise();
       N.wind = loop('lowpass', 500, 0.5);       // Fahrtwind
       N.amb = loop('bandpass', 700, 0.4);       // Hintergrund: Blaetter, leises Rauschen
-      N.asph = loop('highpass', 2800, 0.6);     // Asphalt: feines Reifenzischen
-      N.road = loop('lowpass', 160, 0.7);       // Rollgeraeusch (Tiefe)
+      N.asph = loop('bandpass', 420, 0.9);      // MTB-Stollenreifen auf Asphalt: tiefes, brummendes Abrollen
+      N.road = loop('lowpass', 140, 0.7);       // Rollgeraeusch (Tiefe)
       N.trail = loop('bandpass', 900, 0.5);     // Waldboden: weiches Rascheln
       N.rain = loop('highpass', 3500, 0.4);     // Regen auf Laub
       N.rain2 = loop('bandpass', 1400, 0.4);
@@ -81,10 +87,9 @@ export const AUDIO = (() => {
     set(N.amb, (0.035 + 0.035 * s.forest) * (0.4 + 0.6 * s.day), dt, 1); N.amb.f.frequency.value = 600 + 600 * (1 - s.forest);
     // Reifen je Untergrund (weiche Ueberblendung)
     const rv = Math.min(1, v / 9);
-    set(N.asph, surf === 0 ? 0.045 * rv : 0, dt, 5);
-    set(N.road, surf === 0 ? 0.13 * rv : surf === 1 ? 0.1 * rv : 0.05 * rv, dt, 5);
-    set(N.trail, surf === 2 ? 0.13 * rv * (0.5 + 0.5 * Math.min(1, v / 5)) : surf === 1 ? 0.04 * rv : 0, dt, 5);
-    N.trail.f.frequency.value = 500 + 1100 * rv;
+    set(N.asph, surf === 0 ? 0.075 * rv : 0, dt, 5); N.asph.f.frequency.value = 330 + 220 * rv;   // nur auf Asphalt, tief
+    set(N.road, surf === 0 ? 0.06 * rv : 0, dt, 5);
+    set(N.trail, 0, dt, 5);
     // Schotter: knirschende Einzelimpulse (Steinchen), Trail: knackende Zweige/Blaetter
     if (v > 0.6 && (surf === 1 || surf === 2)) {
       stoneAcc += dt * v * (surf === 1 ? 20 : 7);
@@ -104,10 +109,10 @@ export const AUDIO = (() => {
     if (birdT <= 0) { birdT = 5 + Math.random() * 10; if (Math.random() < 0.3 + 0.7 * s.forest) bird(t + Math.random() * 0.3); }
   }
   // Einmalige Ereignisse
-  function bump(a, surf) { if (!ok || !on) return; const t = ctx.currentTime, k = Math.min(1, a / 0.3); thump(t, 120, 55, 0.12, 0.35 * k); burst(t, 0.07, 'lowpass', 900, 0.7, 0.4 * k); if (surf === 2) burst(t, 0.12, 'bandpass', 1800, 1, 0.12 * k); }
-  function takeoff() { if (!ok) return; const t = ctx.currentTime; burst(t, 0.12, 'lowpass', 700, 0.7, 0.35); thump(t, 90, 50, 0.14, 0.3); }
-  function land(h) { if (!ok) return; const t = ctx.currentTime, k = Math.min(1, h / 0.4); thump(t, 100, 38, 0.22, 0.7 * k + 0.2); burst(t, 0.2, 'lowpass', 1100, 0.7, 0.55 * k + 0.1); burst(t, 0.15, 'bandpass', 2400, 1.2, 0.16 * k); }
-  function edge(a) { if (!ok) return; const t = ctx.currentTime, k = Math.min(1, a / 1.5); thump(t, 110, 45, 0.18, 0.4 * k + 0.1); burst(t, 0.1, 'lowpass', 800, 0.7, 0.35 * k); }
+  function bump(a, surf) { if (!ok || !on) return; const t = ctx.currentTime, k = Math.min(1, a / 0.3); thump(t, 85, 45, 0.1, 0.14 * k); burst(t, 0.06, 'lowpass', 320, 0.7, 0.16 * k); }
+  function takeoff() { if (!ok) return; const t = ctx.currentTime; burst(t, 0.12, 'lowpass', 320, 0.7, 0.14); thump(t, 80, 48, 0.14, 0.14); }
+  function land(h) { if (!ok) return; const t = ctx.currentTime, k = Math.min(1, h / 0.4); thump(t, 85, 36, 0.24, 0.4 * k + 0.1); burst(t, 0.18, 'lowpass', 360, 0.7, 0.22 * k + 0.05); }
+  function edge(a) { if (!ok) return; const t = ctx.currentTime, k = Math.min(1, a / 1.5); thump(t, 80, 40, 0.18, 0.22 * k + 0.05); burst(t, 0.1, 'lowpass', 300, 0.7, 0.14 * k); }
   function gear() { if (!ok) return; const t = ctx.currentTime; burst(t, 0.012, 'bandpass', 4200, 5, 0.1); burst(t + 0.06, 0.012, 'bandpass', 3000, 5, 0.08); }
   function toggle() { on = !on; try { localStorage.setItem('miworu_snd', on ? '1' : '0'); } catch (e) {} init(); return on; }
   // Browser starten Audio erst nach einer Nutzergeste (Klick, Taste, Touch): beim ersten Mal Kontext anlegen bzw. fortsetzen
