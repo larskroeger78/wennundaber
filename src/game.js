@@ -726,6 +726,11 @@ function forestD(x,z){
   texFields.repeat.set(5,5);
   const f=new THREE.Mesh(new THREE.PlaneGeometry(10000,10000),new THREE.MeshLambertMaterial({map:texFields}));
   f.rotation.x=-Math.PI/2;f.position.y=-1.5;scene.add(f);
+  if(ROUTE){   // Umland-Ebene nie ueber dem Gelaende: sonst schwebt sie als 'gruener See' ueber tiefen Streckenteilen (Halden, Taeler) und man faehrt darunter her
+    let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9,mn=1e9;for(let i=0;i<N;i++){x0=Math.min(x0,PX[i]);x1=Math.max(x1,PX[i]);z0=Math.min(z0,PZ[i]);z1=Math.max(z1,PZ[i]);}
+    for(let x=x0-1500;x<=x1+1500;x+=40)for(let z=z0-1500;z<=z1+1500;z+=40){const h=gnd(x,z);if(h<mn)mn=h;}
+    f.position.y=Math.min(-1.5,mn-1.0);
+  }
   const w=new THREE.Mesh(new THREE.PlaneGeometry(5000,46),new THREE.MeshStandardMaterial({color:C(0x3b6078),roughness:0.15,metalness:0.1}));
   w.rotation.x=-Math.PI/2;w.position.set(0,-1.35,-930);if(!ROUTE)scene.add(w);
 })();
