@@ -1988,10 +1988,24 @@ const vanPose=(v,x,z,h,fwd)=>{   // Auto aufs Gelaende setzen: Ebene durch 4 Rad
   const dev=Math.max(fl-(mean+pitch*hl-roll*hw),fr-(mean+pitch*hl+roll*hw),bl-(mean-pitch*hl-roll*hw),br-(mean-pitch*hl+roll*hw),0);
   v.g.position.set(x,mean+dev*0.5-0.02,z);v.g.rotation.order='YXZ';v.g.rotation.y=H;v.g.rotation.x=-Math.atan(pitch);v.g.rotation.z=Math.atan(roll);
 };
+const vanFast=(v,x,z,h,fwd,dt)=>{   // fahrende Autos: guenstige Pose aus gnd() plus alle 0,3 s gemessener Versatz zum gezeichneten Boden
+  const H=fwd>0?h:h+Math.PI,hl=(v.g.userData.hl||2.2)*0.75,fx=Math.sin(H),fz=Math.cos(H);
+  v.pt=(v.pt||0)-dt;if(v.pt<=0||v.off===undefined){v.pt=0.3;v.off=groundY(x,z)-gnd(x,z);}
+  const a=gnd(x+fx*hl,z+fz*hl),b=gnd(x-fx*hl,z-fz*hl),pitch=(a-b)/(2*hl);
+  v.g.position.set(x,(a+b)/2+v.off-0.02,z);v.g.rotation.order='YXZ';v.g.rotation.y=H;v.g.rotation.x=-Math.atan(pitch);v.g.rotation.z=0;
+};
 const vanPos=(s,lat,o)=>{sample(s,o);return [o.x-Math.cos(o.h)*lat,o.z+Math.sin(o.h)*lat];};
+const carRoad=(()=>{   // nur echte Autostrassen aus OSM (keine Wirtschaftswege, Zufahrten, Radwege, Unbefestigtes): Asphalt allein heisst nicht Autostrasse
+  if(!OBJ_RAW)return ()=>false;
+  const OK=/^(trunk|primary|secondary|tertiary|unclassified|residential|living_street)$/,G=new Map(),K=(x,z)=>Math.floor(x/20)*10000+Math.floor(z/20);
+  OBJ_RAW.lines.forEach(L=>{if(L[0]!=='road')return;const e=L[2]||{};if(e.u||e.br||!OK.test(e.h||''))return;const q=L[1],r=(e.w||5)/2+1.5;
+    for(let i=0;i+3<q.length;i+=2){const a=[q[i],q[i+1],q[i+2],q[i+3],r],l=Math.hypot(a[2]-a[0],a[3]-a[1]),n=Math.max(1,Math.ceil(l/10));
+      for(let t=0;t<=n;t++){const k=K(a[0]+(a[2]-a[0])*t/n,a[1]+(a[3]-a[1])*t/n);(G.get(k)||G.set(k,new Set()).get(k)).add(a);}}});
+  return (x,z)=>{for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const c=G.get(K(x+a*20,z+b*20));if(!c)continue;
+    for(const g of c){const dx=g[2]-g[0],dz=g[3]-g[1],l2=dx*dx+dz*dz||1,t=clamp(((x-g[0])*dx+(z-g[1])*dz)/l2,0,1);if(Math.hypot(x-g[0]-dx*t,z-g[1]-dz*t)<g[4])return true;}}return false;};})();
 if(nearHouse){
   const o={x:0,y:0,z:0,h:0};let rs=Math.random;let seed=7;rs=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
-  const cand=[];for(let s=30;s<TOTAL-30;s+=5){const i=Math.floor(s/SEG);if(SURF[i]!==0)continue;sample(s,o);if(nearHouse(o.x,o.z,55,1))cand.push(s);}
+  const cand=[];for(let s=30;s<TOTAL-30;s+=5){const i=Math.floor(s/SEG);if(SURF[i]!==0)continue;sample(s,o);if(nearHouse(o.x,o.z,55,1)&&carRoad(o.x,o.z))cand.push(s);}
   const spacing=85;let lastS=-1e9,clu=0,cluN=0,prevC=-1e9;   // gleichmaessig verteilt: mindestens 85 m Abstand, je Siedlungsabschnitt hoechstens 4 Autos
   for(const s of cand){
     if(s-prevC>150){clu++;cluN=0;}prevC=s;
@@ -2013,29 +2027,34 @@ if(nearHouse){
     const v={g:g,parked:true,s:s};vanPose(v,x,z,o.h,fwd);scene.add(v.g);VANS.push(v);lastS=s;cluN++;
   }
   if(window.__counts)window.__counts.vans=VANS.length;
-  for(let k=0;k<0;k++){const v={g:makeCar('pv5'),parked:false,active:false,s:0,dir:1,v:0,lat:0,hw:0};v.g.visible=false;scene.add(v.g);VANS.push(v);}
+  for(let k=0;k<3;k++){const g=pickCar(rs),v={g:g,parked:false,active:false,s:0,dir:-1,v:0,cruise:0,lat:0};g.visible=false;scene.add(g);VANS.push(v);}
 }
 window.__vans=VANS;
 const vo={x:0,y:0,z:0,h:0};
-function updateVans(dt){
+function updateVans(dt){   // fahrende Autos: kommen entgegen, bremsen rechtzeitig bis zum Stand und warten, bis der Fahrer vorbei ist. Nie Kontakt.
   if(!nearHouse)return;
   const mv=VANS.filter(v=>!v.parked);if(!mv.length)return;
   mv.forEach(v=>{
     if(!v.active)return;
+    const gap=v.s-st.pos;   // Auto liegt vor dem Fahrer (gap>0) und faehrt ihm entgegen
+    const tgt=gap>0?v.cruise*clamp((gap-14)/26,0,1):v.cruise;   // ab ca. 40 m Abstand abbremsen, bei 14 m Stillstand
+    v.v=v.v>tgt?Math.max(tgt,v.v-7*dt):Math.min(tgt,v.v+2.5*dt);
     v.s+=v.dir*v.v*dt;
+    if(v.s<st.pos+9&&v.v>0.01&&gap>0)v.s=Math.max(v.s,st.pos+9);   // Sicherung: nie naeher als 9 m heranruecken, solange es vor dem Fahrer steht
     const i=Math.floor(clamp(v.s,0,TOTAL-1)/SEG);
     sample(v.s,vo);
-    v.g.userData.wheels.forEach(w=>{w.rotation.x+=v.v*dt/0.41;});
-    if(v.s<6||v.s>TOTAL-10||SURF[i]!==0||HW[i]<2.2||Math.abs(v.s-st.pos)>260||!nearHouse(vo.x,vo.z,45,1)){v.active=false;v.g.visible=false;return;}
-    const lat=-Math.max(HW[i]-1.25,1.1);
-        vanPose(v,vo.x-Math.cos(vo.h)*lat,vo.z+Math.sin(vo.h)*lat,vo.h,v.dir);
+    v.g.userData.wheels&&v.g.userData.wheels.forEach(w=>{w.rotation.x+=v.v*dt/0.41;});
+    if(v.s<6||v.s>TOTAL-10||SURF[i]!==0||HW[i]<2.2||st.pos-v.s>25||Math.abs(v.s-st.pos)>260||!nearHouse(vo.x,vo.z,45,1)||!carRoad(vo.x,vo.z)){v.active=false;v.g.visible=false;return;}
+    const lat=-Math.max(HW[i]-(v.g.userData.hw||1)-0.15,1.0);
+    vanFast(v,vo.x-Math.cos(vo.h)*lat,vo.z+Math.sin(vo.h)*lat,vo.h,v.dir,dt);
   });
   vanWait-=dt;
-  if(vanWait<=0){   // naechsten Einsatz suchen: entgegenkommend oder von hinten ueberholend
+  if(vanWait<=0){
     const v=mv.find(q=>!q.active);vanWait=3;if(!v)return;
-    const over=Math.random()<0.35,s=over?st.pos-90:st.pos+90+Math.random()*80;
-    if(s<8||s>TOTAL-30||SURF[Math.floor(s/SEG)]!==0||HW[Math.floor(s/SEG)]<2.2)return;sample(s,vo);if(!nearHouse(vo.x,vo.z,45,1))return;
-    v.s=s;v.dir=over?1:-1;v.v=over?Math.max(st.v+5,9):8+Math.random()*3;v.active=true;v.g.visible=true;vanWait=70+Math.random()*110;
+    const s=st.pos+110+Math.random()*80;
+    if(s<8||s>TOTAL-30||SURF[Math.floor(s/SEG)]!==0||HW[Math.floor(s/SEG)]<2.2)return;sample(s,vo);if(!nearHouse(vo.x,vo.z,45,1)||!carRoad(vo.x,vo.z))return;
+    if(VANS.some(q=>q.parked&&Math.abs(q.s-s)<8))return;
+    v.s=s;v.dir=-1;v.cruise=7+Math.random()*2.5;v.v=v.cruise;v.off=undefined;v.active=true;v.g.visible=true;vanWait=35+Math.random()*60;
   }
 }
 // ================= Gruppenfahrt: farbige Punkte der Mitfahrer =================
