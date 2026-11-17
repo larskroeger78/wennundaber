@@ -870,13 +870,16 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
       trees.push({sp:'b',x:x,y:gnd(x,z)-0.2,z:z,H:h,cw:Math.max(1.6,r*1.55),ch:Math.min(ch,h-2.2),rad:0.07+rnd()*0.07,rot:rnd()*6.283});
     }
   }
-  if(ROUTE&&LU&&!CAN){       // Wälder aus OpenStreetMap auch abseits der Strecke
+  const thin=new Map(),tk=(x,z)=>Math.floor(x/6)+','+Math.floor(z/6);   // Laserscan-Baeume sind duenn gesaet: Luecken im OSM-Wald auffuellen
+  if(CAN)trees.forEach(t=>{thin.set(tk(t.x,t.z),1);});
+  if(ROUTE&&LU&&(!CAN||true)){       // Wälder aus OpenStreetMap auch abseits der Strecke
     for(let gx=FG.ox+20;gx<FG.ox+(FG.nx-1)*FG.G-20;gx+=7)for(let gz=FG.oz+20;gz<FG.oz+(FG.nz-1)*FG.G-20;gz+=7){
       const x=gx+(rnd()-0.5)*6,z=gz+(rnd()-0.5)*6,f=lu(LU.FD,x,z);
       if(f<0.15||rnd()>Math.min(1,f*1.1))continue;
-      if(nearest(allHash,x,z)&&nD<70)continue;
+      if(nearest(allHash,x,z)&&nD<(CAN?14:70))continue;
+      if(CAN){const kx=Math.floor(x/6),kz=Math.floor(z/6);let near=false;if(thin.has(kx+','+kz))near=true;if(near||f<0.5)continue;}
       if(!clearOf(x,z,0))continue;
-      addTree(x,z,0.85+rnd()*0.35);
+      addTree(x,z,0.85+rnd()*0.35);if(CAN)thin.set(tk(x,z),1);
       if(rnd()<0.1){const bx=x+(rnd()-0.5)*4,bz=z+(rnd()-0.5)*4;if(clearOf(bx,bz,0.4))bushes.push({x:bx,y:gnd(bx,bz)-0.1,z:bz,w:0.9+rnd()*1.5,h:0.5+rnd()*1.0});}
     }
   }
@@ -2245,7 +2248,7 @@ function loop(now){
   update(dt);render(dt,now);
   requestAnimationFrame(loop);
 }
-window.__dbg={renderer:renderer,scene:scene,SHK:SHK,BUMPS:BUMPS,gnd:gnd,HS:HS,PX:PX,PZ:PZ,HW:HW,KV:KV,ROUTE:ROUTE,SURF:SURF,cam:camera,joggers:joggers,get st(){return st;},set pos(v){st.pos=v;camInit=false;},N:N,TOTAL:TOTAL,iTrail:iTrail,SEC:SEC,PY:PY,GR:GR};
+window.__dbg={renderer:renderer,scene:scene,SHK:SHK,BUMPS:BUMPS,gnd:gnd,HS:HS,PX:PX,PZ:PZ,HW:HW,KV:KV,ROUTE:ROUTE,SURF:SURF,cam:camera,joggers:joggers,get st(){return st;},set pos(v){st.pos=v;camInit=false;},N:N,TOTAL:TOTAL,iTrail:iTrail,SEC:SEC,PY:PY,GR:GR,forestD:forestD,lu:(k,x,z)=>LU?lu(LU[k],x,z):-1};
 if(SAVED)menu('Weiterfahren bei '+(SAVED.pos/1000).toFixed(2).replace('.',',')+' km','Gespeicherte Fahrt · '+fmtT(SAVED.t));else menu('Start');
 if(location.hash==='#go')start();
 requestAnimationFrame(loop);
