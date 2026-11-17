@@ -7,6 +7,8 @@ import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import './style.css';
 import { makeVan } from './van.js';
 import PV5URL from './assets/cars/pv5.glb?url';
+import AE86URL from './assets/cars/ae86.glb?url';
+import GMCURL from './assets/cars/gmc.glb?url';
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Trainer, ClickPad, BLE_OK } from './ble.js';
 import MITT1 from './routes/mittwochsrunde.json';
@@ -1925,12 +1927,18 @@ if(BK){   // Voegel: kreisen und gleiten um die Strecke, schlagen zwischendurch 
 }
 // Lars' Van: parkt am Strassenrand und faehrt vorbei - nur auf Asphalt im Bereich von Haeusern (feste Strecken)
 var VANS=[],vanWait=14;
-// Kia PV5 (Sketchfab, teenlin3, CC BY): 37k Dreiecke, Front +z, auf echte Groesse (4,5 x 1,95 x 1,95 m) skaliert
-const PV5={tpl:null,wait:[]};
-const makePv5=()=>{const g=new THREE.Group();g.userData.wheels=[];
-  if(PV5.tpl)g.add(PV5.tpl.clone(true));else PV5.wait.push(g);return g;};
-new GLTFLoader().load(PV5URL,gl=>{const m=gl.scene;m.traverse(o=>{if(o.isMesh){o.material.roughness=0.55;o.material.metalness=0.1;if(o.material.map)o.material.map.anisotropy=4;}});
-  const w=new THREE.Group();w.add(m);w.scale.set(3.1,3.9,4.1);PV5.tpl=w;PV5.wait.forEach(g=>g.add(w.clone(true)));PV5.wait.length=0;},undefined,()=>{});
+// Fremdmodelle (Sketchfab, siehe #credits): GLB-Dateien, Front +z, auf echte Groesse skaliert; Hersteller-Laden erst wenn geladen
+const CARS={
+  pv5:{url:PV5URL,sc:[3.1,3.9,4.1],dy:0,hw:0.98},            // Kia PV5, teenlin3, CC BY
+  ae86:{url:AE86URL,sc:[0.01,0.01,0.01],dy:0,hw:0.85},       // Toyota AE86 Trueno
+  gmc:{url:GMCURL,sc:[0.9,0.9,0.9],dy:1.4*0.9,hw:1.45}       // GMC Motorhome
+};
+Object.keys(CARS).forEach(k=>{const C=CARS[k];C.tpl=null;C.wait=[];
+  new GLTFLoader().load(C.url,gl=>{const m=gl.scene;m.position.y=C.dy/C.sc[1];m.traverse(o=>{if(o.isMesh){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(q=>{q.roughness=Math.max(q.roughness||0,0.5);q.metalness=Math.min(q.metalness||0,0.15);});}});
+    const w=new THREE.Group();w.add(m);w.scale.set(...C.sc);C.tpl=w;C.wait.forEach(g=>g.add(w.clone(true)));C.wait.length=0;},undefined,()=>{});});
+const makeCar=k=>{const C=CARS[k],g=new THREE.Group();g.userData.wheels=[];g.userData.hw=C.hw;if(C.tpl)g.add(C.tpl.clone(true));else C.wait.push(g);return g;};
+const pickCar=r=>r<0.3?makeVan(Math.random()<0.5):r<0.6?makeCar('pv5'):r<0.85?makeCar('ae86'):makeCar('gmc');
+var VANS=[],vanWait=14;
 const nearHouse=(()=>{if(!BK||!OSM)return null;
   const H=new Map(),K=(x,z)=>Math.floor(x/30)*10000+Math.floor(z/30);
   OSM.buildings.forEach(b=>{const p=b.p;let cx=0,cz=0;for(let i=0;i<p.length;i+=2){cx+=p[i];cz+=p[i+1];}cx/=p.length/2;cz/=p.length/2;const k=K(cx,cz);(H.get(k)||H.set(k,[]).get(k)).push(cx,cz);});
@@ -1946,12 +1954,12 @@ if(nearHouse){
     const i=Math.floor(s/SEG);if(SURF[i]!==0)continue;
     sample(s,o);if(!nearHouse(o.x,o.z,45,2))continue;
     gap-=5;if(gap>0)continue;
-    const side=rs()<0.6?1:-1,lat=side*(HW[i]+1.35),[x,z]=vanPos(s,lat,o);
-    const v={g:rs()<0.5?makePv5():makeVan(rs()<0.5),parked:true,s:s};vanPose(v,x,z,o.h,side>0?1:-1);scene.add(v.g);VANS.push(v);
+    const side=rs()<0.6?1:-1,g=pickCar(rs()),lat=side*(HW[i]+0.4+(g.userData.hw||1)),[x,z]=vanPos(s,lat,o);
+    const v={g:g,parked:true,s:s};vanPose(v,x,z,o.h,side>0?1:-1);scene.add(v.g);VANS.push(v);
     gap=260+rs()*340;
   }
   if(window.__counts)window.__counts.vans=VANS.length;
-  for(let k=0;k<2;k++){const v={g:k?makePv5():makeVan(true),parked:false,active:false,s:0,dir:1,v:0,lat:0,hw:0};v.g.visible=false;scene.add(v.g);VANS.push(v);}
+  for(let k=0;k<3;k++){const v={g:k===0?makeVan(true):makeCar(k===1?'pv5':'ae86'),parked:false,active:false,s:0,dir:1,v:0,lat:0,hw:0};v.g.visible=false;scene.add(v.g);VANS.push(v);}
 }
 const vo={x:0,y:0,z:0,h:0};
 function updateVans(dt){
