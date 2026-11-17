@@ -591,7 +591,7 @@ function forestD(x,z){
       const found=nI>=0&&nD<OUTR[nI]+4,d=nD,i=nI;
       P[vi*3]=x;P[vi*3+1]=h;P[vi*3+2]=z;
       U[vi*2]=x/7;U[vi*2+1]=z/7;
-      if(found&&d<HW[i]+3)M[vi]=0.42;   // Wegnaehe: Luftbild nur schwach (Wegfarbe/Randbewuchs)
+      if(found&&d<HW[i]+3)M[vi]=d<HW[i]+1.2?0.15:0.42;   // Wegnaehe: Luftbild nur schwach (Wegfarbe/Randbewuchs)
       let c=mix3(cGrassA,cGrassB,fbm(x/22+1,z/22+4));
       if(ROUTE){
         c=mix3(c,cDry,0.3*fbm(x/40+8,z/40)+0.35*sstep(38,64,h));
@@ -608,9 +608,10 @@ function forestD(x,z){
       }
       if(found){
         if(SURF[i]===2)c=mix3(c,cDirt,(1-sstep(HW[i],HW[i]+2.2,d))*0.9);
-        else if(ROUTE&&SURF[i]===1)c=mix3(c,cDirt,(1-sstep(HW[i],HW[i]+2.2,d))*0.55);
+        else if(ROUTE&&SURF[i]===1)c=mix3(c,cDirt,(1-sstep(HW[i],HW[i]+2.2,d))*0.8);
         else c=mix3(c,cGravel,(1-sstep(HW[i]+0.4,HW[i]+2.8,d))*0.9);
       }
+      if(found&&ROUTE&&GR[i]<-12){c=mix3(c,cDirt,(1-sstep(HW[i]+0.5,HW[i]+3.4,d))*0.9);M[vi]=Math.min(M[vi],0.12);}   // steile Abfahrt: Weg/Boeschung immer als Erde, nie als gruene Flaeche
       if(found&&STEEP[i]>0.02){   // steile Abfahrt: Laubstreu, nackte Erde, Steinflecken statt einheitlich dunkel
         const wR=STEEP[i]*(1-sstep(HW[i]*0.9,HW[i]+3.4,d));
         const n1=fbm(x/0.8+5,z/0.8),n2=fbm(x/2.4,z/2.4+7),n3=fbm(x/0.35,z/0.35);
@@ -1870,6 +1871,7 @@ function render(dt,now){
   if(fp){
     const ey=by+1.3,k=1-Math.exp(-dt*9);
     camera.position.set(bx+Math.sin(smp.h)*0.05,ey+Math.sin(st.wheel*0.9)*0.004*Math.min(1,st.v/4)+(running?(SHK.y+airH())*0.9+(SHK.buzz||0)*0.0035:0),bz+Math.cos(smp.h)*0.05);
+    {const cx0=camera.position.x,cz0=camera.position.z,gm=Math.max(gnd(cx0,cz0),gnd(cx0-Math.sin(smp.h)*0.8,cz0-Math.cos(smp.h)*0.8),gnd(cx0+Math.sin(smp.h)*1.2,cz0+Math.cos(smp.h)*1.2));if(camera.position.y<gm+0.95)camera.position.y=gm+0.95;}   // Kamera nie unter oder in das Gelaende (Absatzkanten, Steilstuecke)
     sample(st.pos+9,smp2);
     lookT.set(smp2.x+rx*st.x*0.9,smp2.y+1.15,smp2.z+rz*st.x*0.9);
     if(!camInit){lookC.copy(lookT);camInit=true;}else lookC.lerp(lookT,k);
@@ -2261,7 +2263,7 @@ function loop(now){
   update(dt);render(dt,now);
   requestAnimationFrame(loop);
 }
-window.__dbg={renderer:renderer,scene:scene,SHK:SHK,BUMPS:BUMPS,gnd:gnd,HS:HS,PX:PX,PZ:PZ,HW:HW,KV:KV,ROUTE:ROUTE,SURF:SURF,cam:camera,joggers:joggers,TABS:TABS,tabH:tabH,get st(){return st;},set pos(v){st.pos=v;camInit=false;},N:N,TOTAL:TOTAL,iTrail:iTrail,SEC:SEC,PY:PY,GR:GR,forestD:forestD,lu:(k,x,z)=>LU?lu(LU[k],x,z):-1};
+window.__dbg={renderer:renderer,scene:scene,SHK:SHK,BUMPS:BUMPS,gnd:gnd,HS:HS,PX:PX,PZ:PZ,HW:HW,KV:KV,ROUTE:ROUTE,SURF:SURF,cam:camera,joggers:joggers,groundY:groundY,TABS:TABS,tabH:tabH,get st(){return st;},set pos(v){st.pos=v;camInit=false;},N:N,TOTAL:TOTAL,iTrail:iTrail,SEC:SEC,PY:PY,GR:GR,forestD:forestD,lu:(k,x,z)=>LU?lu(LU[k],x,z):-1};
 if(SAVED)menu('Weiterfahren bei '+(SAVED.pos/1000).toFixed(2).replace('.',',')+' km','Gespeicherte Fahrt · '+fmtT(SAVED.t));else menu('Start');
 if(location.hash==='#go')start();
 requestAnimationFrame(loop);
