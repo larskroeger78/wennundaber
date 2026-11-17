@@ -91,7 +91,7 @@ export const AUDIO = (() => {
       while (n--) burst(t + Math.random() * dt, 0.03 + Math.random() * 0.04, 'lowpass', 380 + Math.random() * 520, 0.8, (surf === 1 ? 0.05 : 0.035) * (0.4 + Math.random()));
     }
     // Freilauf (0 Watt): Hope-Pro-Surren, Tonhoehe folgt dem Tempo (44 Einrastpunkte x Radumdrehungen pro Sekunde, Radumfang ca. 2,3 m)
-    {const coast = v > 0.4 && s.pedal < 0.15 ? 1 : 0, f = Math.min(1100, 95 * v / 2.3);
+    {const coast = v > 0.4 && s.pedal < 0.15 ? 1 : 0, f = Math.min(1700, 150 * v / 2.3);
       N.hub.o.frequency.setTargetAtTime(Math.max(12, f), t, 0.03);
       set(N.hub, coast * (0.05 + 0.07 * Math.min(1, v / 9)), dt, coast ? 14 : 22);}
     // Bremse: hohes Quietschen bei Tempo
