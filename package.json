@@ -23,7 +23,8 @@
     "hemer": "npm run terrain -- hemer && npm run osm -- hemer && npm run surfaces -- hemer",
     "miworu": "npm run terrain -- miworu && npm run osm -- miworu && npm run surfaces -- miworu && npm run objekte -- miworu",
     "buellberg": "npm run terrain -- buellberg && npm run osm -- buellberg && npm run surfaces -- buellberg",
-    "strecken": "npm run miworu && npm run hagen && npm run iserlohn && npm run hemer && npm run buellberg"
+    "strecken": "npm run miworu && npm run hagen && npm run iserlohn && npm run hemer && npm run buellberg",
+    "strassen": "node scripts/fetch-strassen.mjs"
   },
   "dependencies": {
     "jpeg-js": "^0.4.4",

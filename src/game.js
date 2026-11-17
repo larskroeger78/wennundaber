@@ -27,12 +27,12 @@ try{listRoutes().forEach(e=>{const nm=String(e.name||'').trim().toLowerCase();if
 const RT=RKEY==='halde'?null:(ROUTES[RKEY]||ROUTES.tour2);   // Standard: die Tour vom 5.10.2022; andere Strecken nur noch per URL (?route=halde|mittwoch) für Entwicklung
 const ROUTE=!!RT,MITT=RT?RT.data:MITT1;
 // Echtes Geländemodell (DGM1 NRW, per npm run terrain erzeugt): Höhenraster in Dezimetern
-const GEL_F=import.meta.glob('./routes/*gelaende.json'),OSM_F=import.meta.glob('./routes/*umgebung.json'),LOD2_F=import.meta.glob('./routes/*.lod2.json'),CAN_F=import.meta.glob('./routes/*.canopy.json'),R1_F=import.meta.glob('./routes/*.dgm1.json'),OBJ_F=import.meta.glob('./routes/*.objekte.json'),DOP_J=import.meta.glob('./routes/*.dop.json'),DOP_I=import.meta.glob('./routes/*.dop-*.jpg',{eager:true,query:'?url',import:'default'});
+const GEL_F=import.meta.glob('./routes/*gelaende.json'),OSM_F=import.meta.glob('./routes/*umgebung.json'),LOD2_F=import.meta.glob('./routes/*.lod2.json'),CAN_F=import.meta.glob('./routes/*.canopy.json'),R1_F=import.meta.glob('./routes/*.dgm1.json'),STR_F=import.meta.glob('./routes/*.strassen.json'),OBJ_F=import.meta.glob('./routes/*.objekte.json'),DOP_J=import.meta.glob('./routes/*.dop.json'),DOP_I=import.meta.glob('./routes/*.dop-*.jpg',{eager:true,query:'?url',import:'default'});
 const DATA_KEY=(F,_,ext)=>Object.keys(F).find(k=>k.split('/').pop()===((RT&&RT.dem)?RT.dem+'.'+ext:ext));   // Standard: gelaende.json / umgebung.json; eigene Strecken: <name>.gelaende.json / <name>.umgebung.json
 const LZ=async(F,ext)=>{const k=DATA_KEY(F,0,ext);if(!k)return null;const m=await F[k]();return m.default||m;};
 const _OK=!!RT&&!RT.custom;
-const [GEL_RAW,OSM_RAW,LOD2_RAW,CAN_RAW,R1_RAW,OBJ_RAW,DOP_RAW,SURF_RAW]=await Promise.all([LZ(GEL_F,'gelaende.json'),_OK?LZ(OSM_F,'umgebung.json'):null,_OK?LZ(LOD2_F,'lod2.json'):null,_OK?LZ(CAN_F,'canopy.json'):null,_OK?LZ(R1_F,'dgm1.json'):null,_OK?LZ(OBJ_F,'objekte.json'):null,_OK?LZ(DOP_J,'dop.json'):null,
-  (async()=>{if(!RT)return null;const ov=Object.keys(SURF_FILES).find(k=>k.indexOf('/'+RT.surf+'.surf')>=0);if(!ov)return null;const m=await SURF_FILES[ov]();return m.default||m;})()]);
+const [GEL_RAW,OSM_RAW,LOD2_RAW,CAN_RAW,R1_RAW,OBJ_RAW,DOP_RAW,SURF_RAW,STR_RAW]=await Promise.all([LZ(GEL_F,'gelaende.json'),_OK?LZ(OSM_F,'umgebung.json'):null,_OK?LZ(LOD2_F,'lod2.json'):null,_OK?LZ(CAN_F,'canopy.json'):null,_OK?LZ(R1_F,'dgm1.json'):null,_OK?LZ(OBJ_F,'objekte.json'):null,_OK?LZ(DOP_J,'dop.json'):null,
+  (async()=>{if(!RT)return null;const ov=Object.keys(SURF_FILES).find(k=>k.indexOf('/'+RT.surf+'.surf')>=0);if(!ov)return null;const m=await SURF_FILES[ov]();return m.default||m;})(),_OK?LZ(STR_F,'strassen.json'):null]);
 const GEL=(()=>{
   if(!GEL_RAW)return null;
   const g=GEL_RAW,bin=atob(g.dm),u=new Uint8Array(bin.length);
@@ -200,6 +200,20 @@ if(ROUTE&&!CUS&&OBJ_RAW){   // Asphaltbreite der Strecke aus der naechsten OSM-S
       const l2=dx*dx+dz*dz||1,t=Math.max(0,Math.min(1,((px-ax)*dx+(pz-az)*dz)/l2)),ex=ax+dx*t-px,ez=az+dz*t-pz,d2=ex*ex+ez*ez;
       if(d2<bd){bd=d2;bw=rs[k+4];}}
     if(bw)HW[i]=Math.max(1.5,Math.min(4,bw/2));}
+}
+if(ROUTE&&!CUS&&STR_RAW){   // echte Fahrbahnbreite aus den amtlichen Flaechen (ALKIS): quer zur Strecke messen
+  const G=24,gm=new Map(),polys=STR_RAW.polys,bbs=polys.map(P=>{let a=1e9,b=1e9,c=-1e9,d=-1e9;for(let i=0;i<P.length;i+=2){a=Math.min(a,P[i]);c=Math.max(c,P[i]);b=Math.min(b,P[i+1]);d=Math.max(d,P[i+1]);}return [a,b,c,d];});
+  polys.forEach((P,k)=>{const b=bbs[k];for(let cx=Math.floor(b[0]/G);cx<=Math.floor(b[2]/G);cx++)for(let cz=Math.floor(b[1]/G);cz<=Math.floor(b[3]/G);cz++){const key=cx*100000+cz;(gm.get(key)||gm.set(key,[]).get(key)).push(k);}});
+  const inR=(x,z)=>{const l=gm.get(Math.floor(x/G)*100000+Math.floor(z/G));if(!l)return false;
+    for(const k of l){const b=bbs[k];if(x<b[0]||x>b[2]||z<b[1]||z>b[3])continue;const P=polys[k];let c=false;for(let u=0,w=P.length-2;u<P.length;w=u,u+=2){if((P[u+1]>z)!==(P[w+1]>z)&&x<(P[w]-P[u])*(z-P[u+1])/(P[w+1]-P[u+1])+P[u])c=!c;}if(c)return true;}return false;};
+  let nm=0;
+  for(let i=0;i<=N;i++){if(SEC[i]!==0)continue;
+    const a=Math.max(0,i-1),b=Math.min(N,i+1),dx=PX[b]-PX[a],dz=PZ[b]-PZ[a],l=Math.hypot(dx,dz)||1,nx=-dz/l,nz=dx/l;
+    let o0=null;for(let k=0;k<=8&&o0===null;k++){for(const sg of [1,-1]){const o=k*0.5*sg;if(inR(PX[i]+nx*o,PZ[i]+nz*o)){o0=o;break;}}}
+    if(o0===null)continue;
+    let r=o0,q=o0;while(r<o0+9&&inR(PX[i]+nx*(r+0.5),PZ[i]+nz*(r+0.5)))r+=0.5;while(q>o0-9&&inR(PX[i]+nx*(q-0.5),PZ[i]+nz*(q-0.5)))q-=0.5;
+    HW[i]=Math.max(1.5,Math.min(6,(r-q)/2));nm++;}
+  window.__strMeasured=nm;
 }
 smoothArr(HW,10);smoothArr(FLAT,10);smoothArr(OUTR,10);
 const RW=new Float32Array(N+1);      // halbe Breite des sichtbaren Wegbandes
