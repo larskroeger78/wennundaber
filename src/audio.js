@@ -58,6 +58,13 @@ export const AUDIO = (() => {
       N.rain = loop('highpass', 3500, 0.4);     // Regen auf Laub
       N.rain2 = loop('bandpass', 1400, 0.4);
       brakeG = loop('bandpass', 3400, 7);
+      // Freilaufnabe (Hope Pro 4: 44 Einrastpunkte): Saegezahn-Pulszug mit Frequenz = Radumdrehungen x 44, hell gefiltert -> schnarrendes Surren
+      { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 60;
+        const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2200; hp.Q.value = 0.9;
+        const bp = ctx.createBiquadFilter(); bp.type = 'peaking'; bp.frequency.value = 3600; bp.Q.value = 2.5; bp.gain.value = 9;
+        const g = ctx.createGain(); g.gain.value = 0;
+        o.connect(hp); hp.connect(bp); bp.connect(g); g.connect(master); o.start();
+        N.hub = { o, g, hp }; }
       ok = true;
     } catch (e) { ok = false; }
   }
@@ -84,12 +91,10 @@ export const AUDIO = (() => {
       let n = stoneAcc | 0; stoneAcc -= n; n = Math.min(n, 10);
       while (n--) burst(t + Math.random() * dt, 0.02 + Math.random() * 0.03, 'bandpass', (surf === 1 ? 1800 : 700) + Math.random() * 2400, 2 + Math.random() * 3, (surf === 1 ? 0.08 : 0.05) * (0.4 + Math.random()));
     }
-    // Freilauf: klackernde Sperrklinke, solange nicht getreten wird; Frequenz folgt dem Tempo
-    if (v > 1.2 && s.pedal < 0.15) {
-      clickAcc += dt * v * 9;
-      let n = clickAcc | 0; clickAcc -= n; n = Math.min(n, 12);
-      for (let i = 0; i < n; i++) burst(t + (i + 0.5) / (n + 1) * dt, 0.006, 'bandpass', 3600 + v * 90, 6, 0.045 + 0.02 * sp);
-    }
+    // Freilauf (0 Watt): Hope-Pro-Surren, Tonhoehe folgt dem Tempo (44 Einrastpunkte x Radumdrehungen pro Sekunde, Radumfang ca. 2,3 m)
+    {const coast = v > 0.4 && s.pedal < 0.15 ? 1 : 0, f = Math.min(520, 44 * v / 2.3);
+      N.hub.o.frequency.setTargetAtTime(Math.max(12, f), t, 0.03);
+      set(N.hub, coast * (0.05 + 0.07 * Math.min(1, v / 9)), dt, coast ? 14 : 22);}
     // Bremse: hohes Quietschen bei Tempo
     set(brakeG, s.brake && v > 1.5 ? 0.025 * Math.min(1, v / 8) : 0, dt, 10);
     // Regen
