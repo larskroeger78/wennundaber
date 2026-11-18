@@ -3,7 +3,7 @@
 export const AUDIO = (() => {
   let ctx = null, master = null, noise = null, on = true, vol = 0.8, ok = false;
   const N = {};              // Dauer-Klaenge: Name -> {g: GainNode, f: BiquadFilter}
-  let rough = 0, splashBuf = null, wildT = 50 + Math.random() * 60, birdT = 3, clickAcc = 0, stoneAcc = 0, rainAcc = 0, lastSurf = 0, brakeG = null;
+  let rough = 0, splashBuf = null, deerBuf = null, boarBuf = null, wildT = 50 + Math.random() * 60, birdT = 3, clickAcc = 0, stoneAcc = 0, rainAcc = 0, lastSurf = 0, brakeG = null;
   let hubN = 72; const HUBS = [0, 32, 56, 72];   // Freilauf: aus oder Zaehnezahl der Sperrklinken-Zahnscheibe (weniger Zaehne = gröber, klickernder)
   try { const v = localStorage.getItem('miworu_snd'); if (v === '0') on = false; const h = +localStorage.getItem('miworu_hub'); if (HUBS.indexOf(h) >= 0 && localStorage.getItem('miworu_hub') !== null) hubN = h; } catch (e) {}
 
@@ -75,6 +75,12 @@ export const AUDIO = (() => {
   }
   function call(kind, vg, p) {   // Ruf eines Nachtwild-Tieres kurz vor dem Weggehen (vg 0..1 = Entfernung, p = -1..1 links/rechts)
     if (!ok || !on || vg <= 0.02) return; const t = ctx.currentTime + 0.02, d = pan(t, p || 0, vg);
+    const rb = (kind === 'boar' || kind === 'piglet') ? boarBuf : deerBuf;
+    if (rb) {   // echte Aufnahme, leise, jedes Tier ruft nur einmal (Rufe duerfen sich ueberlagern)
+      const src = ctx.createBufferSource(); src.buffer = rb;
+      src.playbackRate.value = (kind === 'piglet' ? 1.55 : kind === 'doe' ? 1.18 : kind === 'stag' ? 0.86 : 0.95 + Math.random() * 0.12) * (0.96 + Math.random() * 0.08);
+      const gg = ctx.createGain(); gg.gain.value = (rb === boarBuf ? 0.5 : 0.16) * (kind === 'piglet' ? 0.7 : 1); src.connect(gg); gg.connect(d); src.start(t); return;
+    }
     if (kind === 'boar') {   // Wildschwein: zwei, drei tiefe Grunzer, am Ende ein kurzes Quieken
       const n = 2 + (Math.random() * 2 | 0);
       for (let i = 0; i < n; i++) { const tt = t + i * 0.34, f = 80 + Math.random() * 25;
@@ -126,6 +132,8 @@ export const AUDIO = (() => {
         o.connect(hp); hp.connect(bp); bp.connect(g); g.connect(master); o.start();
         N.hub = { o, g, hp, bp }; }
       ok = true;
+      fetch('/assets/audio/hirsch.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => { deerBuf = buf; }).catch(() => {});
+      fetch('/assets/audio/wildschwein.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => { boarBuf = buf; }).catch(() => {});
       fetch('/assets/audio/pfuetze.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => { splashBuf = buf; }).catch(() => {});   // echte Pfuetzen-Aufnahme
     } catch (e) { ok = false; }
   }

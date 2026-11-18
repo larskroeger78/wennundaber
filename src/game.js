@@ -2806,11 +2806,11 @@ function wlEyeTex(){
   g.fillStyle=r;g.fillRect(0,0,64,64);return WL.eyeTex=new THREE.CanvasTexture(c);
 }
 function wlBuild(kind){
-  const mat=new THREE.MeshLambertMaterial({color:0x0d0b0a,transparent:true,opacity:0}),root=new THREE.Group(),body=new THREE.Group();root.add(body);
+  const mat=new THREE.MeshLambertMaterial({color:0x060504,transparent:true,opacity:0}),root=new THREE.Group(),body=new THREE.Group();root.add(body);
   const ell=(par,rx,ry,rz,x,y,z,rz2)=>{const m=new THREE.Mesh(new THREE.SphereGeometry(1,10,8),mat);m.scale.set(rx,ry,rz);m.position.set(x,y,z);if(rz2)m.rotation.z=rz2;par.add(m);return m;};
   const limb=(par,a,b,r0,r1)=>{const d=new THREE.Vector3(b[0]-a[0],b[1]-a[1],b[2]-a[2]),L=d.length(),m=new THREE.Mesh(new THREE.CylinderGeometry(r1,r0,L,7,1),mat);
     m.position.set((a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());par.add(m);return m;};
-  const boar=kind==='boar',stag=kind==='stag',head=new THREE.Group(),legs=[];
+  const boar=kind==='boar'||kind==='piglet',stag=kind==='stag',head=new THREE.Group(),legs=[];
   let eyeX,eyeY,eyeZ,legH,legX,legZ;
   if(boar){
     ell(body,0.62,0.34,0.32,0,0.62,0);ell(body,0.38,0.33,0.31,0.3,0.7,0);ell(body,0.4,0.3,0.28,-0.38,0.6,0);
@@ -2835,25 +2835,41 @@ function wlBuild(kind){
   body.add(head);
   legX.forEach(x=>[1,-1].forEach(z=>{const lg=new THREE.Group();lg.position.set(x,legH,z*legZ);limb(lg,[0,0,0],[0,-legH,0],boar?0.065:0.05,boar?0.035:0.022);ell(lg,0.04,0.03,0.035,0.02,-legH,0);body.add(lg);legs.push(lg);}));
   const eyes=[1,-1].map(s=>{const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:wlEyeTex(),color:boar?0xffd9a0:0xe6ffc0,blending:THREE.AdditiveBlending,transparent:true,depthWrite:false,fog:false,opacity:0}));sp.position.set(eyeX,eyeY,s*eyeZ);head.add(sp);return sp;});
-  root.scale.setScalar(kind==='doe'?0.82:1);root.visible=false;scene.add(root);
+  root.scale.setScalar(kind==='doe'?0.82:kind==='piglet'?0.4:1);root.visible=false;scene.add(root);
   return {kind:kind,g:root,body:body,head:head,legs:legs,eyes:eyes,mat:mat,boar:boar};
 }
-function wlSpawnAt(kind,s,o){
-  sample(s,wlS);const x=wlS.x-Math.cos(wlS.h)*o,z=wlS.z+Math.sin(wlS.h)*o;
+function wlPlace(kind,x,z,grp,delay){
   const pl=WL.pool[kind]||(WL.pool[kind]=[]);let T=pl.find(q=>!q.on);if(!T){T=wlBuild(kind);pl.push(T);}
-  T.on=true;T.o0=o;T.called=false;WL.list.push(T);T.x=x;T.z=z;T.t=0;T.ph='in';T.stand=4+Math.random()*6;T.speed=0;T.ph0=0;T.blink=1.5+Math.random()*3;
+  T.on=true;T.called=false;T.panic=false;T.grp=grp;WL.list.push(T);T.x=x;T.z=z;T.t=-delay;T.ph='in';T.stand=grp.stand+(Math.random()-0.5);T.speed=0;T.blink=1.5+Math.random()*3;
+  T.willCall=kind==='piglet'?Math.random()<0.5:kind==='boar'?Math.random()<0.7:true;T.callAt=Math.random()*0.9;
   T.yaw=Math.atan2(-(camera.position.z-z),camera.position.x-x)+(Math.random()-0.5)*1.1;
   T.g.position.set(x,gnd(x,z),z);T.g.rotation.y=T.yaw;T.g.visible=true;T.mat.opacity=0;return T;
 }
+function wlSpawnAt(kind,s,o){   // Einzeltier (auch fuer Tests)
+  sample(s,wlS);const x=wlS.x-Math.cos(wlS.h)*o,z=wlS.z+Math.sin(wlS.h)*o;
+  return wlPlace(kind,x,z,{stand:4+Math.random()*6,panic:false},0);
+}
+function wlSpawnGroup(kind,x,z){   // Wildschweine kommen in Rotten: 2-3 Bachen mit 2-4 Frischlingen; Hirsch/Reh einzeln oder als kleines Paar
+  const grp={stand:4+Math.random()*6,panic:false};
+  if(kind==='boar'){
+    const nb=2+((Math.random()*2)|0),np=2+((Math.random()*3)|0);
+    for(let i=0;i<nb;i++)wlPlace('boar',x+(Math.random()-0.5)*5,z+(Math.random()-0.5)*5,grp,i*0.5+Math.random()*0.6);
+    for(let i=0;i<np;i++)wlPlace('piglet',x+(Math.random()-0.5)*4,z+(Math.random()-0.5)*4,grp,0.3+Math.random()*1.4);
+  }else{
+    wlPlace(kind,x,z,grp,0);
+    if(kind==='doe'&&Math.random()<0.4)wlPlace('doe',x+2+Math.random()*2,z+(Math.random()-0.5)*3,grp,0.5);
+  }
+  return grp;
+}
 function wlSpawnTry(){
   const kinds=['boar','stag','doe','doe','stag','boar'];
-  for(let t=0;t<12;t++){
-    const s=st.pos+35+Math.random()*55;if(s>TOTAL-60)break;
+  for(let t=0;t<14;t++){
+    const s=st.pos+45+Math.random()*55;if(s>TOTAL-60)break;
     if(SURF[Math.min(N-1,Math.floor(s/SEG))]===0)continue;
-    sample(s,wlS);const o=(Math.random()<0.5?-1:1)*(6+Math.random()*10),x=wlS.x-Math.cos(wlS.h)*o,z=wlS.z+Math.sin(wlS.h)*o;   // hoechstens ~16 m vom Weg, beim Abhauen nie weiter als 30 m
+    sample(s,wlS);const o=(Math.random()<0.5?-1:1)*(10+Math.random()*7),x=wlS.x-Math.cos(wlS.h)*o,z=wlS.z+Math.sin(wlS.h)*o;   // 10-17 m vom Weg (auf Distanz), beim Wegrennen nie ueber ~30 m
     if(forestD(x,z)<0.55||inBuilding(x,z))continue;
-    if(WL.list.some(q=>Math.hypot(q.x-x,q.z-z)<25))continue;
-    wlSpawnAt(kinds[(Math.random()*kinds.length)|0],s,o);return true;
+    if(WL.list.some(q=>Math.hypot(q.x-x,q.z-z)<30))continue;
+    wlSpawnGroup(kinds[(Math.random()*kinds.length)|0],x,z);return true;
   }
   return false;
 }
@@ -2861,21 +2877,23 @@ function wlEnd(a){a.g.visible=false;a.on=false;a.eyes.forEach(e=>e.material.opac
 function wlUpdateOne(a,dt){
   const cp=camera.position;a.t+=dt;
   const dx=cp.x-a.x,dz=cp.z-a.z,dist=Math.hypot(dx,dz);
-  if(a.ph==='in'){a.mat.opacity=Math.min(1,a.t/1.6);if(a.t>=1.6)a.ph='stand';}
+  if(dist<10)a.grp.panic=true;   // naeher als 10 m: die ganze Rotte haut sofort ab
+  if(a.ph==='in'){a.mat.opacity=Math.max(0,Math.min(1,a.t/1.8));if(a.t>=1.8)a.ph='stand';if(a.grp.panic&&a.t>0){a.panic=true;a.ph='go';a.gt=0;a.speed=a.boar?6.5:6;a.away=Math.atan2(dz,-dx)+(Math.random()-0.5)*0.9;}}
   else if(a.ph==='stand'||a.ph==='call'){
     a.mat.opacity=1;
     const want=Math.atan2(-dz,dx);let d=want-a.yaw;d=Math.atan2(Math.sin(d),Math.cos(d));a.yaw+=Math.max(-1.1*dt,Math.min(1.1*dt,d*0.8));   // schaut dem Fahrer nach
-    if(a.ph==='stand'&&(a.t>1.6+a.stand||dist<14||dist>110)){
-      a.ph='call';a.ct=0;
-      const me=camera.matrixWorld.elements,pn=Math.max(-1,Math.min(1,((a.x-cp.x)*me[0]+(a.z-cp.z)*me[2])/Math.max(8,dist)));
-      AUDIO.call(a.kind,Math.max(0,Math.min(1,1.15-dist/110)),pn);
+    if(a.grp.panic){a.panic=true;a.ph='go';a.gt=0;a.speed=a.boar?6.5:6;a.away=Math.atan2(dz,-dx)+(Math.random()-0.5)*0.9;}
+    else if(a.ph==='stand'&&(a.t>1.8+a.stand||dist>110)){a.ph='call';a.ct=0;}
+    if(a.ph==='call'){
+      a.ct+=dt;
+      if(!a.called&&a.ct>=a.callAt){a.called=true;if(a.willCall){const me=camera.matrixWorld.elements,pn=Math.max(-1,Math.min(1,((a.x-cp.x)*me[0]+(a.z-cp.z)*me[2])/Math.max(8,dist)));AUDIO.call(a.kind,Math.max(0,Math.min(1,1.15-dist/110)),pn);}}   // jedes Tier ruft hoechstens einmal, leise
+      if(a.ct>(a.kind==='stag'?2.1:1.7)){a.ph='go';a.gt=0;a.speed=a.boar?4.6:4.2;a.away=Math.atan2(dz,-dx)+(Math.random()-0.5)*0.9;}
     }
-    if(a.ph==='call'){a.ct+=dt;if(a.ct>(a.kind==='stag'?2.1:a.kind==='boar'?1.3:1.5)||dist<8){a.ph='go';a.gt=0;a.speed=a.boar?5.5:4.2;a.away=Math.atan2(dz,-dx)+(Math.random()-0.5)*0.9;}}
   }else{
-    a.gt+=dt;let d=a.away-a.yaw;d=Math.atan2(Math.sin(d),Math.cos(d));a.yaw+=Math.max(-3*dt,Math.min(3*dt,d*2));
+    a.gt+=dt;let d=a.away-a.yaw;d=Math.atan2(Math.sin(d),Math.cos(d));a.yaw+=Math.max(-3.5*dt,Math.min(3.5*dt,d*2.5));
     a.x+=Math.cos(a.yaw)*a.speed*dt;a.z-=Math.sin(a.yaw)*a.speed*dt;
-    a.mat.opacity=Math.max(0,1-Math.max(0,a.gt-0.6)/1.4);
-    if(a.gt>2.2){wlEnd(a);return;}
+    a.mat.opacity=a.panic?Math.max(0,1-Math.max(0,a.gt-0.15)/0.95):Math.max(0,1-Math.max(0,a.gt-0.6)/1.4);   // verschwinden in der Dunkelheit
+    if(a.gt>(a.panic?1.3:2.2)){wlEnd(a);return;}
   }
   const moving=a.ph==='go',sw=moving?Math.sin(a.t*11)*0.55:0;
   a.g.position.set(a.x,gnd(a.x,a.z),a.z);a.g.rotation.y=a.yaw;
@@ -2899,8 +2917,8 @@ function updateWildlife(dt){
   WL.list.slice().forEach(a=>wlUpdateOne(a,dt));
   WL.wait-=dt;
   if(WL.wait>0||st.v<2||st.lift)return;
-  if(WL.list.length>=2){WL.wait=4;return;}
-  if(wlSpawnTry())WL.wait=(WL.list.length<2&&Math.random()<0.3)?3+Math.random()*5:14+Math.random()*30;   // oefter: alle ~15-45 s, manchmal zwei kurz nacheinander
+  const ng=new Set(WL.list.map(q=>q.grp)).size;if(ng>=2){WL.wait=4;return;}
+  if(wlSpawnTry())WL.wait=(ng<1&&Math.random()<0.3)?3+Math.random()*5:14+Math.random()*30;   // oefter: alle ~15-45 s, manchmal zwei kurz nacheinander
   else WL.wait=3;
 }
 function updateVans(dt){   // fahrende Autos: kommen entgegen, bremsen rechtzeitig bis zum Stand und warten, bis der Fahrer vorbei ist. Nie Kontakt.
