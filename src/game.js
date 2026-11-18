@@ -49,7 +49,7 @@ const _OK=!!RT&&!RT.custom;
 const [GEL_RAW,OSM_RAW,LOD2_RAW,CAN_RAW,R1_RAW,OBJ_RAW,DOP_RAW,SURF_RAW,STR_RAW]=await Promise.all([LZ(GEL_F,'gelaende.json'),_OK?LZ(OSM_F,'umgebung.json'):null,_OK?LZ(LOD2_F,'lod2.json'):null,_OK?LZ(CAN_F,'canopy.json'):null,_OK?LZ(R1_F,'dgm1.json'):null,_OK?LZ(OBJ_F,'objekte.json'):null,_OK?LZ(DOP_J,'dop.json'):null,
   (async()=>{if(!RT)return null;const ov=Object.keys(SURF_FILES).find(k=>k.indexOf('/'+RT.surf+'.surf')>=0);if(!ov)return null;const m=await SURF_FILES[ov]();return m.default||m;})(),_OK?LZ(STR_F,'strassen.json'):null]);
 const FERN_RAW=(_OK&&RT.alp)?await LZ(FERN_F,'fern.json'):null;   // grobes Fernmodell fuers Bergpanorama
-const LIFTS=(_OK?await LZ(LIF_F,'lifte.json'):null)||[];   // Liftfahrten (Index-Bereiche im 2-m-Raster): werden uebersprungen
+let LIFTS=(_OK?await LZ(LIF_F,'lifte.json'):null)||[];   // Liftfahrten (Index-Bereiche im 2-m-Raster): werden uebersprungen
 const GEL=(()=>{
   if(!GEL_RAW)return null;
   const g=GEL_RAW,bin=atob(g.dm),u=new Uint8Array(bin.length);
@@ -279,6 +279,10 @@ function buildField(){
   splat(S1,T1,55);splat(S2,T2,220);
   let s1m=0,s2m=0;for(let k=0;k<S1.length;k++){s1m=Math.max(s1m,S1[k]);s2m=Math.max(s2m,S2[k]);}
   return {ox:ox,oz:oz,nx:nx,nz:nz,G:G,S1:S1,T1:T1,S2:S2,T2:T2,s1m:s1m,s2m:s2m};
+}
+if(LIFTS.length&&LIFTS[0].ax!==undefined){   // Liftbereiche per Lage auf die (geglaettete, etwas kuerzere) Spielstrecke uebertragen
+  const R0=Math.max(1,(MITT.pts?MITT.pts.length:N)-1),near=(x,z,y,est)=>{let bi=est,bd=1e12;for(let i=Math.max(0,est-900);i<=Math.min(N,est+900);i++){const dx=PX[i]-x,dz=PZ[i]-z,dy=(PY[i]-y)*0.6,d=dx*dx+dz*dz+dy*dy;if(d<bd){bd=d;bi=i;}}return bi;};
+  LIFTS=LIFTS.map(l=>{const a=l.a===0?0:near(l.ax,l.az,l.ay,Math.round(l.a*N/R0)),b=near(l.bx,l.bz,l.by,Math.round(l.b*N/R0));return Object.assign({},l,{a:a,b:Math.max(b,a+10)});});
 }
 const FG=ROUTE?buildField():null;
 function fld(a,x,z){
@@ -2862,7 +2866,7 @@ function loop(now){
   update(dt);render(dt,now);
   requestAnimationFrame(loop);
 }
-window.__dbg={forestD:forestD,splash:splashDrops,PUDH:PUDH,AUDIO:AUDIO,renderer:renderer,scene:scene,SHK:SHK,BUMPS:BUMPS,gnd:gnd,HS:HS,PX:PX,PZ:PZ,HW:HW,KV:KV,ROUTE:ROUTE,SURF:SURF,cam:camera,joggers:joggers,groundY:groundY,TABS:TABS,tabH:tabH,get st(){return st;},set pos(v){st.pos=v;camInit=false;},N:N,TOTAL:TOTAL,iTrail:iTrail,SEC:SEC,PY:PY,GR:GR,forestD:forestD,lu:(k,x,z)=>LU?lu(LU[k],x,z):-1};
+window.__dbg={get LIFTS(){return LIFTS;},forestD:forestD,splash:splashDrops,PUDH:PUDH,AUDIO:AUDIO,renderer:renderer,scene:scene,SHK:SHK,BUMPS:BUMPS,gnd:gnd,HS:HS,PX:PX,PZ:PZ,HW:HW,KV:KV,ROUTE:ROUTE,SURF:SURF,cam:camera,joggers:joggers,groundY:groundY,TABS:TABS,tabH:tabH,get st(){return st;},set pos(v){st.pos=v;camInit=false;},N:N,TOTAL:TOTAL,iTrail:iTrail,SEC:SEC,PY:PY,GR:GR,forestD:forestD,lu:(k,x,z)=>LU?lu(LU[k],x,z):-1};
 if(SAVED)menu('Weiterfahren bei '+(SAVED.pos/1000).toFixed(2).replace('.',',')+' km','Gespeicherte Fahrt · '+fmtT(SAVED.t));else menu('Start');
 if(location.hash==='#go'&&!PAYWALL)start();
 if(PAYWALL)showUnlock(PAYWALL);

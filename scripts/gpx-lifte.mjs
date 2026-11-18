@@ -22,6 +22,8 @@ const m = [];                                                        // Lücken 
 for (const r of runs) { const l = m.at(-1); if (l && cum[r[0]] - cum[l[1]] < 150) l[1] = r[1]; else m.push([...r]); }
 const L = m.filter(r => cum[r[1]] - cum[r[0]] > 150).map(r => ({
   a: cum[r[0]] < 50 ? 0 : Math.floor(cum[r[0]] / 2), b: Math.ceil(cum[r[1]] / 2),           // Index im 2-m-Raster
+  ax: +((pts[r[0]].lo - R.origin[1]) * KX).toFixed(1), az: -+((pts[r[0]].la - R.origin[0]) * KY).toFixed(1), ay: +(pts[r[0]].e - (R.nhn0 || 0)).toFixed(1),   // Lage in Spielkoordinaten (x Ost, z = -Nord, y = Hoehe - nhn0)
+  bx: +((pts[r[1]].lo - R.origin[1]) * KX).toFixed(1), bz: -+((pts[r[1]].la - R.origin[0]) * KY).toFixed(1), by: +(pts[r[1]].e - (R.nhn0 || 0)).toFixed(1),
   hm: Math.round(pts[r[1]].e - pts[r[0]].e), sek: Math.round(pts[r[1]].t - pts[r[0]].t), m: Math.round(cum[r[1]] - cum[r[0]]),
 }));
 fs.writeFileSync(new URL(`../src/routes/${name}.lifte.json`, import.meta.url), JSON.stringify(L));
