@@ -937,6 +937,8 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
     if(SURF[i]===0&&i%11===0&&[-9,9,-16,16].some(q=>inBuilding(PX[i]+rx*q,PZ[i]+rz*q))){const o=(HW[i]+2.7)*((i/11|0)%2?1:-1),x=PX[i]+rx*o,z=PZ[i]+rz*o;if(clearOf(x,z,0.6))addTree(x,z,0.8);}   // Strassenbaeume in bebauten Abschnitten
     if(fd>0.3&&rnd()<0.1*open){const o=(HW[i]+1.4+rnd()*4.5)*(rnd()<0.5?-1:1),x=PX[i]+rx*o,z=PZ[i]+rz*o;if(clearOf(x,z,0.4))bushes.push({x:x,y:gnd(x,z)-0.1,z:z,w:0.9+rnd()*1.4,h:0.6+rnd()*1.0});}   // Brombeere/Hasel
   }}
+  // OSM-Einzelbaeume (natural=tree, tree_row) auf allen Strecken
+  if(typeof OBJ_RAW!=='undefined'&&OBJ_RAW&&ROUTE&&!CUS)OBJ_RAW.nodes.forEach(n=>{if(n[0]!=='tree')return;const x=n[1],z=n[2];if(clearOf(x,z,0.3))addTree(x,z,0.8+rnd()*0.35);});
   // Wegränder Uphill
   for(let i=0;i<iTrail&&!ROUTE;i++){
     const h=HS[i],rx=-Math.cos(h),rz=Math.sin(h);
@@ -2240,6 +2242,28 @@ function updateTiles(cp){   // weit entfernte Kacheln nicht zeichnen, Schatten n
         const f=nearest(allHash,o.x,o.z),nd=f?nD:99;if(f&&nd<hrAt(nI)*0.9)return;   // nicht auf der Strecke selbst
         const r=o.w/2*1.12+0.2,M2=22,y=G(o.x,o.z)+0.125;
         for(let m=0;m<M2;m++){const a0=m/M2*6.2832,a1=(m+1)/M2*6.2832;[[o.x,o.z,y],[o.x+Math.cos(a0)*r,o.z+Math.sin(a0)*r,G(o.x+Math.cos(a0)*r,o.z+Math.sin(a0)*r)+0.125],[o.x+Math.cos(a1)*r,o.z+Math.sin(a1)*r,G(o.x+Math.cos(a1)*r,o.z+Math.sin(a1)*r)+0.125]].forEach(v=>{RP.push(v[0],v[2],v[1]);RC.push(0.11,0.115,0.12);});}});
+    }
+    {   // Ampeln, Fussgaengeruebergaenge (Zebrastreifen) und Bushaltestellen: an der naechsten echten Strasse ausgerichtet
+      const roadNear=(x,z,maxd)=>{let best=null,bd=maxd;
+        roadSegs.forEach(L=>{const e=L[2]||{};if(e.u||e.br||/^(footway|cycleway|path|track|pedestrian|service)$/.test(e.h||''))return;const q=L[1];
+          for(let i=0;i+3<q.length;i+=2){const ax=q[i],az=q[i+1],bx=q[i+2],bz=q[i+3],dx=bx-ax,dz=bz-az,l2=dx*dx+dz*dz||1,t=clamp(((x-ax)*dx+(z-az)*dz)/l2,0,1),px=ax+dx*t,pz=az+dz*t,d=Math.hypot(x-px,z-pz);
+            if(d<bd){bd=d;const l=Math.sqrt(l2);best={d:d,px:px,pz:pz,ux:dx/l,uz:dz/l,w:e.w||6,h:e.h};}}});
+        return best;};
+      O.nodes.forEach(n=>{const k=n[0];if(k!=='signal'&&k!=='xing'&&k!=='busstop')return;const r=roadNear(n[1],n[2],k==='xing'?4:14);if(!r)return;
+        if(nearest(allHash,r.px,r.pz)&&nD<(HW[nI]||2)+0.9)return;   // nicht auf der Strecke selbst
+        const nx=-r.uz,nz=r.ux,y=G(r.px,r.pz);
+        if(k==='xing'){if(n[3]!==1&&!/^(primary|secondary|tertiary|trunk|unclassified)$/.test(r.h||''))return;
+          const w=r.w,ang=Math.atan2(r.ux,r.uz)-Math.PI/2;
+          for(let o=-w/2+0.5;o<=w/2-0.45;o+=1.0){const cx=r.px+nx*o,cz=r.pz+nz*o;flat(cx-r.ux*1.6,cz-r.uz*1.6,cx+r.ux*1.6,cz+r.uz*1.6,0.5,[0.9,0.9,0.86],G(cx-r.ux*1.6,cz-r.uz*1.6)+0.17,G(cx+r.ux*1.6,cz+r.uz*1.6)+0.17);}
+          // Haltelinien vor dem Uebergang
+          [-1,1].forEach(sg=>{const ox=r.px+r.ux*sg*3.2,oz=r.pz+r.uz*sg*3.2;flat(ox-nx*(w/2-0.2),oz-nz*(w/2-0.2),ox+nx*(w/2-0.2),oz+nz*(w/2-0.2),0.35,[0.88,0.88,0.84],G(ox,oz)+0.17,G(ox,oz)+0.17);});
+          return;}
+        const side=(((n[1]*7.3+n[2]*3.1)|0)%2)?1:-1,ox=r.px+nx*side*(r.w/2+0.9),oz=r.pz+nz*side*(r.w/2+0.9),oy=G(ox,oz),face=Math.atan2(-nx*side,-nz*side);
+        if(k==='signal'){   // Ampelmast mit dreifeldigem Signalgeber (rot/gelb/gruen), Blickrichtung zur Fahrbahn
+          box(ox,oy+1.75,oz,0.14,3.5,0.14,0,0x3b3d40);box(ox-nx*side*0.3,oy+3.2,oz-nz*side*0.3,0.34,1.05,0.28,face,0x232527);
+          [[2.95,0xd23a2e],[3.2,0xe0b030],[3.45,0x3aa84a]].forEach(c=>box(ox-nx*side*0.46,oy+c[0],oz-nz*side*0.46,0.2,0.2,0.04,face,c[1]));}
+        else{box(ox,oy+1.4,oz,0.07,2.8,0.07,0,0x5a5d60);box(ox,oy+2.7,oz,0.55,0.55,0.05,face,0xf2c500);box(ox,oy+2.7,oz,0.12,0.3,0.06,face,0x1b5e2a);}   // Haltestellenschild (gelb, grosses H)
+      });
     }
     parkSegs.forEach(L=>{   // Parkplaetze (OSM amenity=parking): Flaeche aus Asphalt/Schotter, Randstein und Stellplatzlinien
       const q=L[1],ex=L[2]||{},n=q.length/2;if(n<4)return;
