@@ -20,6 +20,14 @@ let runs = [], s = -1;
 for (let i = 0; i <= pts.length; i++) { if (flag[i] && s < 0) s = i; if (!flag[i] && s >= 0) { runs.push([s, i - 1]); s = -1; } }
 const m = [];                                                        // Lücken < 150 m verschmelzen
 for (const r of runs) { const l = m.at(-1); if (l && cum[r[0]] - cum[l[1]] < 150) l[1] = r[1]; else m.push([...r]); }
+// Talstation: Wartezeit/Anstehen und die langsame Anfahrt gehoeren zum Lift (rueckwaerts, solange es langsamer als ~4,8 m/s ist, max. 400 m)
+const vAt = (m0, len) => { const i = cum.findIndex(c => c >= m0), j = cum.findIndex(c => c >= m0 + len); if (i < 0 || j < 0 || !pts[i].t || !pts[j].t) return 99; const dt = pts[j].t - pts[i].t; return dt > 0 ? (cum[j] - cum[i]) / dt : 0; };
+for (const r of m) {
+  if (cum[r[0]] < 450) continue;
+  let ms = cum[r[0]];
+  for (let q = cum[r[0]] - 20; q >= cum[r[0]] - 400 && q > 0; q -= 20) { if (vAt(q, 60) < 4.8) ms = q; else break; }
+  r[0] = Math.max(0, cum.findIndex(c => c >= ms));
+}
 const L = m.filter(r => cum[r[1]] - cum[r[0]] > 150).map(r => ({
   a: cum[r[0]] < 50 ? 0 : Math.floor(cum[r[0]] / 2), b: Math.ceil(cum[r[1]] / 2),           // Index im 2-m-Raster
   ax: +((pts[r[0]].lo - R.origin[1]) * KX).toFixed(1), az: -+((pts[r[0]].la - R.origin[0]) * KY).toFixed(1), ay: +(pts[r[0]].e - (R.nhn0 || 0)).toFixed(1),   // Lage in Spielkoordinaten (x Ost, z = -Nord, y = Hoehe - nhn0)
