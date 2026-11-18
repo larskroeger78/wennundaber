@@ -33,7 +33,7 @@ if(CUSTOM)ROUTES[RKEY]={data:CUSTOM,label:CUSTOM.name||'Eigene Strecke',surf:'__
 try{listRoutes().forEach(e=>{const nm=String(e.name||'').trim().toLowerCase();if(e.id!==GPX_ID&&['hagen','iserlohn','wuppertal','miworu','hemer','buellberg','dortmund'].indexOf(nm)>=0)deleteRoute(e.id);});}catch(e){}
 const RT=RKEY==='halde'?null:(ROUTES[RKEY]||ROUTES.tour2);   // Standard: die Tour vom 5.10.2022; andere Strecken nur noch per URL (?route=halde|mittwoch) für Entwicklung
 const ROUTE=!!RT,MITT=RT?RT.data:MITT1;
-const MW=!!RT&&RT.dem==='miworu';   // Bergkamen: zuerst hier gibt es Feinschliff (Unterwuchs, Wegzustand, Waldausstattung)
+const MW=!!RT&&!RT.custom&&!!RT.dem;   // feste Strecken mit Geländedaten: Feinschliff (Unterwuchs, Wegzustand, Fassaden, Autos, Nightride, Nachbearbeitung)
 // Echtes Geländemodell (DGM1 NRW, per npm run terrain erzeugt): Höhenraster in Dezimetern
 const TERR=[];   // Gelaendekacheln (fuer die Bodenhoehe der Autos)
 const BOOT=(t,p)=>{const m=document.getElementById('bootmsg'),b=document.querySelector('#bootbar i');if(m)m.textContent=t;if(b&&p!==undefined)b.style.width=p+'%';return new Promise(r=>requestAnimationFrame(()=>setTimeout(r,0)));};
@@ -1688,10 +1688,11 @@ if(OSM){
     };
     let curTop=0;const pushT=(arr,carr,V,t,col,sh)=>{t.forEach(tr=>tr.forEach(k=>{arr.push(V[k][0],V[k][1],V[k][2]);carr.push(col.r*sh,col.g*sh,col.b*sh);if(arr===wP){wT.push(curTop);wU.push(curU0);wLn.push(curL);}else if(arr===wP2)wT2.push(curTop);}));};
     const flatC=new THREE.Color(0x5f5c59);
+    const RSG=new Map(),RK=(x,z)=>Math.floor(x/60)*100000+Math.floor(z/60);ROADSEG.forEach(r=>{const x0=Math.floor((Math.min(r[0],r[2])-60)/60),x1=Math.floor((Math.max(r[0],r[2])+60)/60),z0=Math.floor((Math.min(r[1],r[3])-60)/60),z1=Math.floor((Math.max(r[1],r[3])+60)/60);if((x1-x0+1)*(z1-z0+1)>400)return;for(let a=x0;a<=x1;a++)for(let c=z0;c<=z1;c++){const k=a*100000+c;(RSG.get(k)||RSG.set(k,[]).get(k)).push(r);}});
     const houseExtras=(Hh,pitched)=>{   // Tuer zur Strasse, Stufe, Vordach, Schornstein, Muelltonnen, Vorgartenhecke
       const cx=Hh.cx,cz=Hh.cz;let bx=0,bz=0,bd=60;(window.__hc=window.__hc||[]).push(cx,cz);
       {const f=nearest(allHash,cx,cz);if(f&&nD<bd){bd=nD;bx=PX[nI];bz=PZ[nI];}}
-      for(let i=0;i<ROADSEG.length;i++){const r=ROADSEG[i],dx=r[2]-r[0],dz=r[3]-r[1],l2=dx*dx+dz*dz||1,t=clamp(((cx-r[0])*dx+(cz-r[1])*dz)/l2,0,1),px=r[0]+dx*t,pz=r[1]+dz*t,d=Math.hypot(cx-px,cz-pz);if(d<bd){bd=d;bx=px;bz=pz;}}
+      const RL=RSG.get(RK(cx,cz))||[];for(let i=0;i<RL.length;i++){const r=RL[i],dx=r[2]-r[0],dz=r[3]-r[1],l2=dx*dx+dz*dz||1,t=clamp(((cx-r[0])*dx+(cz-r[1])*dz)/l2,0,1),px=r[0]+dx*t,pz=r[1]+dz*t,d=Math.hypot(cx-px,cz-pz);if(d<bd){bd=d;bx=px;bz=pz;}}
       if(bd>=60)return;
       const vx=(bx-cx)/(bd||1),vz=(bz-cz)/(bd||1);let best=null,bs=0.55;
       Hh.faces.forEach(f=>{const sc=f.nx*vx+f.nz*vz;if(sc>bs&&f.L>=5){bs=sc;best=f;}});
@@ -1850,7 +1851,7 @@ function applyWXOther(){   // Strecken ohne Sonnenstand-Modell: Himmel/Dunst gra
   else{scene.background=HDRTEX||HORIZON;scene.fog.color.copy(WXB.fog);sky.visible=!HDRTEX;sun.intensity=WXB.sun;hemi.intensity=WXB.hemi;}
   scene.fog.density=[0,0.0009,0.00055,0.0004][QE()]*[1,5,2.2][WX];
 }
-const WXPOS={miworu:[51.617,7.633],hemer:[51.38,7.77],iserlohn:[51.37,7.70],hagen:[51.36,7.47],wuppertal:[51.27,7.2]};
+const WXPOS={miworu:[51.62,7.62],hagen:[51.34,7.45],buellberg:[51.38,7.32],dortmund:[51.42,7.47],hemer:[51.36,7.79],iserlohn:[51.36,7.69],wuppertal:[51.22,7.11]};
 const WXL=()=>WXLIVE?'Live'+(WXLIVEOK?' · '+WXN[WX]:' …'):'Aus';
 function wxApply(){if(BK)applySun(true);else applyWXOther();applyQ();}
 async function wxFetch(){
