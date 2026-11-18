@@ -122,3 +122,11 @@ body.night #cockpit{filter:brightness(.55) saturate(.85)}
 .unlock #upp{margin-top:10px}
 .unlock .ulinks a{color:#f5a524}
 @media (pointer:coarse){body.fpv #prof{top:16px}}   /* iPad: Tasten stehen schon unter dem Profil */
+
+#lift{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:#05080c;opacity:0;pointer-events:none;transition:opacity 1.2s ease;color:#e9eef4;text-align:center}
+#lift.on{opacity:1}
+#lift.out{opacity:0;transition:opacity 1.2s ease}
+#lift .lt{display:flex;flex-direction:column;gap:8px;align-items:center}
+#lift .li{font-size:54px}
+#lift b{font-size:34px;letter-spacing:.08em;text-transform:uppercase}
+#lift i{font-style:normal;font-size:20px;opacity:.8}

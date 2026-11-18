@@ -22,11 +22,12 @@ import ISE from './routes/iserlohn.json';
 import HEM from './routes/hemer.json';
 import HAG from './routes/hagen.json';
 import DOR from './routes/dortmund.json';
+import ALP from './routes/alpen.json';
 import { parseGpx, listRoutes, loadRoute, saveRoute, renameRoute, deleteRoute } from './gpx.js';
 import { LOCKED, hasPass, checkPass, redeem, payConfig, loadPayPal, payCreate, payCapture } from './unlock.js';
 const SURF_FILES=import.meta.glob('./routes/*.surf.json');   // Streckendaten werden pro Strecke nachgeladen (nicht mehr alle im Startpaket)
 // Strecke: Standard ist die Tour vom 5.10.2022 (komoot-GPX); ?route=mittwoch bzw. ?route=halde nur zum Entwickeln
-const ROUTES={mittwoch:{data:MITT1,label:'Mittwochsrunde',surf:'mittwochsrunde',btn:'Mittwochsrunde'},tour2:{data:MIW,label:'MIWORU',surf:'miworu',btn:'MIWORU',nhn0:MIW.nhn0,place:'Bergkamen',dem:'miworu'},wuppertal:{data:WUP,label:'Wupfeld',surf:'wuppertal',btn:'Wupfeld',nhn0:WUP.nhn0,place:'Wupfeld',dem:'wuppertal'},hagen:{data:HAG,label:'Hagmoor',surf:'hagen',btn:'Hagmoor',nhn0:HAG.nhn0,place:'Hagmoor',dem:'hagen'},iserlohn:{data:ISE,label:'Isehorst',surf:'iserlohn',btn:'Isehorst',nhn0:ISE.nhn0,place:'Isehorst',dem:'iserlohn'},hemer:{data:HEM,label:'Hemstein',surf:'hemer',btn:'Hemstein',nhn0:HEM.nhn0,place:'Hemstein',dem:'hemer'},buellberg:{data:BUE,label:'Bölkamp',surf:'buellberg',btn:'Bölkamp',nhn0:BUE.nhn0,place:'Bölkamp',dem:'buellberg'},dortmund:{data:DOR,label:'Dorbach',surf:'dortmund',btn:'Dorbach',nhn0:DOR.nhn0,place:'Dorbach',dem:'dortmund'}};
+const ROUTES={mittwoch:{data:MITT1,label:'Mittwochsrunde',surf:'mittwochsrunde',btn:'Mittwochsrunde'},tour2:{data:MIW,label:'MIWORU',surf:'miworu',btn:'MIWORU',nhn0:MIW.nhn0,place:'Bergkamen',dem:'miworu'},wuppertal:{data:WUP,label:'Wupfeld',surf:'wuppertal',btn:'Wupfeld',nhn0:WUP.nhn0,place:'Wupfeld',dem:'wuppertal'},hagen:{data:HAG,label:'Hagmoor',surf:'hagen',btn:'Hagmoor',nhn0:HAG.nhn0,place:'Hagmoor',dem:'hagen'},iserlohn:{data:ISE,label:'Isehorst',surf:'iserlohn',btn:'Isehorst',nhn0:ISE.nhn0,place:'Isehorst',dem:'iserlohn'},hemer:{data:HEM,label:'Hemstein',surf:'hemer',btn:'Hemstein',nhn0:HEM.nhn0,place:'Hemstein',dem:'hemer'},buellberg:{data:BUE,label:'Bölkamp',surf:'buellberg',btn:'Bölkamp',nhn0:BUE.nhn0,place:'Bölkamp',dem:'buellberg'},dortmund:{data:DOR,label:'Dorbach',surf:'dortmund',btn:'Dorbach',nhn0:DOR.nhn0,place:'Dorbach',dem:'dortmund'},alpen:{data:ALP,label:'Obergrat',surf:'alpen',btn:'Obergrat',nhn0:ALP.nhn0,place:'Obergrat',dem:'alpen',alp:true}};
 let RKEY=new URLSearchParams(location.search).get('route');
 let PAYWALL=null;   // gewuenschte, noch gesperrte Strecke: es startet MIWORU und das Freischalt-Fenster oeffnet sich
 if(LOCKED.indexOf(RKEY)>=0&&!(await checkPass())){PAYWALL=RKEY;RKEY=null;}
@@ -41,12 +42,14 @@ const MW=!!RT&&!RT.custom&&!!RT.dem;   // feste Strecken mit Geländedaten: Fein
 const TERR=[];   // Gelaendekacheln (fuer die Bodenhoehe der Autos)
 const BOOT=(t,p)=>{const m=document.getElementById('bootmsg'),b=document.querySelector('#bootbar i');if(m)m.textContent=t;if(b&&p!==undefined)b.style.width=p+'%';return new Promise(r=>requestAnimationFrame(()=>setTimeout(r,0)));};
 await BOOT('Lade Streckendaten …',5);
-const GEL_F=import.meta.glob('./routes/*gelaende.json'),OSM_F=import.meta.glob('./routes/*umgebung.json'),LOD2_F=import.meta.glob('./routes/*.lod2.json'),CAN_F=import.meta.glob('./routes/*.canopy.json'),R1_F=import.meta.glob('./routes/*.dgm1.json'),STR_F=import.meta.glob('./routes/*.strassen.json'),OBJ_F=import.meta.glob('./routes/*.objekte.json'),DOP_J=import.meta.glob('./routes/*.dop.json'),DOP_I=import.meta.glob('./routes/*.dop-*.jpg',{eager:true,query:'?url',import:'default'});
+const GEL_F=import.meta.glob('./routes/*gelaende.json'),OSM_F=import.meta.glob('./routes/*umgebung.json'),LOD2_F=import.meta.glob('./routes/*.lod2.json'),CAN_F=import.meta.glob('./routes/*.canopy.json'),R1_F=import.meta.glob('./routes/*.dgm1.json'),STR_F=import.meta.glob('./routes/*.strassen.json'),OBJ_F=import.meta.glob('./routes/*.objekte.json'),LIF_F=import.meta.glob('./routes/*.lifte.json'),FERN_F=import.meta.glob('./routes/*.fern.json'),DOP_J=import.meta.glob('./routes/*.dop.json'),DOP_I=import.meta.glob('./routes/*.dop-*.jpg',{eager:true,query:'?url',import:'default'});
 const DATA_KEY=(F,_,ext)=>Object.keys(F).find(k=>k.split('/').pop()===((RT&&RT.dem)?RT.dem+'.'+ext:ext));   // Standard: gelaende.json / umgebung.json; eigene Strecken: <name>.gelaende.json / <name>.umgebung.json
 const LZ=async(F,ext)=>{const k=DATA_KEY(F,0,ext);if(!k)return null;const m=await F[k]();return m.default||m;};
 const _OK=!!RT&&!RT.custom;
 const [GEL_RAW,OSM_RAW,LOD2_RAW,CAN_RAW,R1_RAW,OBJ_RAW,DOP_RAW,SURF_RAW,STR_RAW]=await Promise.all([LZ(GEL_F,'gelaende.json'),_OK?LZ(OSM_F,'umgebung.json'):null,_OK?LZ(LOD2_F,'lod2.json'):null,_OK?LZ(CAN_F,'canopy.json'):null,_OK?LZ(R1_F,'dgm1.json'):null,_OK?LZ(OBJ_F,'objekte.json'):null,_OK?LZ(DOP_J,'dop.json'):null,
   (async()=>{if(!RT)return null;const ov=Object.keys(SURF_FILES).find(k=>k.indexOf('/'+RT.surf+'.surf')>=0);if(!ov)return null;const m=await SURF_FILES[ov]();return m.default||m;})(),_OK?LZ(STR_F,'strassen.json'):null]);
+const FERN_RAW=(_OK&&RT.alp)?await LZ(FERN_F,'fern.json'):null;   // grobes Fernmodell fuers Bergpanorama
+const LIFTS=(_OK?await LZ(LIF_F,'lifte.json'):null)||[];   // Liftfahrten (Index-Bereiche im 2-m-Raster): werden uebersprungen
 const GEL=(()=>{
   if(!GEL_RAW)return null;
   const g=GEL_RAW,bin=atob(g.dm),u=new Uint8Array(bin.length);
@@ -377,7 +380,7 @@ const scene=new THREE.Scene();
 const HORIZON=new THREE.Color(0.62,0.74,0.86);
 scene.background=HORIZON;
 scene.fog=new THREE.FogExp2(HORIZON,0.00055);
-const camera=new THREE.PerspectiveCamera(64,16/9,0.4,6000);
+const camera=new THREE.PerspectiveCamera(64,16/9,0.4,(RT&&RT.alp)?18000:6000);
 const BK=!!RT&&!RT.custom&&!!RT.dem;   // feste Strecken: Sonnenstand nach Uhrzeit, fliegende Voegel
 const SUN=new THREE.Vector3(-0.55,0.62,0.42).normalize();
 const hemi=new THREE.HemisphereLight(new THREE.Color(0.72,0.84,1.0),new THREE.Color(0.34,0.31,0.22),0.75);scene.add(hemi);
@@ -404,7 +407,7 @@ const QE=()=>quality>1?3:1;   // Mittel und Hoch teilen die Aufloesung/Sichtweit
 function applyQ(){
   const dpr=window.devicePixelRatio||1;
   renderer.setPixelRatio([0,Math.min(dpr,0.7),Math.min(dpr,1.25),Math.max(Math.min(dpr,2),1.5)][QE()]);   // Niedrig bewusst weich, Hoch mit Supersampling
-  scene.fog.density=[0,0.0009,0.00055,0.0004][QE()]*[1,5,2.2][WX]*(NIGHT?1.35:1);                                                        // Niedrig: naeher Dunst, spart Fernsicht
+  scene.fog.density=[0,0.0009,0.00055,0.0004][QE()]*[1,5,2.2][WX]*(NIGHT?1.35:1)*((RT&&RT.alp)?0.32:1);                                                        // Niedrig: naeher Dunst, spart Fernsicht
   sun.castShadow=quality>1&&!NIGHT;if(NT.lamp)NT.lamp.castShadow=NIGHT&&quality>1;if(GRS)GRS.visible=quality>1;                                                       // Niedrig: keine Schatten, kein Gras
   const sz=[0,1024,2048,4096][QE()];
   if(sun.shadow.mapSize.x!==sz){sun.shadow.mapSize.set(sz,sz);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null;}}
@@ -438,7 +441,7 @@ function fxSetup(){
 fxSetup();
 
 // ================= Himmel =================
-const sky=new THREE.Mesh(new THREE.SphereGeometry(4500,32,16),new THREE.ShaderMaterial({
+const sky=new THREE.Mesh(new THREE.SphereGeometry((RT&&RT.alp)?16000:4500,32,16),new THREE.ShaderMaterial({
   side:THREE.BackSide,depthWrite:false,fog:false,
   uniforms:{sunDir:{value:SUN},time:{value:0},zenCol:{value:new THREE.Vector3(0.10,0.27,0.60)},horCol:{value:new THREE.Vector3(0.62,0.74,0.86)},sunCol:{value:new THREE.Vector3(1.0,0.85,0.6)},cloudTint:{value:new THREE.Vector3(1,1,1)}},
   vertexShader:'varying vec3 vDir;void main(){vDir=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
@@ -560,7 +563,7 @@ function applySun(force){
     sun.intensity*=WX===1?0.42:0.3;hemi.intensity*=WX===1?1.15:0.95;
   }
   if(MW)nightSky(u);
-  scene.fog.density=[0,0.0009,0.00055,0.0004][QE()]*[1,5,2.2][WX]*(NIGHT?1.35:1);
+  scene.fog.density=[0,0.0009,0.00055,0.0004][QE()]*[1,5,2.2][WX]*(NIGHT?1.35:1)*((RT&&RT.alp)?0.32:1);
   window.__sun={alt:deg,az:A*180/Math.PI,utc:utc};
 }
 if(BK)applySun(true);
@@ -830,6 +833,34 @@ function forestD(x,z){
   window.__terrainChunks=chunks.length;
   applyPhoto(tm,'forrest_ground_01',1.75,1.75,{arm:true,normalScale:1.2,onDiffuse:()=>{chunks.forEach(c=>c.g.setAttribute('color',c.c2));}});
 })();
+// Alpen: grobes Fern-Gelaende (Bergpanorama), nach Hoehe und Neigung gefaerbt: Wald, Alm, Fels, Schnee
+if(FERN_RAW&&RT.alp){(function(){
+  const g=FERN_RAW,bin=atob(g.dm),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
+  const H=new Int16Array(u.buffer),nx=g.nx,nz=g.nz,C=g.cell,NH=g.nhn0;
+  const mx0=FG.ox-20,mx1=FG.ox+(FG.nx-1)*FG.G+20,mz0=FG.oz-20,mz1=FG.oz+(FG.nz-1)*FG.G+20;   // Bereich des feinen Netzes: dort kein Fernnetz
+  const hy=(i,j)=>H[Math.max(0,Math.min(nz-1,j))*nx+Math.max(0,Math.min(nx-1,i))]/10;   // Meter ueber nhn0 (= Spiel-y)
+  const pos=new Float32Array(nx*nz*3),col=new Float32Array(nx*nz*3);
+  for(let j=0;j<nz;j++)for(let i=0;i<nx;i++){
+    const k=j*nx+i,x=g.x0+i*C,z=g.z0+j*C,y=hy(i,j),el=y+NH;
+    pos[k*3]=x;pos[k*3+1]=y-7;pos[k*3+2]=z;
+    const sl=Math.hypot(hy(i+1,j)-hy(i-1,j),hy(i,j+1)-hy(i,j-1))/(2*C);   // Neigung (Steigung)
+    const n=(Math.sin(x*0.011+z*0.007)+Math.sin(x*0.023-z*0.019)*0.6)*0.5;
+    let r,gc,b;
+    if(el<2050&&sl<0.75){r=0.12+n*0.02;gc=0.2+n*0.03;b=0.1;}                           // Bergwald (Zirben/Fichten)
+    else if(el<2450){const t=Math.min(1,sl/0.8);r=0.30+t*0.12+n*0.03;gc=0.34+t*0.0+n*0.03;b=0.17+t*0.1;}   // Almwiese -> Geroell
+    else {const t=Math.min(1,sl/0.9);r=0.40+t*0.04+n*0.03;gc=0.38+n*0.03;b=0.35+n*0.02;}     // Fels
+    const sn=Math.max(0,Math.min(1,(el-2750+n*120)/260))*Math.max(0,1-sl/1.1);           // Schnee/Gletscher: hoch und nicht zu steil
+    r+=(0.93-r)*sn;gc+=(0.95-gc)*sn;b+=(0.98-b)*sn;
+    col[k*3]=r;col[k*3+1]=gc;col[k*3+2]=b;
+  }
+  const idx=[];
+  for(let j=0;j<nz-1;j++)for(let i=0;i<nx-1;i++){
+    const cx=g.x0+(i+0.5)*C,cz=g.z0+(j+0.5)*C;if(cx>mx0&&cx<mx1&&cz>mz0&&cz<mz1)continue;
+    const a=j*nx+i,b2=a+1,c=a+nx,d=c+1;idx.push(a,c,b2,b2,c,d);
+  }
+  const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));geo.setAttribute('color',new THREE.BufferAttribute(col,3));geo.setIndex(idx);geo.computeVertexNormals();
+  const m=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({vertexColors:true}));m.frustumCulled=false;scene.add(m);
+})();}
 // Umland: Felder, Kanal
 (function(){
   texFields.repeat.set(5,5);
@@ -1934,10 +1965,28 @@ window.addEventListener('keydown',e=>{
 window.addEventListener('keyup',e=>{keys[e.key]=false;});
 window.addEventListener('blur',()=>{for(const k in keys)keys[k]=false;});
 
+const liftEl=document.createElement('div');liftEl.id='lift';document.body.appendChild(liftEl);
+function startLift(lf){
+  st.lift={lf:lf,t:0,jumped:false};st.v=0;st.power=0;
+  const mn=Math.floor(lf.sek/60),sc=String(lf.sek%60).padStart(2,'0');
+  liftEl.innerHTML='<div class="lt"><span class="li">🚡</span><b>Bergbahn</b><i>▲ +'+lf.hm+' Hm · '+mn+':'+sc+' min</i></div>';
+  liftEl.className='on';
+}
+function updateLift(dt){
+  const L=st.lift;L.t+=dt;
+  if(inputMode==='trainer'&&trainer.connected)trainer.setGrade(0,0.005,true);   // Rolle entlasten
+  if(!L.jumped&&L.t>=1.6){L.jumped=true;st.pos=L.lf.b*SEG;st.x=Math.max(-1,Math.min(1,st.x));st.v=0;resetJoggers();lastSec=-1;}
+  if(L.t>=3.4)liftEl.className='out';
+  if(L.t>=4.6){liftEl.className='';st.lift=null;st.v=1.5;}
+}
 function update(dt){
   if(!running){AUDIO.update(dt,{running:false,v:0,surf:0,pedal:0,brake:false,forest:0,rain:WXS.rain,day:WXS.day});return;}
   const kb=inputMode==='keyboard';
   const up=kb&&keys.ArrowUp,down=kb&&keys.ArrowDown,left=kb&&keys.ArrowLeft,right=kb&&keys.ArrowRight;
+  if(LIFTS.length){   // Bergbahn: abblenden, kurz fahren lassen, oben wieder einblenden (Zeit zaehlt nicht)
+    if(!st.lift){const lf=LIFTS.find(l=>st.pos>=l.a*SEG&&st.pos<l.b*SEG-6);if(lf)startLift(lf);}
+    if(st.lift){updateLift(dt);return;}
+  }
   const i=Math.min(N-1,Math.floor(st.pos/SEG)),dirt=SURF[i]===2;
   const tr=inputMode==='trainer'&&trainer.connected;
   if(tr)st.power+=(trainer.power-st.power)*Math.min(1,dt*6);else st.power+=((up?PMAX:0)-st.power)*Math.min(1,dt*2.5);
@@ -2071,7 +2120,7 @@ function routeBtns(){return '';}   // nur eine Strecke im Spiel
 function mineHtml(){   // Streckenliste: feste Strecken + eigene GPX-Strecken (Zusatzstrecken)
   const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const cur=GPX_ID?'gpx_'+GPX_ID:(!ROUTE?'halde':(ROUTES[RKEY]&&!ROUTES[RKEY].custom?RKEY:'tour2'));
-  const base=[['tour2','MIWORU'],['wuppertal','Wupfeld'],['hagen','Hagmoor'],['iserlohn','Isehorst'],['hemer','Hemstein'],['buellberg','Bölkamp'],['dortmund','Dorbach']];
+  const base=[['tour2','MIWORU'],['wuppertal','Wupfeld'],['hagen','Hagmoor'],['iserlohn','Isehorst'],['hemer','Hemstein'],['buellberg','Bölkamp'],['dortmund','Dorbach'],['alpen','Obergrat']];
   let h='<div class="mine"><div class="mh">Strecken</div>'+(hasPass()?'':'<div class="mr" style="grid-column:1/-1"><span class="mn">Alle Strecken freischalten<small>5 € einmalig · oder Community-Code</small></span><button class="main" data-unlock="">Freischalten</button></div>')+base.map(b=>'<div class="mr'+(b[0]===cur?' cur':'')+'"><span class="mn">'+b[1]+'</span>'+(b[0]===cur?'<span class="act">aktiv</span>':(LOCKED.indexOf(b[0])>=0&&!hasPass()?'<button class="sec" data-unlock="'+b[0]+'">🔒 Freischalten</button>':'<button class="sec" data-route="'+b[0]+'">Fahren</button>'))+'</div>').join('');
   const L=listRoutes();
   if(L.length)h+='<div class="mh" style="margin-top:10px">Meine Strecken (GPX)</div>'+L.map(e=>'<div class="mr'+(e.id===GPX_ID?' cur':'')+'"><span class="mn">'+esc(e.name)+'<small>'+String(e.km).replace('.',',')+' km</small></span>'
@@ -2147,7 +2196,7 @@ function menu(title,sub){
       '<div class="stats"><div><b>'+km+'</b><i>km</i></div><div><b>'+HM+'</b><i>Höhenmeter</i></div></div>'+
       '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused||SAVED?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(()=>{const n=click.devs.filter(x=>!x.lost).length;return n>=2?'Zwift Click: beide Hälften ✓':n===1&&click.connected?'Zwift Click ✓ · zweite Hälfte koppeln (stabiler)':(click.devs.length?'Zwift Click: getrennt – neu koppeln':'Zwift Click koppeln');})()+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button>'+'<button id="dif" class="sec">Schwierigkeit: '+DIFFN[diff]+'</button><button id="qual" class="sec">Grafik: '+QN[quality]+'</button><button id="snd" class="sec">Sound: '+(AUDIO.on?'an':'aus')+'</button><button id="wxb" class="sec">Wetter: '+WXL()+'</button><button id="nghb" class="sec" style="display:'+(MW?'':'none')+'">Nightride: '+(NIGHT?'an':'aus')+'</button><button id="hubb" class="sec">Freilauf: '+(AUDIO.hub?AUDIO.hub+' Zähne':'aus')+'</button><button id="grpb" class="sec">'+(GRP_CODE?'Gruppe: '+GRP_CODE:'Gruppenfahrt')+'</button><button id="hlp" class="sec">So fährst du</button></div>'+mineHtml()+
       '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?(IOS?'iPad: Seite in der App Bluefy öffnen (Safari kann kein Bluetooth).':'Bluetooth nur in Chrome/Edge (nicht Safari).'):'D100 oder KICKR einschalten, dann „Trainer koppeln“.')+(bleMsg?'<br>'+bleMsg:'')+''+(click.connected?'<br>'+click.name+' verbunden'+'<br>Click: kurz drücken = schwerer · gedrückt halten = leichter':'')+'</div>'+
-    '<div class="help" style="font-size:11px;opacity:.6">© OpenStreetMap-Mitwirkende · © Geobasis NRW · <a href="/rechtliches.html" target="_blank" rel="noopener" style="color:inherit">Rechtliches</a></div>'+
+    '<div class="help" style="font-size:11px;opacity:.6">© OpenStreetMap-Mitwirkende · © Geobasis NRW · Datenquelle: Land Tirol - data.tirol.gv.at (CC BY 4.0) · <a href="/rechtliches.html" target="_blank" rel="noopener" style="color:inherit">Rechtliches</a></div>'+
     '</div></div>';
   const go=id=>{const q='?route=gpx_'+id;const same=location.search===q;location.href=location.pathname+q+'#go';if(same)location.reload();};
   document.getElementById('dif').onclick=()=>{setDiff(diff%5+1);menu(title,sub);};
