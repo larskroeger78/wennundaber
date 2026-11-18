@@ -2019,6 +2019,7 @@ function update(dt){
   }
   if(SHK.air){SHK.air.t+=dt;if(SHK.air.t>=SHK.air.T){const H=SHK.air.H;SHK.air=null;AUDIO.land(H);SHK.vy-=2.4*Math.min(1,H/0.4);SHK.vr+=(rnd()-0.5)*6;SHK.wv+=(rnd()<0.5?-1:1)*26*Math.min(1,H/0.4);st.v*=0.96;}}
   SHK.wv+=(-900*SHK.w-9*SHK.wv)*dt;SHK.w+=SHK.wv*dt;   // Lenker flattert nach Stoessen
+  SHK.w=clamp(SHK.w,-8,8);SHK.wv=clamp(SHK.wv,-140,140);SHK.r=clamp(SHK.r,-0.3,0.3);SHK.vr=clamp(SHK.vr,-5,5);   // Grenzen: der Lenker dreht nie durch
   SHK.vy+=(-420*SHK.y-17*SHK.vy)*dt;SHK.y+=SHK.vy*dt;SHK.vr+=(-380*SHK.r-16*SHK.vr)*dt;SHK.r+=SHK.vr*dt;
   const rough=(ROUTE?[0,0.4,1][SURF[i]]:(i>=iTrail?1:0.2))*(1+Math.max(0,-GR[i])*0.06)*Math.min(1,st.v/6);
   SHK.buzz=rough*(Math.sin(st.pos*9.3)+Math.sin(st.pos*17.9+1.3)*0.7+Math.sin(st.pos*31.7)*0.4);
@@ -2325,7 +2326,7 @@ function render(dt,now){
     camera.rotateZ(-st.lean*0.55+SHK.r*0.5+Math.sin(st.crank)*0.006*Math.min(1,st.power/150));             // Neigung in Kurven + Ruppeln
     camera.rotateX((running?Math.atan(tabD(st.pos))*0.7:0)-BRK*0.03+SHK.y*0.9+(SHK.air?0.035*Math.cos(Math.PI*airU()):0));
     const deg=clamp(st.bar,-17,17);                     // Lenker dreht mit
-    cockpitEl.style.transform='translate(-50%,'+(18.5+Math.abs(deg)*0.062-(SHK.y+airH()*0.6)*70-(SHK.buzz||0)*0.12).toFixed(2)+'%) rotate('+(deg+SHK.r*25+SHK.w+Math.sin(st.crank)*0.7*Math.min(1,st.power/150)).toFixed(2)+'deg)';
+    cockpitEl.style.transform='translate(-50%,'+(18.5+Math.abs(deg)*0.062-(SHK.y+airH()*0.6)*70-(SHK.buzz||0)*0.12).toFixed(2)+'%) rotate('+clamp(deg+SHK.r*25+SHK.w+Math.sin(st.crank)*0.7*Math.min(1,st.power/150),-22,22).toFixed(2)+'deg)';
   }
   sky.position.copy(camera.position);sky.material.uniforms.time.value=now*0.001;nightFrame();
   if(BK)applySun();
