@@ -4,7 +4,8 @@ export const AUDIO = (() => {
   let ctx = null, master = null, noise = null, on = true, vol = 0.8, ok = false;
   const N = {};              // Dauer-Klaenge: Name -> {g: GainNode, f: BiquadFilter}
   let wildT = 50 + Math.random() * 60, birdT = 3, clickAcc = 0, stoneAcc = 0, rainAcc = 0, lastSurf = 0, brakeG = null;
-  try { const v = localStorage.getItem('miworu_snd'); if (v === '0') on = false; } catch (e) {}
+  let hubN = 72; const HUBS = [0, 32, 56, 72];   // Freilauf: aus oder Zaehnezahl der Sperrklinken-Zahnscheibe (weniger Zaehne = gröber, klickernder)
+  try { const v = localStorage.getItem('miworu_snd'); if (v === '0') on = false; const h = +localStorage.getItem('miworu_hub'); if (HUBS.indexOf(h) >= 0 && localStorage.getItem('miworu_hub') !== null) hubN = h; } catch (e) {}
 
   function mkNoise() {
     const len = ctx.sampleRate * 2, b = ctx.createBuffer(1, len, ctx.sampleRate), d = b.getChannelData(0);
@@ -99,7 +100,7 @@ export const AUDIO = (() => {
         const bp = ctx.createBiquadFilter(); bp.type = 'peaking'; bp.frequency.value = 5200; bp.Q.value = 2.2; bp.gain.value = 9;
         const g = ctx.createGain(); g.gain.value = 0;
         o.connect(hp); hp.connect(bp); bp.connect(g); g.connect(master); o.start();
-        N.hub = { o, g, hp }; }
+        N.hub = { o, g, hp, bp }; }
       ok = true;
     } catch (e) { ok = false; }
   }
@@ -127,9 +128,12 @@ export const AUDIO = (() => {
       while (n--) burst(t + Math.random() * dt, 0.03 + Math.random() * 0.04, 'lowpass', 380 + Math.random() * 520, 0.8, (surf === 1 ? 0.05 : 0.035) * (0.4 + Math.random()));
     }
     // Freilauf (0 Watt): Hope-Pro-Surren, Tonhoehe folgt dem Tempo (44 Einrastpunkte x Radumdrehungen pro Sekunde, Radumfang ca. 2,3 m)
-    {const coast = v > 0.4 && s.pedal < 0.15 ? 1 : 0, f = Math.min(1700, 150 * v / 2.3);
+    {const coast = v > 0.4 && s.pedal < 0.15 && hubN > 0 ? 1 : 0, f = Math.min(1700, hubN * 2.08 * v / 2.3);
+      const k = hubN / 72;   // weniger Zaehne: tieferes, rauheres Schnarren, einzelne Klicks bei langsamer Fahrt
       N.hub.o.frequency.setTargetAtTime(Math.max(12, f), t, 0.03);
-      set(N.hub, coast * (0.05 + 0.07 * Math.min(1, v / 9)), dt, coast ? 14 : 22);}
+      N.hub.hp.frequency.setTargetAtTime(1500 + 2100 * k, t, 0.05); N.hub.bp.frequency.setTargetAtTime(2600 + 2600 * k, t, 0.05);
+      set(N.hub, coast * (0.05 + 0.07 * Math.min(1, v / 9)) * (1 + 0.5 * (1 - k)), dt, coast ? 14 : 22);
+      if (coast && f < 75) { clickAcc += dt * f; let n = clickAcc | 0; clickAcc -= n; n = Math.min(n, 4); while (n--) burst(t + Math.random() * dt, 0.012, 'bandpass', 2400 + 1600 * k, 4, 0.05 + 0.05 * (1 - k)); }}
     // Bremse: hohes Quietschen bei Tempo
     set(brakeG, s.brake && v > 1.5 ? 0.025 * Math.min(1, v / 8) : 0, dt, 10);
     // Pfuetze: Spritzen, solange man drin ist
@@ -149,9 +153,10 @@ export const AUDIO = (() => {
   function land(h) { if (!ok) return; const t = ctx.currentTime, k = Math.min(1, h / 0.4); thump(t, 85, 36, 0.24, 0.4 * k + 0.1); burst(t, 0.18, 'lowpass', 360, 0.7, 0.22 * k + 0.05); }
   function edge(a) { if (!ok) return; const t = ctx.currentTime, k = Math.min(1, a / 1.5); thump(t, 80, 40, 0.18, 0.22 * k + 0.05); burst(t, 0.1, 'lowpass', 300, 0.7, 0.14 * k); }
   function gear() { if (!ok) return; const t = ctx.currentTime; burst(t, 0.012, 'bandpass', 4200, 5, 0.1); burst(t + 0.06, 0.012, 'bandpass', 3000, 5, 0.08); }
+  function cycleHub() { hubN = HUBS[(HUBS.indexOf(hubN) + 1) % HUBS.length]; try { localStorage.setItem('miworu_hub', hubN); } catch (e) {} init(); return hubN; }
   function toggle() { on = !on; try { localStorage.setItem('miworu_snd', on ? '1' : '0'); } catch (e) {} init(); return on; }
   // Browser starten Audio erst nach einer Nutzergeste (Klick, Taste, Touch): beim ersten Mal Kontext anlegen bzw. fortsetzen
   const wake = () => { init(); if (ctx && ctx.state === 'suspended') ctx.resume(); };
   ['pointerdown', 'keydown', 'touchstart', 'click'].forEach(ev => window.addEventListener(ev, wake, { passive: true }));
-  return { splash, init, get suspended() { return !ctx || ctx.state !== 'running'; }, update, bump, takeoff, land, edge, gear, toggle, get on() { return on; } };
+  return { cycleHub, get hub() { return hubN; }, splash, init, get suspended() { return !ctx || ctx.state !== 'running'; }, update, bump, takeoff, land, edge, gear, toggle, get on() { return on; } };
 })();

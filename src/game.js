@@ -1851,6 +1851,7 @@ window.addEventListener('keydown',e=>{
   if(e.key==='q'||e.key==='Q')cycleQ();
   if(e.key==='n'||e.key==='N'){AUDIO.toggle();toastEl.textContent='Sound: '+(AUDIO.on?'an':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}
   if(e.key==='w'||e.key==='W')cycleWX();
+  if(e.key==='f'||e.key==='F'){const h=AUDIO.cycleHub();toastEl.textContent='Freilauf: '+(h?h+' Zähne':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1200);}
   if(e.key==='1')setDiff(1);
   if(e.key==='2')setDiff(2);
   if(e.key==='3')setDiff(3);
@@ -2036,7 +2037,7 @@ function menu(title,sub){
       (sub?'<div class="res">'+sub+'</div>':'')+
       '<div class="route">'+(ROUTE?RT.label:TRACK_NAME)+'<span>'+(ROUTE&&RT.place?RT.place:'Bergkamen und Umland')+'</span></div>'+
       '<div class="stats"><div><b>'+km+'</b><i>km</i></div><div><b>'+HM+'</b><i>Höhenmeter</i></div></div>'+
-      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused||SAVED?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(()=>{const n=click.devs.filter(x=>!x.lost).length;return n>=2?'Zwift Click: beide Hälften ✓':n===1&&click.connected?'Zwift Click ✓ · zweite Hälfte koppeln (stabiler)':(click.devs.length?'Zwift Click: getrennt – neu koppeln':'Zwift Click koppeln');})()+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button>'+'<button id="dif" class="sec">Schwierigkeit: '+DIFFN[diff]+'</button><button id="qual" class="sec">Grafik: '+QN[quality]+'</button><button id="snd" class="sec">Sound: '+(AUDIO.on?'an':'aus')+'</button><button id="wxb" class="sec">Wetter: '+WXL()+'</button><button id="grpb" class="sec">'+(GRP_CODE?'Gruppe: '+GRP_CODE:'Gruppenfahrt')+'</button><button id="gpx" class="sec">GPX-Strecke laden</button><button id="hlp" class="sec">So fährst du</button><input id="gpxf" type="file" accept=".gpx,.xml,application/gpx+xml" style="display:none"></div>'+mineHtml()+
+      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused||SAVED?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(()=>{const n=click.devs.filter(x=>!x.lost).length;return n>=2?'Zwift Click: beide Hälften ✓':n===1&&click.connected?'Zwift Click ✓ · zweite Hälfte koppeln (stabiler)':(click.devs.length?'Zwift Click: getrennt – neu koppeln':'Zwift Click koppeln');})()+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button>'+'<button id="dif" class="sec">Schwierigkeit: '+DIFFN[diff]+'</button><button id="qual" class="sec">Grafik: '+QN[quality]+'</button><button id="snd" class="sec">Sound: '+(AUDIO.on?'an':'aus')+'</button><button id="wxb" class="sec">Wetter: '+WXL()+'</button><button id="hubb" class="sec">Freilauf: '+(AUDIO.hub?AUDIO.hub+' Zähne':'aus')+'</button><button id="grpb" class="sec">'+(GRP_CODE?'Gruppe: '+GRP_CODE:'Gruppenfahrt')+'</button><button id="gpx" class="sec">GPX-Strecke laden</button><button id="hlp" class="sec">So fährst du</button><input id="gpxf" type="file" accept=".gpx,.xml,application/gpx+xml" style="display:none"></div>'+mineHtml()+
       '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?(IOS?'iPad: Seite in der App Bluefy öffnen (Safari kann kein Bluetooth).':'Bluetooth nur in Chrome/Edge (nicht Safari).'):'D100 oder KICKR einschalten, dann „Trainer koppeln“.')+(bleMsg?'<br>'+bleMsg:'')+''+(click.connected?'<br>'+click.name+' verbunden'+'<br>Click: kurz drücken = schwerer · gedrückt halten = leichter':'')+'</div>'+
     '</div></div>';
   const gpxf=document.getElementById('gpxf');
@@ -2046,6 +2047,7 @@ function menu(title,sub){
   document.getElementById('qual').onclick=()=>{cycleQ();menu(title,sub);};
   document.getElementById('snd').onclick=()=>{AUDIO.toggle();menu(title,sub);};
   document.getElementById('wxb').onclick=()=>{cycleWX();menu(title,sub);};
+  document.getElementById('hubb').onclick=()=>{AUDIO.cycleHub();menu(title,sub);};
   document.getElementById('grpb').onclick=()=>{const c=window.prompt('Gruppencode für die gemeinsame Fahrt (alle Freunde geben denselben Code ein, leer = aus):',GRP_CODE);if(c===null)return;GRP_CODE=c.trim().toLowerCase().replace(/[^a-z0-9äöüß]+/g,'').slice(0,24);try{localStorage.setItem('miworu_group',GRP_CODE);}catch(_){}grpJoin();menu(title,sub);};
   gpxf.onchange=async()=>{
     const f=gpxf.files&&gpxf.files[0];if(!f)return;
