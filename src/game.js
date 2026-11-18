@@ -2855,7 +2855,7 @@ function wlBuild(kind){
   return {kind:kind,g:root,body:body,head:head,legs:legs,eyes:eyes,mat:mat,boar:boar};
 }
 function wlPlace(kind,x,z,grp,delay){
-  const pl=WL.pool[kind]||(WL.pool[kind]=[]);let T=pl.find(q=>!q.on);if(!T){T=wlBuild(kind);pl.push(T);}
+  const pl=WL.pool[kind]||(WL.pool[kind]=[]);let T=pl.find(q=>!q.on);if(!T){T=wlBuild(kind);if(kind==='boar'||kind==='piglet')T.mat.color.setHex(0x15110e);pl.push(T);}
   T.on=true;T.called=false;T.panic=false;T.grp=grp;WL.list.push(T);T.x=x;T.z=z;T.t=-delay;T.ph='in';T.stand=grp.stand+(Math.random()-0.5);T.speed=0;T.blink=1.5+Math.random()*3;
   T.willCall=kind==='piglet'?Math.random()<0.5:kind==='boar'?Math.random()<0.7:true;T.callAt=Math.random()*0.9;
   T.yaw=Math.atan2(-(camera.position.z-z),camera.position.x-x)+(Math.random()-0.5)*1.1;
@@ -2880,12 +2880,13 @@ function wlSpawnGroup(kind,x,z){   // Wildschweine kommen in Rotten: 2-3 Bachen 
 function wlSpawnTry(){
   const kinds=['boar','stag','doe','doe','stag','boar'];
   for(let t=0;t<14;t++){
-    const s=st.pos+45+Math.random()*55;if(s>TOTAL-60)break;
+    const kind=kinds[(Math.random()*kinds.length)|0],bo=kind==='boar';   // Wildschweine sind niedrig und dunkel: sie stehen naeher und mittiger im Lampenkegel, sonst sieht man sie nie
+    const s=st.pos+(bo?26+Math.random()*22:45+Math.random()*55);if(s>TOTAL-60)break;
     if(SURF[Math.min(N-1,Math.floor(s/SEG))]===0)continue;
-    sample(s,wlS);const o=(Math.random()<0.5?-1:1)*(10+Math.random()*7),x=wlS.x-Math.cos(wlS.h)*o,z=wlS.z+Math.sin(wlS.h)*o;   // 10-17 m vom Weg (auf Distanz), beim Wegrennen nie ueber ~30 m
+    sample(s,wlS);const o=(Math.random()<0.5?-1:1)*(bo?8.5+Math.random()*4:10+Math.random()*7),x=wlS.x-Math.cos(wlS.h)*o,z=wlS.z+Math.sin(wlS.h)*o;   // 10-17 m vom Weg (auf Distanz), beim Wegrennen nie ueber ~30 m
     if(forestD(x,z)<0.55||inBuilding(x,z))continue;
     if(WL.list.some(q=>Math.hypot(q.x-x,q.z-z)<30))continue;
-    wlSpawnGroup(kinds[(Math.random()*kinds.length)|0],x,z);return true;
+    wlSpawnGroup(kind,x,z);return true;
   }
   return false;
 }
