@@ -164,14 +164,14 @@ export const AUDIO = (() => {
     // kein Grundrauschen: weder Wind in Baeumen noch Wasser; nur Fahrtwind, erst bei Tempo hoerbar
     set(N.wind, 0.09 * sp * sp * sp * (s.running ? 1 : 0), dt, 4); N.wind.f.frequency.value = 350 + 1500 * sp;
     // Reifen je Untergrund (weiche Ueberblendung)
-    // Abrollen: nur auf Asphalt und erst ab 25 km/h (6,9 m/s), dann weich einblenden und mit Tempo etwas lauter, aber nie aufdringlich
-    const rk = Math.max(0, Math.min(1, (v - 6.9) / 0.9)) * Math.min(1, 0.7 + 0.3 * (v - 6.9) / 7);
+    // Abrollen: nur auf Asphalt, hoerbar ab 15 km/h, dann weich einblenden und mit Tempo etwas lauter, aber nie aufdringlich
+    const rk = Math.max(0, Math.min(1, (v - 4.0) / 1.2)) * Math.min(1, 0.7 + 0.3 * (v - 4.0) / 9);   // ab ca. 15 km/h hoerbar, ab 19 km/h voll
     rough = Math.max(0, rough - dt * 1.1); const duck = 1 - 0.9 * Math.min(1, rough);   // Poltern/Hubbel hat Vorrang: Abrollen tritt dann zurueck
     set(N.asph, surf === 0 ? 0.013 * rk * duck : 0, dt, 5); N.asph.f.frequency.value = 240 + 120 * Math.min(1, v / 14);   // nur noch ein Hauch Rauschen darunter (klang sonst wie Wind)
     set(N.road, surf === 0 ? 0.03 * rk * duck : 0, dt, 5);
     if (tyreBuf && N.tyreS) {   // Aufnahme statt Synthese: leise, Tonlage und Pegel folgen nur leicht dem Tempo
       N.tyreS.src.playbackRate.setTargetAtTime(0.9 + 0.2 * Math.min(1, v / 14), t, 0.1);
-      set(N.tyreS, surf === 0 ? 0.5 * rk * duck * (0.6 + 0.4 * Math.min(1, v / 14)) : 0, dt, 4); set(N.tyre, 0, dt, 30); set(N.asph, 0, dt, 30); set(N.road, 0, dt, 30);
+      set(N.tyreS, surf === 0 ? 0.4 * rk * duck * (0.6 + 0.4 * Math.min(1, v / 14)) : 0, dt, 4); set(N.tyre, 0, dt, 30); set(N.asph, 0, dt, 30); set(N.road, 0, dt, 30);
     } else
     { const T = N.tyre; T.j1 = (T.j1 || 0) + ((Math.random() - 0.5) * 9 * dt) - (T.j1 || 0) * 0.9 * dt; T.j2 = (T.j2 || 0) + ((Math.random() - 0.5) * 12 * dt) - (T.j2 || 0) * 1.3 * dt; T.j3 = (T.j3 || 0) + ((Math.random() - 0.5) * 7 * dt) - (T.j3 || 0) * 0.6 * dt;
       // unregelmaessig: Tonhoehe, Pulsation und Pegel driften leicht (Belagwechsel, Poren, Rillen), damit es nicht wie eine Maschine im Loop klingt
