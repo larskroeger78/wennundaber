@@ -1582,7 +1582,7 @@ if(OSM){
     return false;};
   const buildLod2=()=>{
     const wP=[],wC=[],wT=[],wP2=[],wC2=[],wT2=[],rP=[],rC=[],rU=[],rB=[],wU=[],wLn=[];let curU0=0,curL=0;
-    const HX={door:[],step:[],can:[],chim:[],bin:[],hedge:[]};   // Haus-Ausstattung (Bergkamen): Tuer, Stufe, Vordach, Schornstein, Tonnen, Hecken
+    const HX={door:[],step:[],can:[],chim:[],bin:[],hedge:[],mail:[],mailp:[]};   // Haus-Ausstattung (Bergkamen): Tuer, Stufe, Vordach, Schornstein, Tonnen, Hecken
     const ROADSEG=[];if(MW&&OBJ_RAW)OBJ_RAW.lines.forEach(L=>{if(L[0]!=='road')return;const e=L[2]||{};if(e.u||e.br||!/^(residential|tertiary|secondary|unclassified|living_street|service)$/.test(e.h||''))return;const q=L[1];for(let i=0;i+3<q.length;i+=2)ROADSEG.push([q[i],q[i+1],q[i+2],q[i+3]]);});
     const triOf=V=>{
       const n=V.length;let nx=0,ny=0,nz=0;
@@ -1597,7 +1597,7 @@ if(OSM){
     let curTop=0;const pushT=(arr,carr,V,t,col,sh)=>{t.forEach(tr=>tr.forEach(k=>{arr.push(V[k][0],V[k][1],V[k][2]);carr.push(col.r*sh,col.g*sh,col.b*sh);if(arr===wP){wT.push(curTop);wU.push(curU0);wLn.push(curL);}else if(arr===wP2)wT2.push(curTop);}));};
     const flatC=new THREE.Color(0x5f5c59);
     const houseExtras=(Hh,pitched)=>{   // Tuer zur Strasse, Stufe, Vordach, Schornstein, Muelltonnen, Vorgartenhecke
-      const cx=Hh.cx,cz=Hh.cz;let bx=0,bz=0,bd=60;
+      const cx=Hh.cx,cz=Hh.cz;let bx=0,bz=0,bd=60;(window.__hc=window.__hc||[]).push(cx,cz);
       {const f=nearest(allHash,cx,cz);if(f&&nD<bd){bd=nD;bx=PX[nI];bz=PZ[nI];}}
       for(let i=0;i<ROADSEG.length;i++){const r=ROADSEG[i],dx=r[2]-r[0],dz=r[3]-r[1],l2=dx*dx+dz*dz||1,t=clamp(((cx-r[0])*dx+(cz-r[1])*dz)/l2,0,1),px=r[0]+dx*t,pz=r[1]+dz*t,d=Math.hypot(cx-px,cz-pz);if(d<bd){bd=d;bx=px;bz=pz;}}
       if(bd>=60)return;
@@ -1611,6 +1611,7 @@ if(OSM){
         HX.can.push({x:px+f.nx*0.55,y:gyH+2.42,z:pz+f.nz*0.55,ry:ry});
         const nb=1+((rnd()*2)|0);for(let k=0;k<nb;k++){const sd=(rnd()<0.5?-1:1)*(1.9+k*0.7),qx=px+f.tx*sd+f.nx*0.55,qz=pz+f.tz*sd+f.nz*0.55;if(inBuilding(qx,qz))continue;
           HX.bin.push({x:qx,y:gnd(qx,qz)+0.5,z:qz,ry:ry+(rnd()-0.5)*0.4,c:[0x4a4d52,0x2f5f9a,0xe3c21a,0x6b4a2a][(rnd()*4)|0]});}
+        if(rnd()<0.8){const mx=px+f.tx*1.5+f.nx*4.6,mz=pz+f.tz*1.5+f.nz*4.6;if(!inBuilding(mx,mz)){const my=gnd(mx,mz);HX.mailp.push({x:mx,y:my+0.5,z:mz,ry:ry});HX.mail.push({x:mx,y:my+1.08,z:mz,ry:ry,c:[0xe3c21a,0x3f5a6b,0x7a2f2a,0xb8b8b0][(rnd()*4)|0]});}}
         if(rnd()<0.7){   // Vorgartenhecke parallel zur Fassade, Luecke vor der Tuer
           const hd=3.8+rnd()*0.8,halfL=Math.max(1.5,f.L*0.5-0.8);
           [[-1],[1]].forEach(([sg])=>{const a0=1.0,a1=halfL;if(a1-a0<1.2)return;const mid=(a0+a1)/2,len=a1-a0,qx=px+f.tx*sg*mid+f.nx*hd,qz=pz+f.tz*sg*mid+f.nz*hd;
@@ -1657,6 +1658,8 @@ if(OSM){
       IM(new THREE.BoxGeometry(1.7,0.14,0.6),HX.step.map(a=>({...a,c:0xb7b2a6})),(a,D)=>{D.position.set(a.x,a.y,a.z);D.rotation.set(0,a.ry,0);D.scale.set(1,1,1);});
       IM(new THREE.BoxGeometry(1.9,0.09,1.1),HX.can.map(a=>({...a,c:0x4a4d52})),(a,D)=>{D.position.set(a.x,a.y,a.z);D.rotation.set(0,a.ry,0);D.scale.set(1,1,1);});
       IM(new THREE.BoxGeometry(0.62,1.0,0.7),HX.bin,(a,D)=>{D.position.set(a.x,a.y,a.z);D.rotation.set(0,a.ry,0);D.scale.set(1,1,1);});
+      IM(new THREE.BoxGeometry(0.08,1.0,0.08),HX.mailp.map(a=>({...a,c:0x55585c})),(a,D)=>{D.position.set(a.x,a.y,a.z);D.rotation.set(0,a.ry,0);D.scale.set(1,1,1);});
+      IM(new THREE.BoxGeometry(0.36,0.4,0.22),HX.mail,(a,D)=>{D.position.set(a.x,a.y,a.z);D.rotation.set(0,a.ry,0);D.scale.set(1,1,1);});
       IM(new THREE.BoxGeometry(0.7,1.5,0.7),HX.chim.map(a=>({...a,c:0x8a4b3a})),(a,D)=>{D.position.set(a.x,a.y+0.75,a.z);D.rotation.set(0,0,0);D.scale.set(1,1,1);});
       IM(new THREE.BoxGeometry(1,0.85,0.6),HX.hedge.map(a=>({...a,c:[0x3f6b2e,0x4a7a34,0x35602a][(a.x*7|0)%3&3]||0x3f6b2e})),(a,D)=>{D.position.set(a.x,a.y,a.z);D.rotation.set(0,a.tl-Math.PI/2,0);D.scale.set(a.len,1,1);});}
     if(wP2.length){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(wP2,3));g.setAttribute('color',new THREE.Float32BufferAttribute(wC2,3));g.setAttribute('btop',new THREE.Float32BufferAttribute(wT2,1));g.computeVertexNormals();uvWall(g,false,12);wallP.push(g);}
@@ -2461,6 +2464,86 @@ if(false&&nearHouse){
   }
   if(window.__counts)window.__counts.vans=VANS.length;
   for(let k=0;k<5;k++){const g=pickCar(rs),v={g:g,parked:false,active:false,s:0,dir:-1,v:0,cruise:0,lat:0};g.visible=false;scene.add(g);VANS.push(v);}
+}
+
+// ================= Bergkamen: Asphaltdetails, Altglascontainer, parkende Autos an Wohnstrassen =================
+if(MW&&OBJ_RAW){
+  let sd=777001;const rs=()=>{sd=(sd*16807)%2147483647;return sd/2147483647;};
+  const HCg=new Map(),HK=(x,z)=>Math.floor(x/40)*10000+Math.floor(z/40),hc=window.__hc||[];
+  for(let i=0;i<hc.length;i+=2){const k=HK(hc[i],hc[i+1]);(HCg.get(k)||HCg.set(k,[]).get(k)).push(hc[i],hc[i+1]);}
+  const houseNear=(x,z,r)=>{for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const l=HCg.get(HK(x+a*40,z+b*40));if(!l)continue;for(let i=0;i<l.length;i+=2)if(Math.hypot(l[i]-x,l[i+1]-z)<r)return true;}return false;};
+  const DP=[],DC=[];
+  const tri=(a,b,c,col,y)=>{[a,b,c].forEach(v=>{DP.push(v[0],gnd(v[0],v[1])+y,v[1]);DC.push(col[0],col[1],col[2]);});};
+  const rect=(cx,cz,ux,uz,hl,hw,col,y)=>{const vx=-uz,vz=ux,A=[cx+ux*hl+vx*hw,cz+uz*hl+vz*hw],B=[cx+ux*hl-vx*hw,cz+uz*hl-vz*hw],C=[cx-ux*hl+vx*hw,cz-uz*hl+vz*hw],D=[cx-ux*hl-vx*hw,cz-uz*hl-vz*hw];tri(A,B,C,col,y);tri(B,D,C,col,y);};
+  const disc=(cx,cz,r,col,y)=>{const M=10;for(let m=0;m<M;m++){const a0=m/M*6.2832,a1=(m+1)/M*6.2832;tri([cx,cz],[cx+Math.cos(a0)*r,cz+Math.sin(a0)*r],[cx+Math.cos(a1)*r,cz+Math.sin(a1)*r],col,y);}};
+  const manhole=(x,z,y)=>{disc(x,z,0.42,[0.2,0.2,0.2],y);disc(x,z,0.34,[0.045,0.045,0.05],y+0.004);rect(x,z,1,0,0.2,0.05,[0.16,0.16,0.17],y+0.008);rect(x,z,0,1,0.2,0.05,[0.16,0.16,0.17],y+0.008);};
+  const gully=(x,z,ux,uz,y)=>{rect(x,z,ux,uz,0.3,0.2,[0.17,0.17,0.17],y);rect(x,z,ux,uz,0.25,0.15,[0.03,0.03,0.035],y+0.004);};
+  const patch=(x,z,ux,uz,L,W,y)=>{const dk=rs()<0.6;rect(x,z,ux,uz,L/2+0.06,W/2+0.06,[0.035,0.035,0.04],y);rect(x,z,ux,uz,L/2,W/2,dk?[0.07,0.07,0.075]:[0.15,0.15,0.15],y+0.004);};
+  // 1) Strecke selbst: Kanaldeckel, Flicken, Gullys an bebauten Asphaltabschnitten
+  for(let i=6;i<N-6;){const x=PX[i],z=PZ[i];i+=Math.max(6,Math.round((30+rs()*34)/SEG));
+    if(SURF[i-3]!==0||!houseNear(x,z,70))continue;
+    const h=HS[i],fx=Math.sin(h),fz=Math.cos(h),rx=Math.cos(h),rz=-Math.sin(h),hw=HW[i],kind=rs();
+    if(kind<0.4)manhole(x+rx*(rs()-0.5)*hw*1.1,z+rz*(rs()-0.5)*hw*1.1,0.04);
+    else if(kind<0.8){const o=(rs()-0.5)*hw*1.2;patch(x+rx*o,z+rz*o,fx,fz,1.6+rs()*2.4,0.8+rs()*0.9,0.04);}
+    else{const sg=rs()<0.5?-1:1;gully(x+rx*sg*(hw-0.3),z+rz*sg*(hw-0.3),fx,fz,0.04);}}
+  // 2) OSM-Wohnstrassen: Kanaldeckel, Gullys, Flicken, Haltelinien; abgesenkte Bordsteine an Fussgaengeruebergaengen; Altglascontainer
+  const ROAD=[],VK=new Map(),EK=(x,z)=>Math.round(x/1.2)*100003+Math.round(z/1.2);
+  OBJ_RAW.lines.forEach(L=>{if(L[0]!=='road')return;const e=L[2]||{};if(e.u||e.br||!/^(residential|living_street|tertiary|unclassified)$/.test(e.h||''))return;ROAD.push(L);const q=L[1];
+    for(let i=0;i<q.length;i+=2){const k=EK(q[i],q[i+1]);let o=VK.get(k);if(!o)VK.set(k,o={e:0,n:0});if(i===0||i===q.length-2)o.e++;else o.n++;}});
+  const isJn=(x,z)=>{const o=VK.get(EK(x,z));return !!o&&(o.e+o.n>=3||(o.e>=1&&o.n>=1));};
+  const offRoute=(x,z,w)=>{const f=nearest(allHash,x,z);return !(f&&nD<(HW[nI]||2)+w/2+2.5);};
+  ROAD.forEach(L=>{const q=L[1],e=L[2]||{},w=e.w||5.5;if(w<4)return;
+    let run=0,nM=15+rs()*20,nP=30+rs()*40,nG=20+rs()*20;
+    for(let i=0;i+3<q.length;i+=2){const ax=q[i],az=q[i+1],bx=q[i+2],bz=q[i+3],l=Math.hypot(bx-ax,bz-az);if(l<0.5)continue;const ux=(bx-ax)/l,uz=(bz-az)/l,vx=-uz,vz=ux;
+      for(;;){const m=Math.min(nM,nP,nG);if(m>=run+l)break;const t=m-run,x=ax+ux*t,z=az+uz*t,ok=offRoute(x,z,w)&&houseNear(x,z,60);
+        if(m===nM){if(ok)manhole(x+vx*(rs()-0.5)*w*0.4,z+vz*(rs()-0.5)*w*0.4,0.17);nM+=22+rs()*26;}
+        else if(m===nP){if(ok){const o=(rs()-0.5)*w*0.5;patch(x+vx*o,z+vz*o,ux,uz,1.6+rs()*2.6,0.9+rs()*1.0,0.17);}nP+=38+rs()*50;}
+        else{if(ok)[-1,1].forEach(sg=>{if(rs()<0.8)gully(x+vx*sg*(w/2-0.28),z+vz*sg*(w/2-0.28),ux,uz,0.17);});nG+=24+rs()*14;}}
+      run+=l;}
+    // Haltelinien (rechte Fahrbahnhaelfte, kurz vor dem Ende) und Eck-Bordabsenkungen an Einmuendungen
+    [[q.length-4,q.length-2],[2,0]].forEach(([ia,ib])=>{const ex=q[ib],ez=q[ib+1];if(!isJn(ex,ez))return;
+      const ax=q[ia],az=q[ia+1],l=Math.hypot(ex-ax,ez-az);if(l<9)return;const d=[(ex-ax)/l,(ez-az)/l];
+      const px=ex-d[0]*3.4,pz=ez-d[1]*3.4;if(!offRoute(px,pz,w)||!houseNear(px,pz,70))return;
+      const rx=d[1],rz=-d[0];rect(px+rx*w/4,pz+rz*w/4,rx,rz,w/4-0.2,0.15,[0.86,0.86,0.82],0.17);
+      [-1,1].forEach(sg=>{const kx=ex-d[0]*5+rx*sg*(w/2+0.55),kz=ez-d[1]*5+rz*sg*(w/2+0.55);rect(kx,kz,d[0],d[1],0.5,0.45,[0.7,0.68,0.56],0.21);});});
+  });
+  // Altglascontainer: drei Iglus (weiss, gruen, braun) an wenigen Haltepunkten
+  const GL=[];{let gacc=0;ROAD.forEach(L=>{const q=L[1],e=L[2]||{},w=e.w||5.5;if(w<5)return;for(let i=0;i+3<q.length;i+=2){const ax=q[i],az=q[i+1],bx=q[i+2],bz=q[i+3],l=Math.hypot(bx-ax,bz-az);if(l<6)continue;gacc+=l;if(gacc<230)continue;
+    const ux=(bx-ax)/l,uz=(bz-az)/l,mx=(ax+bx)/2,mz=(az+bz)/2,sg=rs()<0.5?-1:1,cx=mx-uz*sg*(w/2+2.2),cz=mz+ux*sg*(w/2+2.2);
+    if(!offRoute(mx,mz,w)||!houseNear(mx,mz,50)||carInHouse(cx,cz,1.5)||inBuilding(cx,cz))continue;gacc=0;
+    [[0xe8e8e2,-1.4],[0x3f8a4a,0],[0x8a5a2e,1.4]].forEach(([c,o])=>GL.push({x:cx+ux*o,z:cz+uz*o,c:c,ry:Math.atan2(ux,uz)}));}});}
+  if(GL.length){const g=new THREE.CylinderGeometry(0.62,0.62,1.5,10,1),m=new THREE.InstancedMesh(g,new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.7}),GL.length),D=new THREE.Object3D(),cc=new THREE.Color();
+    GL.forEach((a,k)=>{D.position.set(a.x,gnd(a.x,a.z)+0.75,a.z);D.rotation.set(0,a.ry,0);D.updateMatrix();m.setMatrixAt(k,D.matrix);cc.setHex(a.c);m.setColorAt(k,cc);});m.castShadow=true;m.receiveShadow=true;m.frustumCulled=false;scene.add(m);}
+  if(DP.length){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(DP,3));g.setAttribute('color',new THREE.Float32BufferAttribute(DC,3));g.computeVertexNormals();
+    const m=new THREE.Mesh(g,new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.95,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3,side:THREE.DoubleSide}));m.receiveShadow=true;m.frustumCulled=false;scene.add(m);}
+  // 3) parkende Autos an Wohnstrassen (auch ohne OSM-Parkinfo): einfache Instanz-Modelle am Fahrbahnrand, nur bei Haeusern, nie auf der Strecke
+  {let n=0;const MAXC=60,CP=[],COL=[0xb9bbbd,0x1f2124,0xe9e9e5,0x6a2020,0x2f4a7a,0x56645a,0x8f9498,0x9b8f7a,0xc9c9c4];
+    ROAD.forEach(L=>{const q=L[1],e=L[2]||{},w=e.w||5.5;if(w<5||!/^(residential|living_street|unclassified)$/.test(e.h||''))return;let tl=0;for(let i=0;i+3<q.length;i+=2)tl+=Math.hypot(q[i+2]-q[i],q[i+3]-q[i+1]);
+      let run=0,nx=8+rs()*10;
+      for(let i=0;i+3<q.length&&n<MAXC;i+=2){const ax=q[i],az=q[i+1],bx=q[i+2],bz=q[i+3],l=Math.hypot(bx-ax,bz-az);if(l<1)continue;const ux=(bx-ax)/l,uz=(bz-az)/l;
+        while(nx<run+l&&n<MAXC){const t=nx-run,at=nx;nx+=11+rs()*12;
+          if(at<8||tl-at<8||rs()<0.45)continue;
+          const x0=ax+ux*t,z0=az+uz*t;if(!houseNear(x0,z0,34))continue;
+          const typ=rs(),sc=0.94+rs()*0.14,hl=(typ<0.2?2.35:2.05)*sc,hw=0.9*sc,sg=rs()<0.5?-1:1,lat=w/2-hw*0.9+0.15,x=x0-uz*sg*lat,z=z0+ux*sg*lat;
+          const H=Math.atan2(ux,uz)+(sg>0?0:Math.PI);let ok=offRoute(x,z,w)&&offRoute(x+ux*hl,z+uz*hl,w)&&offRoute(x-ux*hl,z-uz*hl,w);
+          if(ok)for(const [a,b] of [[hl,-hw],[hl,hw],[-hl,-hw],[-hl,hw],[0,-hw],[0,hw]]){const px=x+ux*a-uz*b,pz=z+uz*a+ux*b;if(carInHouse(px,pz,1.0)||inBuilding(px,pz)){ok=false;break;}}
+          if(!ok)continue;
+          const fx=Math.sin(H),fz=Math.cos(H),rx=Math.cos(H),rz=-Math.sin(H),a=hl*0.75,b=hw*0.85,gf=(da,db)=>gnd(x+fx*da+rx*db,z+fz*da+rz*db),
+            fl=gf(a,-b),fr=gf(a,b),bl=gf(-a,-b),br=gf(-a,b),mean=(fl+fr+bl+br)/4;
+          if(Math.max(fl,fr,bl,br)-Math.min(fl,fr,bl,br)>0.4)continue;
+          CP.push({x:x,z:z,y:mean,H:H,pitch:-Math.atan(((fl+fr)-(bl+br))/2/(2*a)),roll:Math.atan(((fr+br)-(fl+bl))/2/(2*b)),hl:hl,hw:hw,typ:typ,c:COL[(rs()*COL.length)|0]});n++;}
+        run+=l;}});
+    if(CP.length){const NB=CP.length,mk=(geo,col)=>{const m=new THREE.InstancedMesh(geo,new THREE.MeshStandardMaterial({color:0xffffff,roughness:col===1?0.25:0.55,metalness:col===1?0.1:0.35}),NB*(col===2?4:1));m.castShadow=true;m.receiveShadow=true;m.frustumCulled=false;scene.add(m);return m;},
+        bx=new THREE.BoxGeometry(1,1,1),cy=new THREE.CylinderGeometry(1,1,1,10),Mb=mk(bx,0),Mg=mk(bx,1),Mr=mk(bx,0),Mw=mk(cy,2),P=new THREE.Object3D(),L_=new THREE.Object3D(),cc=new THREE.Color(),M4=new THREE.Matrix4();
+      const put=(M,idx,px,py,pz,sx,sy,sz,rz_)=>{L_.position.set(px,py,pz);L_.rotation.set(0,0,rz_||0);L_.scale.set(sx,sy,sz);L_.updateMatrix();M4.multiplyMatrices(P.matrix,L_.matrix);M.setMatrixAt(idx,M4);};
+      CP.forEach((a,k)=>{P.position.set(a.x,a.y,a.z);P.rotation.order='YXZ';P.rotation.set(a.pitch,a.H,a.roll);P.scale.set(1,1,1);P.updateMatrix();
+        const van=a.typ<0.12,kom=a.typ<0.35,cl=a.hl*2,cabL=van?cl*0.78:kom?cl*0.52:cl*0.42,cabZ=van?-cl*0.05:kom?-cl*0.14:-cl*0.1,cabH=van?0.95:0.5;
+        put(Mb,k,0,0.62,0,a.hw*2,0.62,cl);cc.setHex(a.c);Mb.setColorAt(k,cc);
+        put(Mg,k,0,0.93+cabH/2,cabZ,a.hw*2-0.2,cabH,cabL);cc.setHex(0x1b232b);Mg.setColorAt(k,cc);
+        put(Mr,k,0,0.93+cabH+0.04,cabZ,a.hw*2-0.28,0.1,cabL-0.15);cc.setHex(a.c);Mr.setColorAt(k,cc);
+        [[-1,1],[1,1],[-1,-1],[1,-1]].forEach(([sx,sz],wi)=>{put(Mw,k*4+wi,sx*(a.hw-0.08),0.33,sz*a.hl*0.62,0.33,0.24,0.33,Math.PI/2);cc.setHex(0x151515);Mw.setColorAt(k*4+wi,cc);});});
+      [Mb,Mg,Mr,Mw].forEach(m=>{m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true;});}
+    if(window.__counts)window.__counts.mwcars=n;window.__mwcars=n;window.__cp=CP;}
 }
 window.__vans=VANS;
 const vo={x:0,y:0,z:0,h:0};
