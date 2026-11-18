@@ -92,7 +92,7 @@ if (!proj) { console.error('CRS', crsWanted, 'nicht unterstützt (nur 25832, 385
 console.log('Abruf in EPSG:' + crsWanted);
 
 
-async function build(CELL, MARGIN, PIX, TM, OUT) {
+async function build(CELL, MARGIN, PIX, TM, OUT, COV = cov) {
   // ---- Gebiet ------------------------------------------------------------------------------------------------------
   let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
   for (const p of ROUTE.pts) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, -p[1]); z1 = Math.max(z1, -p[1]); }
@@ -108,10 +108,10 @@ async function build(CELL, MARGIN, PIX, TM, OUT) {
   const T = TM * k;                                 // Kachelgröße im CRS (≈ TM Spiel-Meter)
   const PXW = Math.round(TM / PIX);
   const variants = [
-    (e0, e1, n0, n1) => `${WCS}?SERVICE=WCS&VERSION=1.0.0&REQUEST=GetCoverage&COVERAGE=${encodeURIComponent(cov)}&CRS=EPSG:${crsWanted}&RESPONSE_CRS=EPSG:${crsWanted}&BBOX=${e0},${n0},${e1},${n1}&WIDTH=${PXW}&HEIGHT=${PXW}&FORMAT=GeoTIFF`,
-    (e0, e1, n0, n1) => `${WCS}?SERVICE=WCS&VERSION=1.0.0&REQUEST=GetCoverage&COVERAGE=${encodeURIComponent(cov)}&CRS=EPSG:${crsWanted}&BBOX=${e0},${n0},${e1},${n1}&WIDTH=${PXW}&HEIGHT=${PXW}&FORMAT=TIFF`,
-    (e0, e1, n0, n1) => `${WCS}?SERVICE=WCS&VERSION=1.0.0&REQUEST=GetCoverage&COVERAGE=${encodeURIComponent(cov)}&CRS=EPSG:${crsWanted}&BBOX=${e0},${n0},${e1},${n1}&WIDTH=${PXW}&HEIGHT=${PXW}&FORMAT=image/tiff`,
-    (e0, e1, n0, n1) => `${WCS}?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&COVERAGEID=${encodeURIComponent(cov)}&FORMAT=image/tiff&SUBSETTINGCRS=http://www.opengis.net/def/crs/EPSG/0/${crsWanted}&SUBSET=x(${e0},${e1})&SUBSET=y(${n0},${n1})&SCALESIZE=x(${PXW}),y(${PXW})`,
+    (e0, e1, n0, n1) => `${WCS}?SERVICE=WCS&VERSION=1.0.0&REQUEST=GetCoverage&COVERAGE=${encodeURIComponent(COV)}&CRS=EPSG:${crsWanted}&RESPONSE_CRS=EPSG:${crsWanted}&BBOX=${e0},${n0},${e1},${n1}&WIDTH=${PXW}&HEIGHT=${PXW}&FORMAT=GeoTIFF`,
+    (e0, e1, n0, n1) => `${WCS}?SERVICE=WCS&VERSION=1.0.0&REQUEST=GetCoverage&COVERAGE=${encodeURIComponent(COV)}&CRS=EPSG:${crsWanted}&BBOX=${e0},${n0},${e1},${n1}&WIDTH=${PXW}&HEIGHT=${PXW}&FORMAT=TIFF`,
+    (e0, e1, n0, n1) => `${WCS}?SERVICE=WCS&VERSION=1.0.0&REQUEST=GetCoverage&COVERAGE=${encodeURIComponent(COV)}&CRS=EPSG:${crsWanted}&BBOX=${e0},${n0},${e1},${n1}&WIDTH=${PXW}&HEIGHT=${PXW}&FORMAT=image/tiff`,
+    (e0, e1, n0, n1) => `${WCS}?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&COVERAGEID=${encodeURIComponent(COV)}&FORMAT=image/tiff&SUBSETTINGCRS=http://www.opengis.net/def/crs/EPSG/0/${crsWanted}&SUBSET=x(${e0},${e1})&SUBSET=y(${n0},${n1})&SCALESIZE=x(${PXW}),y(${PXW})`,
   ];
   const tryTile = async (e0, e1, n0, n1) => {
     const errs = [];
@@ -172,5 +172,7 @@ const FERN = args.includes('--ohne-fern') ? null : +opt('fern', 9000);
 if (!args.includes('--nur-fern')) await build(+opt('cell', 8), +opt('margin', 1200), +opt('pix', 2), 1000, new URL(`../src/routes/${NAME}.gelaende.json`, import.meta.url));
 if (FERN) {
   console.log('\n--- Fernmodell für das Bergpanorama (grob, ' + FERN + ' m Rand) ---');
-  await build(40, FERN, 16, 4000, new URL(`../src/routes/${NAME}.fern.json`, import.meta.url));
+  const cov5 = (covs.find(c => /gel(ä|ae)ndemodell_5m/i.test(c.name) && /M28/.test(c.name)) || covs.find(c => /gel(ä|ae)ndemodell_5m/i.test(c.name)) || { name: cov }).name;
+  console.log('Fernmodell aus Coverage', cov5);
+  await build(40, FERN, 16, 4000, new URL(`../src/routes/${NAME}.fern.json`, import.meta.url), cov5);
 }
