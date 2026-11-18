@@ -6,3 +6,4 @@ click-log.txt
 scripts/osm-roh*.json
 scripts/lod2-probe-*.txt
 _to_delete/
+_alt/

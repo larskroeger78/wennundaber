@@ -23,10 +23,13 @@ import HEM from './routes/hemer.json';
 import HAG from './routes/hagen.json';
 import DOR from './routes/dortmund.json';
 import { parseGpx, listRoutes, loadRoute, saveRoute, renameRoute, deleteRoute } from './gpx.js';
+import { LOCKED, hasPass, checkPass, redeem, payConfig, loadPayPal, payCreate, payCapture } from './unlock.js';
 const SURF_FILES=import.meta.glob('./routes/*.surf.json');   // Streckendaten werden pro Strecke nachgeladen (nicht mehr alle im Startpaket)
 // Strecke: Standard ist die Tour vom 5.10.2022 (komoot-GPX); ?route=mittwoch bzw. ?route=halde nur zum Entwickeln
 const ROUTES={mittwoch:{data:MITT1,label:'Mittwochsrunde',surf:'mittwochsrunde',btn:'Mittwochsrunde'},tour2:{data:MIW,label:'MIWORU',surf:'miworu',btn:'MIWORU',nhn0:MIW.nhn0,place:'Bergkamen',dem:'miworu'},wuppertal:{data:WUP,label:'Wuppertal',surf:'wuppertal',btn:'Wuppertal',nhn0:WUP.nhn0,place:'Wuppertal',dem:'wuppertal'},hagen:{data:HAG,label:'Hagen',surf:'hagen',btn:'Hagen',nhn0:HAG.nhn0,place:'Hagen',dem:'hagen'},iserlohn:{data:ISE,label:'Iserlohn',surf:'iserlohn',btn:'Iserlohn',nhn0:ISE.nhn0,place:'Iserlohn',dem:'iserlohn'},hemer:{data:HEM,label:'Hemer',surf:'hemer',btn:'Hemer',nhn0:HEM.nhn0,place:'Hemer',dem:'hemer'},buellberg:{data:BUE,label:'Böllberg',surf:'buellberg',btn:'Böllberg',nhn0:BUE.nhn0,place:'Böllberg',dem:'buellberg'},dortmund:{data:DOR,label:'Dortmund',surf:'dortmund',btn:'Dortmund',nhn0:DOR.nhn0,place:'Dortmund',dem:'dortmund'}};
-const RKEY=new URLSearchParams(location.search).get('route');
+let RKEY=new URLSearchParams(location.search).get('route');
+let PAYWALL=null;   // gewuenschte, noch gesperrte Strecke: es startet MIWORU und das Freischalt-Fenster oeffnet sich
+if(LOCKED.indexOf(RKEY)>=0&&!(await checkPass())){PAYWALL=RKEY;RKEY=null;}
 const GPX_ID=RKEY&&RKEY.indexOf('gpx_')===0?RKEY.slice(4):null,CUSTOM=GPX_ID?loadRoute(GPX_ID):null;   // vom Nutzer hochgeladene GPX-Strecke (nur im Browser gespeichert)
 if(CUSTOM)ROUTES[RKEY]={data:CUSTOM,label:CUSTOM.name||'Eigene Strecke',surf:'__eigene',btn:CUSTOM.name,custom:true,nhn0:CUSTOM.nhn0||0,place:'Eigene GPX-Strecke'};
 // Doppelte aufraeumen: eigene GPX-Strecken mit dem Namen einer festen Strecke (Hagen, Iserlohn, Wuppertal, MIWORU) loeschen
@@ -2069,7 +2072,7 @@ function mineHtml(){   // Streckenliste: feste Strecken + eigene GPX-Strecken (Z
   const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const cur=GPX_ID?'gpx_'+GPX_ID:(!ROUTE?'halde':(ROUTES[RKEY]&&!ROUTES[RKEY].custom?RKEY:'tour2'));
   const base=[['tour2','MIWORU','Bergkamen'],['wuppertal','Wuppertal','Wuppertal und Umland'],['hagen','Hagen','Hagen und Umland'],['iserlohn','Iserlohn','Iserlohn und Umland'],['hemer','Hemer','Hemer und Umland'],['buellberg','Böllberg','Böllberg und Umland'],['dortmund','Dortmund','Dortmund und Umland']];
-  let h='<div class="mine"><div class="mh">Strecken</div>'+base.map(b=>'<div class="mr'+(b[0]===cur?' cur':'')+'"><span class="mn">'+b[1]+'<small>'+b[2]+'</small></span>'+(b[0]===cur?'<span class="act">aktiv</span>':'<button class="sec" data-route="'+b[0]+'">Fahren</button>')+'</div>').join('');
+  let h='<div class="mine"><div class="mh">Strecken</div>'+(hasPass()?'':'<div class="mr" style="grid-column:1/-1"><span class="mn">Alle Strecken freischalten<small>5 € einmalig · oder Community-Code</small></span><button class="main" data-unlock="">Freischalten</button></div>')+base.map(b=>'<div class="mr'+(b[0]===cur?' cur':'')+'"><span class="mn">'+b[1]+'<small>'+b[2]+'</small></span>'+(b[0]===cur?'<span class="act">aktiv</span>':(LOCKED.indexOf(b[0])>=0&&!hasPass()?'<button class="sec" data-unlock="'+b[0]+'">🔒 Freischalten</button>':'<button class="sec" data-route="'+b[0]+'">Fahren</button>'))+'</div>').join('');
   const L=listRoutes();
   if(L.length)h+='<div class="mh" style="margin-top:10px">Meine Strecken (GPX)</div>'+L.map(e=>'<div class="mr'+(e.id===GPX_ID?' cur':'')+'"><span class="mn">'+esc(e.name)+'<small>'+String(e.km).replace('.',',')+' km</small></span>'
     +(e.id===GPX_ID?'<span class="act">aktiv</span>':'<button class="sec" data-gpx-go="'+e.id+'">Fahren</button>')+'<button class="sec" data-gpx-ren="'+e.id+'" title="Umbenennen">✎</button><button class="sec" data-gpx-del="'+e.id+'" title="Löschen">🗑</button></div>').join('');
@@ -2093,6 +2096,43 @@ function showHelp(){
   '</div></div>';
   document.getElementById('hback').onclick=()=>{helpOpen=false;if(lastMenu)menu(lastMenu[0],lastMenu[1]);};
 }
+function showUnlock(want){   // Strecken freischalten: Community-Code oder 5 € per PayPal (Zahlung wird auf dem Server geprueft)
+  helpOpen=true;ov.style.display='flex';menuBtn.style.display='none';
+  const wname=want&&ROUTES[want]?ROUTES[want].label:'';
+  ov.innerHTML='<div class="intro"><div class="panel unlock">'+
+    '<div class="by">by Wenn &amp; Aber Bike Crew</div><h1>Alle Strecken freischalten</h1>'+
+    '<div class="help">'+(wname?'<b>'+wname+'</b> ist gesperrt. ':'')+'MIWORU in Bergkamen bleibt kostenlos. Die Strecken Wuppertal, Hagen, Iserlohn, Hemer, Böllberg und Dortmund gibt es für einmalig <b>5,00 €</b> (ohne Konto, gilt für diesen Browser).</div>'+
+    '<div class="ucode"><div class="uh">Community-Code</div><div class="urow"><input id="ucode" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Code eingeben"><button id="ucodeb" class="sec">Einlösen</button></div></div>'+
+    '<div class="ucode"><div class="uh">Kaufen</div>'+
+    '<label class="uchk"><input id="uchk" type="checkbox"><span>Ich stimme ausdrücklich zu, dass der Anbieter vor Ablauf der Widerrufsfrist mit der Ausführung des Vertrags beginnt (sofortige Freischaltung der Strecken). Mir ist bekannt, dass ich mit Beginn der Ausführung mein Widerrufsrecht verliere.</span></label>'+
+    '<button id="ubuy" class="main" disabled>Zahlungspflichtig bestellen · 5,00 €</button><div id="upp"></div></div>'+
+    '<div class="help" id="umsg"></div>'+
+    '<div class="help ulinks"><a href="/rechtliches.html#impressum" target="_blank" rel="noopener">Impressum</a> · <a href="/rechtliches.html#datenschutz" target="_blank" rel="noopener">Datenschutz</a> · <a href="/rechtliches.html#widerruf" target="_blank" rel="noopener">Widerruf</a></div>'+
+    '<div class="btns"><button id="uback" class="sec">← Zurück</button></div>'+
+  '</div></div>';
+  const msg=t=>{document.getElementById('umsg').textContent=t||'';};
+  const done=()=>{const q=want?'?route='+want:'';location.href=location.pathname+q+'#go';if(location.search===q)location.reload();};
+  document.getElementById('uback').onclick=()=>{helpOpen=false;if(lastMenu)menu(lastMenu[0],lastMenu[1]);else location.href=location.pathname;};
+  const ci=document.getElementById('ucode');
+  const doRedeem=async()=>{const c=ci.value.trim();if(!c)return;msg('Prüfe Code …');try{const r=await redeem(c);if(r.ok){msg('Freigeschaltet!');setTimeout(done,500);}else msg(r.error||'Code nicht gültig.');}catch(e){msg('Keine Verbindung zum Server.');}};
+  document.getElementById('ucodeb').onclick=doRedeem;ci.onkeydown=e=>{e.stopPropagation();if(e.key==='Enter')doRedeem();};ci.onkeyup=ci.onkeypress=e=>e.stopPropagation();
+  const chk=document.getElementById('uchk'),buy=document.getElementById('ubuy');
+  chk.onchange=()=>{buy.disabled=!chk.checked;};
+  buy.onclick=async()=>{
+    if(!chk.checked)return;buy.disabled=true;msg('PayPal wird geladen …');
+    try{
+      const cfg=await payConfig();if(!cfg.clientId){msg('Bezahlung ist noch nicht eingerichtet.');buy.disabled=false;return;}
+      const pp=await loadPayPal(cfg.clientId);msg('');
+      pp.Buttons({style:{layout:'vertical',shape:'rect',label:'pay'},
+        createOrder:()=>payCreate(),
+        onApprove:async d=>{msg('Zahlung wird bestätigt …');try{await payCapture(d.orderID);msg('Danke! Alle Strecken sind freigeschaltet.');setTimeout(done,900);}catch(e){msg('Zahlung konnte nicht bestätigt werden: '+(e&&e.message||e)+' Bitte melde dich mit der PayPal-Transaktionsnummer.');}},
+        onCancel:()=>{msg('Abgebrochen.');},
+        onError:e=>{msg('PayPal-Fehler: '+(e&&e.message||e));}
+      }).render('#upp');
+      chk.disabled=true;
+    }catch(e){msg(String(e&&e.message||e));buy.disabled=false;}
+  };
+}
 function menu(title,sub){
   helpOpen=false;lastMenu=[title,sub];menuBtn.style.display='none';
   ov.style.display='flex';hudBox.style.display=sub?'block':'none';
@@ -2105,12 +2145,11 @@ function menu(title,sub){
       (sub?'<div class="res">'+sub+'</div>':'')+
       '<div class="route">'+(ROUTE?RT.label:TRACK_NAME)+'<span>'+(ROUTE&&RT.place?RT.place:'Bergkamen und Umland')+'</span></div>'+
       '<div class="stats"><div><b>'+km+'</b><i>km</i></div><div><b>'+HM+'</b><i>Höhenmeter</i></div></div>'+
-      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused||SAVED?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(()=>{const n=click.devs.filter(x=>!x.lost).length;return n>=2?'Zwift Click: beide Hälften ✓':n===1&&click.connected?'Zwift Click ✓ · zweite Hälfte koppeln (stabiler)':(click.devs.length?'Zwift Click: getrennt – neu koppeln':'Zwift Click koppeln');})()+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button>'+'<button id="dif" class="sec">Schwierigkeit: '+DIFFN[diff]+'</button><button id="qual" class="sec">Grafik: '+QN[quality]+'</button><button id="snd" class="sec">Sound: '+(AUDIO.on?'an':'aus')+'</button><button id="wxb" class="sec">Wetter: '+WXL()+'</button><button id="nghb" class="sec" style="display:'+(MW?'':'none')+'">Nightride: '+(NIGHT?'an':'aus')+'</button><button id="hubb" class="sec">Freilauf: '+(AUDIO.hub?AUDIO.hub+' Zähne':'aus')+'</button><button id="grpb" class="sec">'+(GRP_CODE?'Gruppe: '+GRP_CODE:'Gruppenfahrt')+'</button><button id="gpx" class="sec">GPX-Strecke laden</button><button id="hlp" class="sec">So fährst du</button><input id="gpxf" type="file" accept=".gpx,.xml,application/gpx+xml" style="display:none"></div>'+mineHtml()+
+      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused||SAVED?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(()=>{const n=click.devs.filter(x=>!x.lost).length;return n>=2?'Zwift Click: beide Hälften ✓':n===1&&click.connected?'Zwift Click ✓ · zweite Hälfte koppeln (stabiler)':(click.devs.length?'Zwift Click: getrennt – neu koppeln':'Zwift Click koppeln');})()+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button>'+'<button id="dif" class="sec">Schwierigkeit: '+DIFFN[diff]+'</button><button id="qual" class="sec">Grafik: '+QN[quality]+'</button><button id="snd" class="sec">Sound: '+(AUDIO.on?'an':'aus')+'</button><button id="wxb" class="sec">Wetter: '+WXL()+'</button><button id="nghb" class="sec" style="display:'+(MW?'':'none')+'">Nightride: '+(NIGHT?'an':'aus')+'</button><button id="hubb" class="sec">Freilauf: '+(AUDIO.hub?AUDIO.hub+' Zähne':'aus')+'</button><button id="grpb" class="sec">'+(GRP_CODE?'Gruppe: '+GRP_CODE:'Gruppenfahrt')+'</button><button id="hlp" class="sec">So fährst du</button></div>'+mineHtml()+
       '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?(IOS?'iPad: Seite in der App Bluefy öffnen (Safari kann kein Bluetooth).':'Bluetooth nur in Chrome/Edge (nicht Safari).'):'D100 oder KICKR einschalten, dann „Trainer koppeln“.')+(bleMsg?'<br>'+bleMsg:'')+''+(click.connected?'<br>'+click.name+' verbunden'+'<br>Click: kurz drücken = schwerer · gedrückt halten = leichter':'')+'</div>'+
+    '<div class="help" style="font-size:11px;opacity:.6">© OpenStreetMap-Mitwirkende · © Geobasis NRW · <a href="/rechtliches.html" target="_blank" rel="noopener" style="color:inherit">Rechtliches</a></div>'+
     '</div></div>';
-  const gpxf=document.getElementById('gpxf');
   const go=id=>{const q='?route=gpx_'+id;const same=location.search===q;location.href=location.pathname+q+'#go';if(same)location.reload();};
-  document.getElementById('gpx').onclick=()=>gpxf.click();
   document.getElementById('dif').onclick=()=>{setDiff(diff%5+1);menu(title,sub);};
   document.getElementById('qual').onclick=()=>{cycleQ();menu(title,sub);};
   document.getElementById('snd').onclick=()=>{AUDIO.toggle();menu(title,sub);};
@@ -2118,21 +2157,13 @@ function menu(title,sub){
   document.getElementById('nghb').onclick=()=>{toggleNight();menu(title,sub);};
   document.getElementById('hubb').onclick=()=>{AUDIO.cycleHub();menu(title,sub);};
   document.getElementById('grpb').onclick=()=>{const c=window.prompt('Gruppencode für die gemeinsame Fahrt (alle Freunde geben denselben Code ein, leer = aus):',GRP_CODE);if(c===null)return;GRP_CODE=c.trim().toLowerCase().replace(/[^a-z0-9äöüß]+/g,'').slice(0,24);try{localStorage.setItem('miworu_group',GRP_CODE);}catch(_){}grpJoin();menu(title,sub);};
-  gpxf.onchange=async()=>{
-    const f=gpxf.files&&gpxf.files[0];if(!f)return;
-    bleMsg='GPX wird gelesen …';menu(title,sub);
-    try{
-      const r=parseGpx(await f.text(),f.name.replace(/\.[^.]+$/,'')),nm=window.prompt('Name der Strecke:',r.name);
-      if(nm===null){bleMsg='';menu(title,sub);return;}
-      go(saveRoute(r,nm||r.name));
-    }catch(e){bleMsg='GPX: '+(e&&e.message||e);menu(title,sub);}
-  };
   document.querySelectorAll('[data-gpx-go]').forEach(b=>b.onclick=()=>go(b.getAttribute('data-gpx-go')));
   document.querySelectorAll('[data-gpx-ren]').forEach(b=>b.onclick=()=>{const id=b.getAttribute('data-gpx-ren'),e=listRoutes().find(x=>x.id===id),nm=window.prompt('Neuer Name:',e?e.name:'');if(nm&&nm.trim()){renameRoute(id,nm);menu(title,sub);}});
   document.querySelectorAll('[data-gpx-del]').forEach(b=>b.onclick=()=>{const id=b.getAttribute('data-gpx-del'),e=listRoutes().find(x=>x.id===id);
     if(!window.confirm('Strecke „'+(e?e.name:'')+'“ wirklich löschen?'))return;
     deleteRoute(id);if(GPX_ID===id){location.href=location.pathname+'#go';location.reload();}else menu(title,sub);});
   document.getElementById('mode').onclick=()=>{inputMode=inputMode==='keyboard'?'off':'keyboard';menu(title,sub);};
+  document.querySelectorAll('[data-unlock]').forEach(b=>b.onclick=()=>showUnlock(b.getAttribute('data-unlock')||null));
   document.querySelectorAll('[data-route]').forEach(b=>b.onclick=()=>{const r=b.getAttribute('data-route');location.href=location.pathname+(r?'?route='+r:'')+'#go';});
   document.getElementById('trn').onclick=async()=>{bleMsg='';if(bleGuard())return;try{await trainer.connect();}catch(e){bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Trainer: '+(e&&e.message||e);}menu(title,sub);};
   document.getElementById('hlp').onclick=showHelp;
@@ -2784,6 +2815,7 @@ function loop(now){
 }
 window.__dbg={forestD:forestD,splash:splashDrops,PUDH:PUDH,AUDIO:AUDIO,renderer:renderer,scene:scene,SHK:SHK,BUMPS:BUMPS,gnd:gnd,HS:HS,PX:PX,PZ:PZ,HW:HW,KV:KV,ROUTE:ROUTE,SURF:SURF,cam:camera,joggers:joggers,groundY:groundY,TABS:TABS,tabH:tabH,get st(){return st;},set pos(v){st.pos=v;camInit=false;},N:N,TOTAL:TOTAL,iTrail:iTrail,SEC:SEC,PY:PY,GR:GR,forestD:forestD,lu:(k,x,z)=>LU?lu(LU[k],x,z):-1};
 if(SAVED)menu('Weiterfahren bei '+(SAVED.pos/1000).toFixed(2).replace('.',',')+' km','Gespeicherte Fahrt · '+fmtT(SAVED.t));else menu('Start');
-if(location.hash==='#go')start();
+if(location.hash==='#go'&&!PAYWALL)start();
+if(PAYWALL)showUnlock(PAYWALL);
 requestAnimationFrame(loop);
 requestAnimationFrame(()=>{const b=document.getElementById('boot');if(b){b.classList.add('off');setTimeout(()=>b.remove(),700);}});

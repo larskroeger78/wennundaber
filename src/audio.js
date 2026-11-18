@@ -3,7 +3,7 @@
 export const AUDIO = (() => {
   let ctx = null, master = null, noise = null, on = true, vol = 0.8, ok = false;
   const N = {};              // Dauer-Klaenge: Name -> {g: GainNode, f: BiquadFilter}
-  let splashBuf = null, wildT = 50 + Math.random() * 60, birdT = 3, clickAcc = 0, stoneAcc = 0, rainAcc = 0, lastSurf = 0, brakeG = null;
+  let rough = 0, splashBuf = null, wildT = 50 + Math.random() * 60, birdT = 3, clickAcc = 0, stoneAcc = 0, rainAcc = 0, lastSurf = 0, brakeG = null;
   let hubN = 72; const HUBS = [0, 32, 56, 72];   // Freilauf: aus oder Zaehnezahl der Sperrklinken-Zahnscheibe (weniger Zaehne = gröber, klickernder)
   try { const v = localStorage.getItem('miworu_snd'); if (v === '0') on = false; const h = +localStorage.getItem('miworu_hub'); if (HUBS.indexOf(h) >= 0 && localStorage.getItem('miworu_hub') !== null) hubN = h; } catch (e) {}
 
@@ -123,8 +123,9 @@ export const AUDIO = (() => {
     // Reifen je Untergrund (weiche Ueberblendung)
     // Abrollen: nur auf Asphalt und erst ab 25 km/h (6,9 m/s), dann weich einblenden und mit Tempo etwas lauter, aber nie aufdringlich
     const rk = Math.max(0, Math.min(1, (v - 6.9) / 2.0)) * Math.min(1, 0.7 + 0.3 * (v - 6.9) / 7);
-    set(N.asph, surf === 0 ? 0.085 * rk : 0, dt, 5); N.asph.f.frequency.value = 330 + 200 * Math.min(1, v / 14);   // tief, MTB-Stollen
-    set(N.road, surf === 0 ? 0.06 * rk : 0, dt, 5);
+    rough = Math.max(0, rough - dt * 1.1); const duck = 1 - 0.9 * Math.min(1, rough);   // Poltern/Hubbel hat Vorrang: Abrollen tritt dann zurueck
+    set(N.asph, surf === 0 ? 0.085 * rk * duck : 0, dt, 5); N.asph.f.frequency.value = 330 + 200 * Math.min(1, v / 14);   // tief, MTB-Stollen
+    set(N.road, surf === 0 ? 0.06 * rk * duck : 0, dt, 5);
     set(N.trail, 0, dt, 5);
     // Abfahrten auf Schotter/Trail: nur leises, dumpfes Knistern (Steinchen, Laub) - tief gefiltert
     if (v > 0.6 && (surf === 1 || surf === 2)) {
@@ -153,7 +154,7 @@ export const AUDIO = (() => {
     if (birdT <= 0) { birdT = 5 + Math.random() * 10; if (s.forest > 0.35) bird(t + Math.random() * 0.3); }
   }
   // Einmalige Ereignisse
-  function bump(a, surf) { if (!ok || !on) return; const t = ctx.currentTime, k = Math.min(1, a / 0.3); thump(t, 85, 45, 0.1, 0.14 * k); burst(t, 0.06, 'lowpass', 320, 0.7, 0.16 * k); }
+  function bump(a, surf) { rough = Math.min(1.4, rough + 0.9); if (!ok || !on) return; const t = ctx.currentTime, k = Math.min(1, a / 0.3); thump(t, 85, 45, 0.1, 0.14 * k); burst(t, 0.06, 'lowpass', 320, 0.7, 0.16 * k); }
   function takeoff() { if (!ok) return; const t = ctx.currentTime; burst(t, 0.12, 'lowpass', 320, 0.7, 0.14); thump(t, 80, 48, 0.14, 0.14); }
   function land(h) { if (!ok) return; const t = ctx.currentTime, k = Math.min(1, h / 0.4); thump(t, 85, 36, 0.24, 0.4 * k + 0.1); burst(t, 0.18, 'lowpass', 360, 0.7, 0.22 * k + 0.05); }
   function edge(a) { if (!ok) return; const t = ctx.currentTime, k = Math.min(1, a / 1.5); thump(t, 80, 40, 0.18, 0.22 * k + 0.05); burst(t, 0.1, 'lowpass', 300, 0.7, 0.14 * k); }
