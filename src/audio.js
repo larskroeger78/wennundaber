@@ -3,7 +3,7 @@
 export const AUDIO = (() => {
   let ctx = null, master = null, noise = null, on = true, vol = 0.8, ok = false;
   const N = {};              // Dauer-Klaenge: Name -> {g: GainNode, f: BiquadFilter}
-  let wildT = 50 + Math.random() * 60, birdT = 3, clickAcc = 0, stoneAcc = 0, rainAcc = 0, lastSurf = 0, brakeG = null;
+  let splashBuf = null, wildT = 50 + Math.random() * 60, birdT = 3, clickAcc = 0, stoneAcc = 0, rainAcc = 0, lastSurf = 0, brakeG = null;
   let hubN = 72; const HUBS = [0, 32, 56, 72];   // Freilauf: aus oder Zaehnezahl der Sperrklinken-Zahnscheibe (weniger Zaehne = gröber, klickernder)
   try { const v = localStorage.getItem('miworu_snd'); if (v === '0') on = false; const h = +localStorage.getItem('miworu_hub'); if (HUBS.indexOf(h) >= 0 && localStorage.getItem('miworu_hub') !== null) hubN = h; } catch (e) {}
 
@@ -75,6 +75,10 @@ export const AUDIO = (() => {
   }
   function splash(v) {   // Platschen beim Einfahren in eine Pfuetze, Wucht nach Tempo
     if (!ok || !on) return; const t = ctx.currentTime, k = Math.min(1, v / 9);
+    if (splashBuf) {   // Aufnahme: Lautstaerke und Tonhoehe leicht nach Tempo, kleine Zufallsvariation
+      const s = ctx.createBufferSource(); s.buffer = splashBuf; s.playbackRate.value = (0.94 + Math.random() * 0.12) * (0.95 + 0.1 * k);
+      const g = ctx.createGain(); g.gain.value = 0.45 + 0.55 * k; s.connect(g); g.connect(master); s.start(t); return;
+    }
     burst(t, 0.28, 'bandpass', 1800, 0.7, 0.2 * k + 0.05); burst(t + 0.02, 0.4, 'lowpass', 650, 0.7, 0.24 * k + 0.05); thump(t, 160, 70, 0.12, 0.12 * k);
     for (let i = 0; i < 4; i++) burst(t + 0.06 + i * 0.07 + Math.random() * 0.04, 0.09, 'highpass', 2600, 0.6, (0.07 * k + 0.02) * (1 - i * 0.2));
   }
@@ -102,6 +106,7 @@ export const AUDIO = (() => {
         o.connect(hp); hp.connect(bp); bp.connect(g); g.connect(master); o.start();
         N.hub = { o, g, hp, bp }; }
       ok = true;
+      fetch('/assets/audio/pfuetze.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => { splashBuf = buf; }).catch(() => {});   // echte Pfuetzen-Aufnahme
     } catch (e) { ok = false; }
   }
   function set(n, v, dt, k) { const g = n.g.gain; g.value += (v - g.value) * Math.min(1, dt * (k || 6)); }
@@ -137,7 +142,7 @@ export const AUDIO = (() => {
     // Bremse: hohes Quietschen bei Tempo
     set(brakeG, s.brake && v > 1.5 ? 0.025 * Math.min(1, v / 8) : 0, dt, 10);
     // Pfuetze: Spritzen, solange man drin ist
-    set(N.pud, s.pud && v > 1.2 ? 0.1 * Math.min(1, v / 7) : 0, dt, 12);
+    set(N.pud, !splashBuf && s.pud && v > 1.2 ? 0.1 * Math.min(1, v / 7) : 0, dt, 12);   // synthetisches Spritzen nur als Ersatz, solange die Aufnahme fehlt
     // Regen
     set(N.rain, 0.07 * s.rain, dt, 1.5); set(N.rain2, 0.063 * s.rain, dt, 1.5);   // Regen 30 % leiser
     // Voegel: nur im Wald und nur am Tag
