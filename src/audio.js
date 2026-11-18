@@ -73,11 +73,31 @@ export const AUDIO = (() => {
         voice(tt, d, f, f * 0.78, 0.38, 'sine', 5600, 4, 0.1); }
     }
   }
+  function call(kind, vg, p) {   // Ruf eines Nachtwild-Tieres kurz vor dem Weggehen (vg 0..1 = Entfernung, p = -1..1 links/rechts)
+    if (!ok || !on || vg <= 0.02) return; const t = ctx.currentTime + 0.02, d = pan(t, p || 0, vg);
+    if (kind === 'boar') {   // Wildschwein: zwei, drei tiefe Grunzer, am Ende ein kurzes Quieken
+      const n = 2 + (Math.random() * 2 | 0);
+      for (let i = 0; i < n; i++) { const tt = t + i * 0.34, f = 80 + Math.random() * 25;
+        voice(tt, d, f * 1.3, f * 0.75, 0.3, 'sawtooth', 240 + Math.random() * 70, 2.2, 0.6); voice(tt, d, f * 2.6, f * 1.5, 0.22, 'sawtooth', 520, 1.8, 0.16); burst(tt, 0.18, 'lowpass', 500, 0.8, 0.1, d); }
+      voice(t + n * 0.34, d, 1300, 1700, 0.18, 'sawtooth', 1500, 3, 0.07);
+    } else if (kind === 'stag') {   // Hirsch: tiefes Roehren mit Vibrato, 2 s, am Ende grunzig auslaufend
+      const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(70, t); o.frequency.linearRampToValueAtTime(118, t + 0.45); o.frequency.linearRampToValueAtTime(84, t + 1.9);
+      const l = ctx.createOscillator(), lg = ctx.createGain(); l.frequency.value = 7; lg.gain.value = 5; l.connect(lg); lg.connect(o.frequency); l.start(t); l.stop(t + 2.1);
+      const f1 = ctx.createBiquadFilter(); f1.type = 'bandpass'; f1.frequency.value = 420; f1.Q.value = 2.5; const f2 = ctx.createBiquadFilter(); f2.type = 'bandpass'; f2.frequency.value = 900; f2.Q.value = 2;
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(1.1, t + 0.3); g.gain.setValueAtTime(1.0, t + 1.3); g.gain.exponentialRampToValueAtTime(0.0001, t + 2.0);
+      o.connect(f1); o.connect(f2); f1.connect(g); f2.connect(g); g.connect(d); o.start(t); o.stop(t + 2.1);
+      for (let i = 0; i < 3; i++) burst(t + 1.6 + i * 0.16, 0.12, 'lowpass', 400, 0.8, 0.22, d);
+    } else {   // Reh: rauhes Bellen, drei, vier Rufe
+      const n = 3 + (Math.random() * 2 | 0);
+      for (let i = 0; i < n; i++) { const tt = t + i * 0.5, f = 300 + Math.random() * 40;
+        voice(tt, d, f, f * 0.85, 0.24, 'sawtooth', 900, 1.6, 0.5); burst(tt, 0.2, 'bandpass', 1100, 1.2, 0.1, d); }
+    }
+  }
   function splash(v) {   // Platschen beim Einfahren in eine Pfuetze, Wucht nach Tempo
     if (!ok || !on) return; const t = ctx.currentTime, k = Math.min(1, v / 9);
     if (splashBuf) {   // Aufnahme: Lautstaerke und Tonhoehe leicht nach Tempo, kleine Zufallsvariation
       const s = ctx.createBufferSource(); s.buffer = splashBuf; s.playbackRate.value = (0.94 + Math.random() * 0.12) * (0.95 + 0.1 * k);
-      const g = ctx.createGain(); g.gain.value = 0.5 * (0.45 + 0.55 * k); s.connect(g); g.connect(master); s.start(t); return;
+      const g = ctx.createGain(); g.gain.value = 0.16 * (0.45 + 0.55 * k); s.connect(g); g.connect(master); s.start(t); return;
     }
     burst(t, 0.28, 'bandpass', 1800, 0.7, 0.2 * k + 0.05); burst(t + 0.02, 0.4, 'lowpass', 650, 0.7, 0.24 * k + 0.05); thump(t, 160, 70, 0.12, 0.12 * k);
     for (let i = 0; i < 4; i++) burst(t + 0.06 + i * 0.07 + Math.random() * 0.04, 0.09, 'highpass', 2600, 0.6, (0.07 * k + 0.02) * (1 - i * 0.2));
@@ -164,5 +184,5 @@ export const AUDIO = (() => {
   // Browser starten Audio erst nach einer Nutzergeste (Klick, Taste, Touch): beim ersten Mal Kontext anlegen bzw. fortsetzen
   const wake = () => { init(); if (ctx && ctx.state === 'suspended') ctx.resume(); };
   ['pointerdown', 'keydown', 'touchstart', 'click'].forEach(ev => window.addEventListener(ev, wake, { passive: true }));
-  return { cycleHub, get hub() { return hubN; }, splash, init, get suspended() { return !ctx || ctx.state !== 'running'; }, update, bump, takeoff, land, edge, gear, toggle, get on() { return on; } };
+  return { call, cycleHub, get hub() { return hubN; }, splash, init, get suspended() { return !ctx || ctx.state !== 'running'; }, update, bump, takeoff, land, edge, gear, toggle, get on() { return on; } };
 })();

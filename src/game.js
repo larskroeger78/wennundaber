@@ -1118,7 +1118,8 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
     map.forEach((arr,k)=>{
       const kk=k.split(',').map(Number),cx=(kk[0]+0.5)*T,cz=(kk[1]+0.5)*T;
       const g=new THREE.BufferGeometry();g.setIndex(geo.index);for(const n in geo.attributes)g.setAttribute(n,geo.attributes[n]);
-      g.boundingSphere=new THREE.Sphere(new THREE.Vector3(0,30,0),T*0.75+50);
+      let y0=1e9,y1=-1e9;arr.forEach(it=>{const y=it.y===undefined?0:it.y;if(y<y0)y0=y;if(y>y1)y1=y;});if(y0>y1){y0=0;y1=0;}   // Huellkugel an die echte Hoehe der Baeume anpassen (Alpen: Haenge bis +/-1000 m, sonst werden Baeume beim Annaehern weggeschnitten)
+      g.boundingSphere=new THREE.Sphere(new THREE.Vector3(0,(y0+y1)/2+15,0),Math.hypot(T*0.75+50,(y1-y0)/2+30));
       const m=new THREE.InstancedMesh(g,mat,arr.length);m.position.set(cx,0,cz);
       arr.forEach((it,i)=>fill(it,i,m,cx,cz));
       m.castShadow=shadow;m.receiveShadow=true;if(depthMat)m.customDepthMaterial=depthMat;m.frustumCulled=true;scene.add(m);
@@ -2796,7 +2797,7 @@ window.__vans=VANS;
 const vo={x:0,y:0,z:0,h:0};
 // ---- Nachtwild: schemenhaft Wildschwein, Hirsch und Reh im dunklen Wald (nur Nightride), nur ab und zu. Echte 3D-Koerper (kein Bild),
 // kaum beleuchtet, tauchen aus der Dunkelheit auf und verschwinden wieder. Die Augen reflektieren das Licht der Stirnlampe (Katzenaugen-Effekt).
-const WL={a:null,wait:25+Math.random()*30,cache:{},eyeTex:null};
+const WL={list:[],wait:12+Math.random()*15,pool:{},eyeTex:null,get a(){return this.list[0]||null;}};
 const wlS={x:0,y:0,z:0,h:0},_wv=V3(0,0,0),_wc=V3(0,0,0),_wd=V3(0,0,0);
 function wlEyeTex(){
   if(WL.eyeTex)return WL.eyeTex;
@@ -2839,44 +2840,50 @@ function wlBuild(kind){
 }
 function wlSpawnAt(kind,s,o){
   sample(s,wlS);const x=wlS.x-Math.cos(wlS.h)*o,z=wlS.z+Math.sin(wlS.h)*o;
-  const T=WL.cache[kind]||(WL.cache[kind]=wlBuild(kind));
-  WL.a=T;T.x=x;T.z=z;T.t=0;T.ph='in';T.stand=4+Math.random()*6;T.speed=0;T.blink=1.5+Math.random()*3;
+  const pl=WL.pool[kind]||(WL.pool[kind]=[]);let T=pl.find(q=>!q.on);if(!T){T=wlBuild(kind);pl.push(T);}
+  T.on=true;T.o0=o;T.called=false;WL.list.push(T);T.x=x;T.z=z;T.t=0;T.ph='in';T.stand=4+Math.random()*6;T.speed=0;T.ph0=0;T.blink=1.5+Math.random()*3;
   T.yaw=Math.atan2(-(camera.position.z-z),camera.position.x-x)+(Math.random()-0.5)*1.1;
   T.g.position.set(x,gnd(x,z),z);T.g.rotation.y=T.yaw;T.g.visible=true;T.mat.opacity=0;return T;
 }
-function updateWildlife(dt){
-  if(!MW||!NIGHT){if(WL.a){WL.a.g.visible=false;WL.a=null;}return;}
-  const cp=camera.position;let a=WL.a;
-  if(!a){
-    WL.wait-=dt;if(WL.wait>0||st.v<2||st.lift)return;
-    for(let t=0;t<10;t++){
-      const s=st.pos+40+Math.random()*50;if(s>TOTAL-60)break;
-      if(SURF[Math.min(N-1,Math.floor(s/SEG))]===0)continue;
-      sample(s,wlS);const o=(Math.random()<0.5?-1:1)*(7+Math.random()*12),x=wlS.x-Math.cos(wlS.h)*o,z=wlS.z+Math.sin(wlS.h)*o;
-      if(forestD(x,z)<0.55||inBuilding(x,z))continue;
-      wlSpawnAt(['boar','stag','doe','doe','stag'][(Math.random()*5)|0],s,o);a=WL.a;break;
-    }
-    if(!a){WL.wait=3;return;}
+function wlSpawnTry(){
+  const kinds=['boar','stag','doe','doe','stag','boar'];
+  for(let t=0;t<12;t++){
+    const s=st.pos+35+Math.random()*55;if(s>TOTAL-60)break;
+    if(SURF[Math.min(N-1,Math.floor(s/SEG))]===0)continue;
+    sample(s,wlS);const o=(Math.random()<0.5?-1:1)*(6+Math.random()*10),x=wlS.x-Math.cos(wlS.h)*o,z=wlS.z+Math.sin(wlS.h)*o;   // hoechstens ~16 m vom Weg, beim Abhauen nie weiter als 30 m
+    if(forestD(x,z)<0.55||inBuilding(x,z))continue;
+    if(WL.list.some(q=>Math.hypot(q.x-x,q.z-z)<25))continue;
+    wlSpawnAt(kinds[(Math.random()*kinds.length)|0],s,o);return true;
   }
-  a.t+=dt;
+  return false;
+}
+function wlEnd(a){a.g.visible=false;a.on=false;a.eyes.forEach(e=>e.material.opacity=0);const i=WL.list.indexOf(a);if(i>=0)WL.list.splice(i,1);}
+function wlUpdateOne(a,dt){
+  const cp=camera.position;a.t+=dt;
   const dx=cp.x-a.x,dz=cp.z-a.z,dist=Math.hypot(dx,dz);
   if(a.ph==='in'){a.mat.opacity=Math.min(1,a.t/1.6);if(a.t>=1.6)a.ph='stand';}
-  else if(a.ph==='stand'){
+  else if(a.ph==='stand'||a.ph==='call'){
     a.mat.opacity=1;
     const want=Math.atan2(-dz,dx);let d=want-a.yaw;d=Math.atan2(Math.sin(d),Math.cos(d));a.yaw+=Math.max(-1.1*dt,Math.min(1.1*dt,d*0.8));   // schaut dem Fahrer nach
-    if(a.t>1.6+a.stand||dist<14||dist>110){a.ph='go';a.gt=0;a.speed=a.boar?5.5:4.2;a.away=Math.atan2(dz,-dx)+(Math.random()-0.5)*0.9;}
+    if(a.ph==='stand'&&(a.t>1.6+a.stand||dist<14||dist>110)){
+      a.ph='call';a.ct=0;
+      const me=camera.matrixWorld.elements,pn=Math.max(-1,Math.min(1,((a.x-cp.x)*me[0]+(a.z-cp.z)*me[2])/Math.max(8,dist)));
+      AUDIO.call(a.kind,Math.max(0,Math.min(1,1.15-dist/110)),pn);
+    }
+    if(a.ph==='call'){a.ct+=dt;if(a.ct>(a.kind==='stag'?2.1:a.kind==='boar'?1.3:1.5)||dist<8){a.ph='go';a.gt=0;a.speed=a.boar?5.5:4.2;a.away=Math.atan2(dz,-dx)+(Math.random()-0.5)*0.9;}}
   }else{
     a.gt+=dt;let d=a.away-a.yaw;d=Math.atan2(Math.sin(d),Math.cos(d));a.yaw+=Math.max(-3*dt,Math.min(3*dt,d*2));
     a.x+=Math.cos(a.yaw)*a.speed*dt;a.z-=Math.sin(a.yaw)*a.speed*dt;
     a.mat.opacity=Math.max(0,1-Math.max(0,a.gt-0.6)/1.4);
-    if(a.gt>2.2){a.g.visible=false;WL.a=null;WL.wait=45+Math.random()*80;a.eyes.forEach(e=>e.material.opacity=0);return;}
+    if(a.gt>2.2){wlEnd(a);return;}
   }
   const moving=a.ph==='go',sw=moving?Math.sin(a.t*11)*0.55:0;
   a.g.position.set(a.x,gnd(a.x,a.z),a.z);a.g.rotation.y=a.yaw;
   a.legs.forEach((l,i)=>{l.rotation.z=((i%3===0)?1:-1)*sw;});
   a.body.position.y=moving?Math.abs(Math.sin(a.t*11))*0.06:Math.sin(a.t*1.6)*0.006;
-  const pitch=a.boar?-0.32+0.12*Math.sin(a.t*0.8):0.06+0.14*Math.sin(a.t*0.7)-(Math.sin(a.t*0.23)>0.9?0.5:0);
-  a.head.rotation.z=pitch;a.head.rotation.y=0.22*Math.sin(a.t*0.5);
+  let pitch=a.boar?-0.32+0.12*Math.sin(a.t*0.8):0.06+0.14*Math.sin(a.t*0.7)-(Math.sin(a.t*0.23)>0.9?0.5:0);
+  if(a.ph==='call')pitch=a.kind==='stag'?0.55:a.boar?0.3:0.4;   // Kopf hoch beim Rufen
+  a.head.rotation.z=pitch;a.head.rotation.y=0.22*Math.sin(a.t*0.5)*(a.ph==='call'?0.3:1);
   // Augen: Katzenaugen-Reflexion nur, wenn das Tier den Fahrer ansieht UND vom Lampenkegel getroffen wird
   camera.getWorldDirection(_wd);
   const hy=a.yaw+a.head.rotation.y,fx=Math.cos(hy),fz=-Math.sin(hy),blink=(a.t%a.blink)<0.14?0.1:1;
@@ -2886,6 +2893,15 @@ function updateWildlife(dt){
     const sh=Math.pow(al,3)*Math.max(0,Math.min(1,(la-0.9)/0.08))*Math.max(0,1-D/110)*a.mat.opacity*blink;
     e.material.opacity=sh;const sz=(0.05+0.0035*D)*(0.6+0.4*sh);e.scale.set(sz,sz,1);
   });
+}
+function updateWildlife(dt){
+  if(!MW||!NIGHT){while(WL.list.length)wlEnd(WL.list[0]);return;}
+  WL.list.slice().forEach(a=>wlUpdateOne(a,dt));
+  WL.wait-=dt;
+  if(WL.wait>0||st.v<2||st.lift)return;
+  if(WL.list.length>=2){WL.wait=4;return;}
+  if(wlSpawnTry())WL.wait=(WL.list.length<2&&Math.random()<0.3)?3+Math.random()*5:14+Math.random()*30;   // oefter: alle ~15-45 s, manchmal zwei kurz nacheinander
+  else WL.wait=3;
 }
 function updateVans(dt){   // fahrende Autos: kommen entgegen, bremsen rechtzeitig bis zum Stand und warten, bis der Fahrer vorbei ist. Nie Kontakt.
   if(!nearHouse)return;
@@ -2960,7 +2976,7 @@ function loop(now){
   update(dt);render(dt,now);
   requestAnimationFrame(loop);
 }
-window.__dbg={get LIFTS(){return LIFTS;},get WL(){return WL;},wlSpawnAt:wlSpawnAt,forestD:forestD,splash:splashDrops,PUDH:PUDH,AUDIO:AUDIO,renderer:renderer,scene:scene,SHK:SHK,BUMPS:BUMPS,gnd:gnd,HS:HS,PX:PX,PZ:PZ,HW:HW,KV:KV,ROUTE:ROUTE,SURF:SURF,cam:camera,joggers:joggers,groundY:groundY,TABS:TABS,tabH:tabH,get st(){return st;},set pos(v){st.pos=v;camInit=false;},N:N,TOTAL:TOTAL,iTrail:iTrail,SEC:SEC,PY:PY,GR:GR,forestD:forestD,lu:(k,x,z)=>LU?lu(LU[k],x,z):-1};
+window.__dbg={get LIFTS(){return LIFTS;},get WL(){return WL;},updateWildlife:updateWildlife,wlSpawnAt:wlSpawnAt,forestD:forestD,splash:splashDrops,PUDH:PUDH,AUDIO:AUDIO,renderer:renderer,scene:scene,SHK:SHK,BUMPS:BUMPS,gnd:gnd,HS:HS,PX:PX,PZ:PZ,HW:HW,KV:KV,ROUTE:ROUTE,SURF:SURF,cam:camera,joggers:joggers,groundY:groundY,TABS:TABS,tabH:tabH,get st(){return st;},set pos(v){st.pos=v;camInit=false;},N:N,TOTAL:TOTAL,iTrail:iTrail,SEC:SEC,PY:PY,GR:GR,forestD:forestD,lu:(k,x,z)=>LU?lu(LU[k],x,z):-1};
 if(SAVED)menu('Weiterfahren bei '+(SAVED.pos/1000).toFixed(2).replace('.',',')+' km','Gespeicherte Fahrt · '+fmtT(SAVED.t));else menu('Start');
 if(location.hash==='#go'&&!PAYWALL)start();
 if(PAYWALL)showUnlock(PAYWALL);
