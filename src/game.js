@@ -7,6 +7,10 @@ import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import './style.css';
 import { makeVan } from './van.js';
 import { makeGroup, GROUP_COLORS } from './group.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Trainer, ClickPad, BLE_OK } from './ble.js';
 import { AUDIO } from './audio.js';
@@ -381,7 +385,8 @@ sun.shadow.camera.left=-90;sun.shadow.camera.right=90;sun.shadow.camera.top=90;s
 sun.shadow.camera.near=10;sun.shadow.camera.far=520;
 sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.3;
 scene.add(sun);scene.add(sun.target);
-function resize(){const w=window.innerWidth,h=window.innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+let composer=null,FXon=false,FXP=null;
+function resize(){const w=window.innerWidth,h=window.innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();if(composer){composer.setPixelRatio(renderer.getPixelRatio());composer.setSize(w,h);}}
 window.addEventListener('resize',resize);resize();
 let HDRTEX=null;const WXB={},PUDH={};
 const WXN=['Klar','Nebel','Nieselregen'];let WX=0;const WXS={rain:0,fog:0,day:1};
@@ -399,7 +404,31 @@ function applyQ(){
   resize();
 }
 applyQ();
-function cycleQ(){quality=quality%3+1;try{localStorage.setItem('miworu_q',quality);}catch(_){}applyQ();toastEl.textContent='Grafik: '+QN[quality];toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}
+function cycleQ(){quality=quality%3+1;try{localStorage.setItem('miworu_q',quality);}catch(_){}applyQ();fxSetup();toastEl.textContent='Grafik: '+QN[quality];toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}
+// Nachbearbeitung (nur Stufe "Hoch"): leichtes Bloom, Filmton, Vignette. ?fx=0 schaltet aus, ?fx=1 erzwingt.
+function fxWanted(){let f=null;try{f=new URLSearchParams(location.search).get('fx');}catch(e){}if(f==='0')return false;if(f==='1')return true;return quality===3&&MW;}
+function fxSetup(){
+  if(!fxWanted()){FXon=false;return;}
+  if(!composer){
+    const w=window.innerWidth,h=window.innerHeight;
+    const rt=new THREE.WebGLMultisampleRenderTarget(w,h,{type:THREE.HalfFloatType,format:THREE.RGBAFormat,minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter});rt.samples=4;
+    composer=new EffectComposer(renderer,rt);composer.addPass(new RenderPass(scene,camera));
+    const bl=new UnrealBloomPass(new THREE.Vector2(w/2,h/2),0.14,0.55,0.93);composer.addPass(bl);
+    FXP=new ShaderPass({uniforms:{tDiffuse:{value:null},exposure:{value:0.95},vig:{value:0.16}},vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+      fragmentShader:`uniform sampler2D tDiffuse;uniform float exposure,vig;varying vec2 vUv;
+        vec3 RRT(vec3 v){vec3 a=v*(v+0.0245786)-0.000090537;vec3 b=v*(0.983729*v+0.4329510)+0.238081;return a/b;}
+        void main(){vec3 c=texture2D(tDiffuse,vUv).rgb;c*=exposure/0.6;
+          c=mat3(vec3(0.59719,0.07600,0.02840),vec3(0.35458,0.90834,0.13383),vec3(0.04823,0.01566,0.83777))*c;c=RRT(c);
+          c=mat3(vec3(1.60475,-0.10208,-0.00327),vec3(-0.53108,1.10813,-0.07276),vec3(-0.07367,-0.00605,1.07602))*c;c=clamp(c,0.0,1.0);
+          float l=dot(c,vec3(0.2126,0.7152,0.0722));c=mix(vec3(l),c,1.06);c=(c-0.5)*1.04+0.5;   // leichte Saettigung und Kontrast
+          vec2 d=vUv-0.5;c*=1.0-vig*dot(d,d)*2.2;
+          c=mix(pow(clamp(c,0.0,1.0),vec3(0.41666))*1.055-0.055,c*12.92,vec3(lessThanEqual(c,vec3(0.0031308))));
+          gl_FragColor=vec4(c,1.0);}`});
+    composer.addPass(FXP);composer.setPixelRatio(renderer.getPixelRatio());composer.setSize(w,h);
+  }
+  FXon=true;
+}
+fxSetup();window.__fx=()=>({on:FXon});
 
 // ================= Himmel =================
 const sky=new THREE.Mesh(new THREE.SphereGeometry(4500,32,16),new THREE.ShaderMaterial({
@@ -2142,7 +2171,7 @@ function render(dt,now){
   sun.shadow.camera.left=-90*sc;sun.shadow.camera.right=90*sc;sun.shadow.camera.top=90*sc;sun.shadow.camera.bottom=-90*sc;sun.shadow.camera.far=520*sc;sun.shadow.camera.updateProjectionMatrix();
   sun.position.copy(ctr).addScaledVector(SUN,220*sc);sun.target.position.copy(ctr);sun.target.updateMatrixWorld();
   if((tileN++%6)===0)updateTiles(camera.position);
-  renderer.render(scene,camera);
+  if(FXon&&composer){FXP.uniforms.exposure.value=renderer.toneMappingExposure;composer.render();}else renderer.render(scene,camera);
   if(running||st.done)drawHud();
 }
 let tileN=0;
