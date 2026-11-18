@@ -390,7 +390,8 @@ function resize(){const w=window.innerWidth,h=window.innerHeight;renderer.setSiz
 window.addEventListener('resize',resize);resize();
 let HDRTEX=null;const WXB={},PUDH={};
 const WXN=['Klar','Nebel','Nieselregen'];let WX=0;const WXS={rain:0,fog:0,day:1};
-try{const q=new URLSearchParams(location.search).get('wetter');WX=q!==null&&!isNaN(+q)?clamp(+q|0,0,2):clamp(+localStorage.getItem('miworu_wx')|0,0,2);}catch(e){}
+let WXLIVE=false,WXLIVEOK=false;   // Wetter: nur Aus oder Live (Open-Meteo zur Strecken-Position); ?wetter=0|1|2 erzwingt festen Zustand (Entwicklung)
+try{const q=new URLSearchParams(location.search).get('wetter');if(q!==null&&!isNaN(+q))WX=clamp(+q|0,0,2);else WXLIVE=localStorage.getItem('miworu_wxl')==='1';}catch(e){}
 // Qualitaetsstufen (Taste Q): Aufloesung, Schattenkarte
 const TILES=[];const TREE_FAR=[0,300,560,950];let GRS=null;   // Sichtweite fuer Baum-/Buschkacheln je Qualitaetsstufe (m)
 const QN={1:'Niedrig',2:'Mittel',3:'Hoch'};let quality=2;try{quality=clamp(+localStorage.getItem('miworu_q')||2,1,3);}catch(e){}
@@ -1783,7 +1784,24 @@ function applyWXOther(){   // Strecken ohne Sonnenstand-Modell: Himmel/Dunst gra
   else{scene.background=HDRTEX||HORIZON;scene.fog.color.copy(WXB.fog);sky.visible=!HDRTEX;sun.intensity=WXB.sun;hemi.intensity=WXB.hemi;}
   scene.fog.density=[0,0.0009,0.00055,0.0004][QE()]*[1,5,2.2][WX];
 }
-function cycleWX(){WX=(WX+1)%3;try{localStorage.setItem('miworu_wx',WX);}catch(_){}if(BK)applySun(true);else applyWXOther();toastEl.textContent='Wetter: '+WXN[WX];toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}
+const WXPOS={miworu:[51.617,7.633],hemer:[51.38,7.77],iserlohn:[51.37,7.70],hagen:[51.36,7.47],wuppertal:[51.27,7.2]};
+const WXL=()=>WXLIVE?'Live'+(WXLIVEOK?' · '+WXN[WX]:' …'):'Aus';
+function wxApply(){if(BK)applySun(true);else applyWXOther();applyQ();}
+async function wxFetch(){
+  if(!WXLIVE)return;
+  const pos=WXPOS[RT&&RT.dem]||[51.5,7.5];
+  try{const r=await fetch('https://api.open-meteo.com/v1/forecast?latitude='+pos[0]+'&longitude='+pos[1]+'&current=weather_code,precipitation',{cache:'no-store'});if(!r.ok)throw 0;const j=await r.json(),c=j.current||{},wc=c.weather_code|0,pr=+c.precipitation||0;
+    // WMO-Code: 45/48 Nebel; 51-67 Niesel/Regen; 80-82 Schauer; 95-99 Gewitter; 71-77 Schnee (als Nebel/Dunst); sonst klar
+    let w=0;if(wc===45||wc===48||(wc>=71&&wc<=77)||wc===85||wc===86)w=1;if((wc>=51&&wc<=67)||(wc>=80&&wc<=82)||wc>=95||pr>=0.1)w=2;
+    if(!WXLIVE)return;WX=w;WXLIVEOK=true;wxApply();hintHud.k=null;}
+  catch(e){if(WXLIVE){WX=0;WXLIVEOK=false;wxApply();hintHud.k=null;}}
+}
+setInterval(()=>{if(WXLIVE)wxFetch();},15*60*1000);
+function cycleWX(){WXLIVE=!WXLIVE;try{localStorage.setItem('miworu_wxl',WXLIVE?'1':'0');}catch(_){}
+  if(WXLIVE){WXLIVEOK=false;wxFetch();}else{WX=0;WXLIVEOK=false;wxApply();}
+  hintHud.k=null;toastEl.textContent='Wetter: '+(WXLIVE?'Live (wird geladen …)':'Aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1400);
+  if(WXLIVE)setTimeout(()=>{if(WXLIVEOK){toastEl.textContent='Wetter live: '+WXN[WX];toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1600);}},1500);}
+if(WXLIVE)setTimeout(wxFetch,600);
 
 // ================= Zustand, Eingabe, Physik =================
 const M=95,CDA=0.38,RHO=1.2,GRAV=9.81,PMAX=300,BRAKE=260;
@@ -1804,8 +1822,8 @@ function shift(d){
   toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),900);
 }
 function hintHud(){
-  const key=diff+'|'+quality+'|'+WX+'|'+AUDIO.on;if(hintHud.k===key)return;hintHud.k=key;
-  hintEl.innerHTML=[1,2,3,4,5].map(n=>'<button type="button" data-act="d'+n+'"'+(diff===n?' class="on"':'')+'><b>'+(n===5?'M':n)+'</b>'+DIFFN[n]+'</button>').join('')+'<button type="button" data-act="q"><b>Q</b>Grafik '+QN[quality]+'</button><button type="button" data-act="n"><b>N</b>Sound '+(AUDIO.on?'an':'aus')+'</button><button type="button" data-act="w"><b>W</b>Wetter '+WXN[WX]+'</button>';
+  const key=diff+'|'+quality+'|'+WX+'|'+WXLIVE+'|'+WXLIVEOK+'|'+AUDIO.on;if(hintHud.k===key)return;hintHud.k=key;
+  hintEl.innerHTML=[1,2,3,4,5].map(n=>'<button type="button" data-act="d'+n+'"'+(diff===n?' class="on"':'')+'><b>'+(n===5?'M':n)+'</b>'+DIFFN[n]+'</button>').join('')+'<button type="button" data-act="q"><b>Q</b>Grafik '+QN[quality]+'</button><button type="button" data-act="n"><b>N</b>Sound '+(AUDIO.on?'an':'aus')+'</button><button type="button" data-act="w"><b>W</b>Wetter '+WXL()+'</button>';
 }
 function gearHud(){
   hintHud();
@@ -2018,7 +2036,7 @@ function menu(title,sub){
       (sub?'<div class="res">'+sub+'</div>':'')+
       '<div class="route">'+(ROUTE?RT.label:TRACK_NAME)+'<span>'+(ROUTE&&RT.place?RT.place:'Bergkamen und Umland')+'</span></div>'+
       '<div class="stats"><div><b>'+km+'</b><i>km</i></div><div><b>'+HM+'</b><i>Höhenmeter</i></div></div>'+
-      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused||SAVED?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(()=>{const n=click.devs.filter(x=>!x.lost).length;return n>=2?'Zwift Click: beide Hälften ✓':n===1&&click.connected?'Zwift Click ✓ · zweite Hälfte koppeln (stabiler)':(click.devs.length?'Zwift Click: getrennt – neu koppeln':'Zwift Click koppeln');})()+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button>'+'<button id="dif" class="sec">Schwierigkeit: '+DIFFN[diff]+'</button><button id="qual" class="sec">Grafik: '+QN[quality]+'</button><button id="snd" class="sec">Sound: '+(AUDIO.on?'an':'aus')+'</button><button id="wxb" class="sec">Wetter: '+WXN[WX]+'</button><button id="grpb" class="sec">'+(GRP_CODE?'Gruppe: '+GRP_CODE:'Gruppenfahrt')+'</button><button id="gpx" class="sec">GPX-Strecke laden</button><button id="hlp" class="sec">So fährst du</button><input id="gpxf" type="file" accept=".gpx,.xml,application/gpx+xml" style="display:none"></div>'+mineHtml()+
+      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused||SAVED?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(()=>{const n=click.devs.filter(x=>!x.lost).length;return n>=2?'Zwift Click: beide Hälften ✓':n===1&&click.connected?'Zwift Click ✓ · zweite Hälfte koppeln (stabiler)':(click.devs.length?'Zwift Click: getrennt – neu koppeln':'Zwift Click koppeln');})()+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button>'+'<button id="dif" class="sec">Schwierigkeit: '+DIFFN[diff]+'</button><button id="qual" class="sec">Grafik: '+QN[quality]+'</button><button id="snd" class="sec">Sound: '+(AUDIO.on?'an':'aus')+'</button><button id="wxb" class="sec">Wetter: '+WXL()+'</button><button id="grpb" class="sec">'+(GRP_CODE?'Gruppe: '+GRP_CODE:'Gruppenfahrt')+'</button><button id="gpx" class="sec">GPX-Strecke laden</button><button id="hlp" class="sec">So fährst du</button><input id="gpxf" type="file" accept=".gpx,.xml,application/gpx+xml" style="display:none"></div>'+mineHtml()+
       '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?(IOS?'iPad: Seite in der App Bluefy öffnen (Safari kann kein Bluetooth).':'Bluetooth nur in Chrome/Edge (nicht Safari).'):'D100 oder KICKR einschalten, dann „Trainer koppeln“.')+(bleMsg?'<br>'+bleMsg:'')+''+(click.connected?'<br>'+click.name+' verbunden'+'<br>Click: kurz drücken = schwerer · gedrückt halten = leichter':'')+'</div>'+
     '</div></div>';
   const gpxf=document.getElementById('gpxf');
