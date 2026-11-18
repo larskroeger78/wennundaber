@@ -171,7 +171,7 @@ export const AUDIO = (() => {
     set(N.road, surf === 0 ? 0.03 * rk * duck : 0, dt, 5);
     if (tyreBuf && N.tyreS) {   // Aufnahme statt Synthese: leise, Tonlage und Pegel folgen nur leicht dem Tempo
       N.tyreS.src.playbackRate.setTargetAtTime(0.9 + 0.2 * Math.min(1, v / 14), t, 0.1);
-      set(N.tyreS, surf === 0 ? 0.4 * rk * duck * (0.6 + 0.4 * Math.min(1, v / 14)) : 0, dt, 4); set(N.tyre, 0, dt, 30); set(N.asph, 0, dt, 30); set(N.road, 0, dt, 30);
+      set(N.tyreS, surf === 0 ? 0.26 * rk * duck * (0.6 + 0.4 * Math.min(1, v / 14)) : 0, dt, 4); set(N.tyre, 0, dt, 30); set(N.asph, 0, dt, 30); set(N.road, 0, dt, 30);
     } else
     { const T = N.tyre; T.j1 = (T.j1 || 0) + ((Math.random() - 0.5) * 9 * dt) - (T.j1 || 0) * 0.9 * dt; T.j2 = (T.j2 || 0) + ((Math.random() - 0.5) * 12 * dt) - (T.j2 || 0) * 1.3 * dt; T.j3 = (T.j3 || 0) + ((Math.random() - 0.5) * 7 * dt) - (T.j3 || 0) * 0.6 * dt;
       // unregelmaessig: Tonhoehe, Pulsation und Pegel driften leicht (Belagwechsel, Poren, Rillen), damit es nicht wie eine Maschine im Loop klingt
