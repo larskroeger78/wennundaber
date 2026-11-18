@@ -3,6 +3,7 @@
 // Aufruf: npm run dop-tirol -- alpen      Optionen: --wms=<URL> --layer=<Name> --pix=2 --crs=25832|3857
 // Braucht vorher <name>.json und <name>.gelaende.json (npm run terrain-tirol).
 import fs from 'node:fs';
+import jpeg from 'jpeg-js';
 
 const args = process.argv.slice(2);
 const NAME = args.find(a => !a.startsWith('--')) || 'alpen';
@@ -34,19 +35,16 @@ const PROJ = { 25832: utm32, 3857: merc };
 let cap = '';
 try { cap = await (await fetch(`${WMS}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities`, { headers: UA })).text(); }
 catch (e) { console.error('Dienst nicht erreichbar:', e.message, '\nMit --wms=<Link> den Orthofoto-WMS von https://tirol.gv.at/sicherheit/geoinformation/geodaten-tiris/orthofotos angeben.'); process.exit(1); }
-const layers = [...cap.matchAll(/<Layer[^>]*>\s*<Name>([^<]+)<\/Name>\s*<Title>([^<]*)<\/Title>/g)].map(m => ({ name: m[1], title: m[2] }));
-console.log('Ebenen:\n' + (layers.map(l => `  ${l.name}  ${l.title}`).join('\n') || '  (keine erkannt)'));
+const allNames = [...cap.matchAll(/<Name>([^<]+)<\/Name>/g)].map(m => m[1]);
+const yr = n => Math.max(0, ...(n.match(/\d{4}/g) || []).map(Number));
+let LAYERS = opt('layer') ? [opt('layer')] : [...new Set(allNames.filter(n => /^Image_/i.test(n)))].sort((a, b) => yr(b) - yr(a));
+if (!LAYERS.length) LAYERS = [...new Set(allNames.filter(n => n !== 'default'))].slice(0, 3);
+console.log('Bildebenen (neueste zuerst):', LAYERS.join(', '));
 const crsAll = [...new Set([...cap.matchAll(/<(?:CRS|SRS)>EPSG:(\d+)<\/(?:CRS|SRS)>/g)].map(m => +m[1]))];
-console.log('Koordinatensysteme:', crsAll.join(', ') || '(keine Angabe)');
-let layer = opt('layer');
-if (!layer) {
-  const ok = layers.filter(l => !/histor|19\d\d|200\d|201[0-5]|infrarot|cir|blatt|befliegung|info/i.test(l.title + l.name));
-  const best = ok.find(l => /aktuell|current/i.test(l.title)) || ok.find(l => /ortho|luftbild/i.test(l.title)) || ok[0] || layers[0];
-  layer = best ? best.name : '0';
-}
+console.log('Koordinatensysteme (Auszug):', crsAll.slice(0, 8).join(', '));
 const crs = +(opt('crs') || 0) || [25832, 3857].find(c => crsAll.includes(c)) || 25832;
 const proj = PROJ[crs];
-console.log('Verwende Ebene', layer, 'in EPSG:' + crs, '(mit --layer=… / --crs=… änderbar)');
+console.log('Verwende EPSG:' + crs, '(mit --layer=… / --crs=… änderbar)');
 
 // Affine Abbildung Spielkoordinaten (x Ost, z = -Nord) -> CRS (linear um den Ursprung)
 const o = proj(LAT0, LON0), ux = proj(LAT0, LON0 + 1 / KX), uz = proj(LAT0 - 1 / KY, LON0);
@@ -59,22 +57,35 @@ const E0 = Math.floor(Math.min(...cs.map(c => c[0])) - 20), E1 = Math.ceil(Math.
 const N0 = Math.floor(Math.min(...cs.map(c => c[1])) - 20), N1 = Math.ceil(Math.max(...cs.map(c => c[1])) + 20);
 console.log(`Gebiet ${NAME}: ${((E1 - E0) / k / 1000).toFixed(1)} x ${((N1 - N0) / k / 1000).toFixed(1)} km`);
 
-const T = Math.round(1000 * k), PX = Math.round(T / RES), tiles = []; let idx = 0;
+const T = Math.round(1000 * k), PX = Math.round(T / RES), tiles = []; let idx = 0, good = 0;
+const blank = buf => {                       // leere Kachel (weiss/schwarz/gleichfarbig)?
+  try {
+    const d = jpeg.decode(buf, { useTArray: true }).data; let w = 0, b = 0, n = 0, sum = 0, sq = 0;
+    for (let q = 0; q < d.length; q += 16) { const l = (d[q] + d[q + 1] + d[q + 2]) / 3; n++; sum += l; sq += l * l; if (l > 248) w++; if (l < 4) b++; }
+    const sd = Math.sqrt(Math.max(0, sq / n - (sum / n) ** 2));
+    return (w + b) / n > 0.5 || sd < 6;
+  } catch (e) { return true; }
+};
 for (let n1 = N1; n1 > N0; n1 -= T) for (let e0 = E0; e0 < E1; e0 += T) {
-  const e1 = e0 + T, n0 = n1 - T;
-  const url = `${WMS}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=${encodeURIComponent(layer)}&STYLES=&CRS=EPSG:${crs}&BBOX=${e0},${n0},${e1},${n1}&WIDTH=${PX}&HEIGHT=${PX}&FORMAT=image/jpeg`;
-  const file = `${NAME}.dop-${idx}.jpg`;
+  const e1 = e0 + T, n0 = n1 - T, file = `${NAME}.dop-${idx}.jpg`;
   process.stdout.write(`  Kachel ${idx} … `);
-  let ok = false;
-  for (let t = 1; t <= 4 && !ok; t++) {
-    try {
-      const r = await fetch(url, { headers: UA, signal: AbortSignal.timeout(60000) }), buf = Buffer.from(await r.arrayBuffer());
-      if (!r.ok || !(r.headers.get('content-type') || '').includes('image')) { console.log(`Fehler HTTP ${r.status}: ${buf.toString('utf8').slice(0, 300)}`); await sleep(2000 * t); continue; }
-      fs.writeFileSync(new URL(`../src/routes/${file}`, import.meta.url), buf);
-      console.log(`${(buf.length / 1e3).toFixed(0)} kB`); ok = true;
-    } catch (e) { console.log(`Fehler (${e.message}), Versuch ${t}`); await sleep(2000 * t); }
+  let done = false;
+  const order = [LAYERS[good], ...LAYERS.filter((_, q) => q !== good)];
+  for (const layer of order) {
+    const url = `${WMS}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=${encodeURIComponent(layer)}&STYLES=&CRS=EPSG:${crs}&BBOX=${e0},${n0},${e1},${n1}&WIDTH=${PX}&HEIGHT=${PX}&FORMAT=image/jpeg`;
+    let buf = null;
+    for (let t = 1; t <= 3 && !buf; t++) {
+      try {
+        const r = await fetch(url, { headers: UA, signal: AbortSignal.timeout(60000) }), b = Buffer.from(await r.arrayBuffer());
+        if (r.ok && (r.headers.get('content-type') || '').includes('image')) buf = b;
+        else { const m = b.toString('utf8').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160); if (t === 3 || /unacceptable|not defined|LayerNotDefined/i.test(m)) { process.stdout.write(`[${layer}: ${m}] `); break; } await sleep(2000 * t); }
+      } catch (e) { await sleep(2000 * t); }
+    }
+    if (!buf || blank(buf)) continue;
+    fs.writeFileSync(new URL(`../src/routes/${file}`, import.meta.url), buf);
+    good = LAYERS.indexOf(layer); console.log(`${(buf.length / 1e3).toFixed(0)} kB (${layer})`); done = true; break;
   }
-  if (!ok) { console.log('\nAbbruch: Kachel nicht geladen. Schick mir diese Ausgabe.'); process.exit(1); }
+  if (!done) { console.log('\nAbbruch: keine Ebene liefert hier ein Bild. Schick mir diese Ausgabe.'); process.exit(1); }
   tiles.push({ f: file, e0, n1, w: PX, h: PX }); idx++;
 }
 fs.writeFileSync(new URL(`../src/routes/${NAME}.dop.json`, import.meta.url), JSON.stringify({ name: NAME, res: RES, aff, tiles }));
