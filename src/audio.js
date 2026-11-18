@@ -163,7 +163,7 @@ export const AUDIO = (() => {
     set(N.wind, 0.17 * sp * sp * sp * (s.running ? 1 : 0), dt, 4); N.wind.f.frequency.value = 350 + 1500 * sp;
     // Reifen je Untergrund (weiche Ueberblendung)
     // Abrollen: nur auf Asphalt und erst ab 25 km/h (6,9 m/s), dann weich einblenden und mit Tempo etwas lauter, aber nie aufdringlich
-    const rk = Math.max(0, Math.min(1, (v - 6.9) / 2.0)) * Math.min(1, 0.7 + 0.3 * (v - 6.9) / 7);
+    const rk = Math.max(0, Math.min(1, (v - 6.9) / 0.9)) * Math.min(1, 0.7 + 0.3 * (v - 6.9) / 7);
     rough = Math.max(0, rough - dt * 1.1); const duck = 1 - 0.9 * Math.min(1, rough);   // Poltern/Hubbel hat Vorrang: Abrollen tritt dann zurueck
     set(N.asph, surf === 0 ? 0.013 * rk * duck : 0, dt, 5); N.asph.f.frequency.value = 240 + 120 * Math.min(1, v / 14);   // nur noch ein Hauch Rauschen darunter (klang sonst wie Wind)
     set(N.road, surf === 0 ? 0.03 * rk * duck : 0, dt, 5);
