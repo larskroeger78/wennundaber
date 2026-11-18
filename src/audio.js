@@ -3,7 +3,7 @@
 export const AUDIO = (() => {
   let ctx = null, master = null, noise = null, on = true, vol = 0.8, ok = false;
   const N = {};              // Dauer-Klaenge: Name -> {g: GainNode, f: BiquadFilter}
-  let rough = 0, hubBuf = null, splashBuf = null, deerBuf = null, boarBuf = null, wildT = 50 + Math.random() * 60, birdT = 3, clickAcc = 0, stoneAcc = 0, rainAcc = 0, lastSurf = 0, brakeG = null;
+  let rough = 0, tyreBuf = null, hubBuf = null, splashBuf = null, deerBuf = null, boarBuf = null, wildT = 50 + Math.random() * 60, birdT = 3, clickAcc = 0, stoneAcc = 0, rainAcc = 0, lastSurf = 0, brakeG = null;
   let hubN = 72; const HUBS = [0, 16, 32, 56, 72];   // Freilauf: aus oder Zaehnezahl der Sperrklinken-Zahnscheibe (weniger Zaehne = gröber, klickernder)
   try { const v = localStorage.getItem('miworu_snd'); if (v === '0') on = false; const h = +localStorage.getItem('miworu_hub'); if (HUBS.indexOf(h) >= 0 && localStorage.getItem('miworu_hub') !== null) hubN = h; } catch (e) {}
 
@@ -141,6 +141,9 @@ export const AUDIO = (() => {
       ok = true;
       fetch('/assets/audio/hirsch.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => { deerBuf = buf; }).catch(() => {});
       fetch('/assets/audio/wildschwein.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => { boarBuf = buf; }).catch(() => {});
+      fetch('/assets/audio/reifen.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => {   // echte Aufnahme: Reifen auf Asphalt, Loop, nur unterschwellig
+        const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true; src.loopStart = 0.04; src.loopEnd = buf.duration - 0.04;
+        const g = ctx.createGain(); g.gain.value = 0; src.connect(g); g.connect(master); src.start(); N.tyreS = { src, g }; tyreBuf = buf; }).catch(() => {});
       fetch('/assets/audio/freilauf.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => {   // echte Freilauf-Aufnahme (16 Zaehne), als Loop; mehr Zaehne = schneller abgespielt
         const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true; src.loopStart = 0.04; src.loopEnd = buf.duration - 0.04;
         const g = ctx.createGain(); g.gain.value = 0; src.connect(g); g.connect(master); src.start(); N.hubS = { src, g }; hubBuf = buf; }).catch(() => {});
@@ -164,6 +167,10 @@ export const AUDIO = (() => {
     rough = Math.max(0, rough - dt * 1.1); const duck = 1 - 0.9 * Math.min(1, rough);   // Poltern/Hubbel hat Vorrang: Abrollen tritt dann zurueck
     set(N.asph, surf === 0 ? 0.013 * rk * duck : 0, dt, 5); N.asph.f.frequency.value = 240 + 120 * Math.min(1, v / 14);   // nur noch ein Hauch Rauschen darunter (klang sonst wie Wind)
     set(N.road, surf === 0 ? 0.03 * rk * duck : 0, dt, 5);
+    if (tyreBuf && N.tyreS) {   // Aufnahme statt Synthese: leise, Tonlage und Pegel folgen nur leicht dem Tempo
+      N.tyreS.src.playbackRate.setTargetAtTime(0.9 + 0.2 * Math.min(1, v / 14), t, 0.1);
+      set(N.tyreS, surf === 0 ? 0.3 * rk * duck * (0.6 + 0.4 * Math.min(1, v / 14)) : 0, dt, 4); set(N.tyre, 0, dt, 30); set(N.asph, 0, dt, 30); set(N.road, 0, dt, 30);
+    } else
     { const T = N.tyre; T.j1 = (T.j1 || 0) + ((Math.random() - 0.5) * 9 * dt) - (T.j1 || 0) * 0.9 * dt; T.j2 = (T.j2 || 0) + ((Math.random() - 0.5) * 12 * dt) - (T.j2 || 0) * 1.3 * dt; T.j3 = (T.j3 || 0) + ((Math.random() - 0.5) * 7 * dt) - (T.j3 || 0) * 0.6 * dt;
       // unregelmaessig: Tonhoehe, Pulsation und Pegel driften leicht (Belagwechsel, Poren, Rillen), damit es nicht wie eine Maschine im Loop klingt
       const f = Math.max(55, Math.min(240, 20 + 11 * v)) * (1 + 0.035 * T.j1); T.o1.frequency.value = f; T.o2.frequency.value = f * (1.5 + 0.02 * T.j3); T.lfo.frequency.value = Math.max(1, v / 2.3 * 3 * (1 + 0.45 * T.j2)); T.lp.frequency.value = (350 + 30 * v) * (1 + 0.3 * T.j3);
@@ -180,7 +187,7 @@ export const AUDIO = (() => {
       const k = hubN / 72;   // weniger Zaehne: tieferes, rauheres Schnarren, einzelne Klicks bei langsamer Fahrt
       N.hub.o.frequency.setTargetAtTime(Math.max(12, f), t, 0.03);
       N.hub.hp.frequency.setTargetAtTime(1500 + 2100 * k, t, 0.05); N.hub.bp.frequency.setTargetAtTime(2600 + 2600 * k, t, 0.05);
-      const lvl = N.wind.g.gain.value + N.asph.g.gain.value + N.road.g.gain.value + N.tyre.g.gain.value + (surf !== 0 ? 0.06 * Math.min(1, v / 10) : 0), mask = 1 - 0.62 * Math.min(1, lvl / 0.28);   // je mehr Wind und Abrollgeraeusch, desto staerker wird der Freilauf ueberdeckt (nie ganz weg)
+      const lvl = N.wind.g.gain.value + N.asph.g.gain.value + N.road.g.gain.value + N.tyre.g.gain.value + (N.tyreS ? N.tyreS.g.gain.value * 0.9 : 0) + (surf !== 0 ? 0.06 * Math.min(1, v / 10) : 0), mask = 1 - 0.62 * Math.min(1, lvl / 0.28);   // je mehr Wind und Abrollgeraeusch, desto staerker wird der Freilauf ueberdeckt (nie ganz weg)
       if (hubBuf && N.hubS) {   // Aufnahme: 16 Zaehne bei ca. 8 m/s; Abspielgeschwindigkeit = Zaehne/16 x Tempo/8
         N.hubS.src.playbackRate.setTargetAtTime(Math.max(0.12, Math.min(6, (hubN / 16) * (v / 8))), t, 0.04);
         set(N.hubS, 0.7 * mask * coast * (0.5 + 0.5 * Math.min(1, v / 9)), dt, coast ? 14 : 22); set(N.hub, 0, dt, 30);
