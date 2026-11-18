@@ -124,6 +124,13 @@ export const AUDIO = (() => {
       N.rain = loop('highpass', 3500, 0.4);     // Regen auf Laub
       N.rain2 = loop('bandpass', 1400, 0.4);
       brakeG = loop('bandpass', 3400, 7);
+      // Stollenreifen auf Asphalt: tiefes, raues Brummen. Zwei leicht verstimmte Saegezaehne (Schwebung = Rauheit), Tonhoehe folgt dem Tempo (Stollenreihen pro Sekunde),
+      // dazu eine langsame Pulsation im Takt der Radumdrehung (die Stollenbloecke schlagen nacheinander auf)
+      { const o1 = ctx.createOscillator(), o2 = ctx.createOscillator(); o1.type = o2.type = 'sawtooth'; o1.frequency.value = o2.frequency.value = 90;
+        const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 600; lp.Q.value = 1.2;
+        const am = ctx.createGain(); am.gain.value = 0.72; const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 3; lg.gain.value = 0.28; lfo.connect(lg); lg.connect(am.gain);
+        const g = ctx.createGain(); g.gain.value = 0; o1.connect(lp); o2.connect(lp); lp.connect(am); am.connect(g); g.connect(master); o1.start(); o2.start(); lfo.start();
+        N.tyre = { o1, o2, lfo, lp, g }; }
       // Freilaufnabe (Hope Pro 4: 44 Einrastpunkte): Saegezahn-Pulszug mit Frequenz = Radumdrehungen x 44, hell gefiltert -> schnarrendes Surren
       { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 60;
         const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 3600; hp.Q.value = 0.9;
@@ -152,8 +159,10 @@ export const AUDIO = (() => {
     // Abrollen: nur auf Asphalt und erst ab 25 km/h (6,9 m/s), dann weich einblenden und mit Tempo etwas lauter, aber nie aufdringlich
     const rk = Math.max(0, Math.min(1, (v - 6.9) / 2.0)) * Math.min(1, 0.7 + 0.3 * (v - 6.9) / 7);
     rough = Math.max(0, rough - dt * 1.1); const duck = 1 - 0.9 * Math.min(1, rough);   // Poltern/Hubbel hat Vorrang: Abrollen tritt dann zurueck
-    set(N.asph, surf === 0 ? 0.085 * rk * duck : 0, dt, 5); N.asph.f.frequency.value = 330 + 200 * Math.min(1, v / 14);   // tief, MTB-Stollen
-    set(N.road, surf === 0 ? 0.06 * rk * duck : 0, dt, 5);
+    set(N.asph, surf === 0 ? 0.022 * rk * duck : 0, dt, 5); N.asph.f.frequency.value = 240 + 120 * Math.min(1, v / 14);   // nur noch ein Hauch Rauschen darunter (klang sonst wie Wind)
+    set(N.road, surf === 0 ? 0.045 * rk * duck : 0, dt, 5);
+    { const T = N.tyre, f = Math.max(60, Math.min(250, 26 + 12 * v)); T.o1.frequency.value = f; T.o2.frequency.value = f * 1.014; T.lfo.frequency.value = Math.max(1, v / 2.3 * 3); T.lp.frequency.value = 420 + 38 * v;
+      set(T, surf === 0 ? 0.07 * rk * duck : 0, dt, 5); }
     set(N.trail, 0, dt, 5);
     // Abfahrten auf Schotter/Trail: nur leises, dumpfes Knistern (Steinchen, Laub) - tief gefiltert
     if (v > 0.6 && (surf === 1 || surf === 2)) {
@@ -166,7 +175,7 @@ export const AUDIO = (() => {
       const k = hubN / 72;   // weniger Zaehne: tieferes, rauheres Schnarren, einzelne Klicks bei langsamer Fahrt
       N.hub.o.frequency.setTargetAtTime(Math.max(12, f), t, 0.03);
       N.hub.hp.frequency.setTargetAtTime(1500 + 2100 * k, t, 0.05); N.hub.bp.frequency.setTargetAtTime(2600 + 2600 * k, t, 0.05);
-      const lvl = N.wind.g.gain.value + N.asph.g.gain.value + N.road.g.gain.value + (surf !== 0 ? 0.06 * Math.min(1, v / 10) : 0), mask = 1 - 0.62 * Math.min(1, lvl / 0.28);   // je mehr Wind und Abrollgeraeusch, desto staerker wird der Freilauf ueberdeckt (nie ganz weg)
+      const lvl = N.wind.g.gain.value + N.asph.g.gain.value + N.road.g.gain.value + N.tyre.g.gain.value + (surf !== 0 ? 0.06 * Math.min(1, v / 10) : 0), mask = 1 - 0.62 * Math.min(1, lvl / 0.28);   // je mehr Wind und Abrollgeraeusch, desto staerker wird der Freilauf ueberdeckt (nie ganz weg)
       set(N.hub, 0.32 * mask * coast * (0.05 + 0.07 * Math.min(1, v / 9)) * (1 + 0.5 * (1 - k)), dt, coast ? 14 : 22);
       if (coast && f < 75) { clickAcc += dt * f; let n = clickAcc | 0; clickAcc -= n; n = Math.min(n, 4); while (n--) burst(t + Math.random() * dt, 0.012, 'bandpass', 2400 + 1600 * k, 4, (0.03 + 0.03 * (1 - k)) * 0.6 * mask); }}
     // Bremse: hohes Quietschen bei Tempo

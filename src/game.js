@@ -2815,7 +2815,7 @@ window.__vans=VANS;
 const vo={x:0,y:0,z:0,h:0};
 // ---- Nachtwild: schemenhaft Wildschwein, Hirsch und Reh im dunklen Wald (nur Nightride), nur ab und zu. Echte 3D-Koerper (kein Bild),
 // kaum beleuchtet, tauchen aus der Dunkelheit auf und verschwinden wieder. Die Augen reflektieren das Licht der Stirnlampe (Katzenaugen-Effekt).
-const WL={list:[],wait:12+Math.random()*15,pool:{},eyeTex:null,get a(){return this.list[0]||null;}};
+const WL={list:[],wait:5+Math.random()*8,pool:{},eyeTex:null,get a(){return this.list[0]||null;}};
 const wlS={x:0,y:0,z:0,h:0},_wv=V3(0,0,0),_wc=V3(0,0,0),_wd=V3(0,0,0);
 function wlEyeTex(){
   if(WL.eyeTex)return WL.eyeTex;
@@ -2881,13 +2881,13 @@ function wlSpawnGroup(kind,x,z){   // Wildschweine kommen in Rotten: 2-3 Bachen 
 }
 function wlSpawnTry(){
   const kinds=['boar','stag','doe','doe','stag','boar'];
-  for(let t=0;t<14;t++){
+  for(let t=0;t<24;t++){
     const kind=kinds[(Math.random()*kinds.length)|0],bo=kind==='boar';   // Wildschweine sind niedrig und dunkel: sie stehen naeher und mittiger im Lampenkegel, sonst sieht man sie nie
     const s=st.pos+(bo?26+Math.random()*22:45+Math.random()*55);if(s>TOTAL-60)break;
     if(SURF[Math.min(N-1,Math.floor(s/SEG))]===0)continue;
     sample(s,wlS);const o=(Math.random()<0.5?-1:1)*(bo?8.5+Math.random()*4:10+Math.random()*7),x=wlS.x-Math.cos(wlS.h)*o,z=wlS.z+Math.sin(wlS.h)*o;   // 10-17 m vom Weg (auf Distanz), beim Wegrennen nie ueber ~30 m
-    if(forestD(x,z)<0.55||inBuilding(x,z))continue;
-    if(WL.list.some(q=>Math.hypot(q.x-x,q.z-z)<30))continue;
+    if(forestD(x,z)<0.38||inBuilding(x,z))continue;
+    if(WL.list.some(q=>Math.hypot(q.x-x,q.z-z)<25))continue;
     wlSpawnGroup(kind,x,z);return true;
   }
   return false;
@@ -2936,9 +2936,9 @@ function updateWildlife(dt){
   WL.list.slice().forEach(a=>wlUpdateOne(a,dt));
   WL.wait-=dt;
   if(WL.wait>0||st.v<2||st.lift)return;
-  const ng=new Set(WL.list.map(q=>q.grp)).size;if(ng>=2){WL.wait=4;return;}
-  if(wlSpawnTry())WL.wait=(ng<1&&Math.random()<0.3)?3+Math.random()*5:14+Math.random()*30;   // oefter: alle ~15-45 s, manchmal zwei kurz nacheinander
-  else WL.wait=3;
+  const ng=new Set(WL.list.map(q=>q.grp)).size;if(ng>=3){WL.wait=3;return;}
+  if(wlSpawnTry())WL.wait=(ng<2&&Math.random()<0.45)?2+Math.random()*4:6+Math.random()*14;   // oefter: alle ~15-45 s, manchmal zwei kurz nacheinander
+  else WL.wait=1.5;
 }
 function updateVans(dt){   // fahrende Autos: kommen entgegen, bremsen rechtzeitig bis zum Stand und warten, bis der Fahrer vorbei ist. Nie Kontakt.
   if(!nearHouse)return;
