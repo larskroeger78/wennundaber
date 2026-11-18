@@ -13,7 +13,8 @@ for (let i = 1; i < P.length; i++) { const a = pts.at(-1), d = Math.hypot((P[i].
 const W = 15, flag = new Array(pts.length).fill(0);
 for (let i = 0; i + W < pts.length; i++) {
   const d = cum[i + W] - cum[i], dz = pts[i + W].e - pts[i].e, dt = pts[i + W].t && pts[i].t ? pts[i + W].t - pts[i].t : 0;
-  if (dt > 0 && d / dt > 3.6 && dz / d > 0.12) for (let j = i; j <= i + W; j++) flag[j] = 1;
+  const v = dt > 0 ? d / dt : 0, g = dz / d;      // Gondel/Sessel schnell (>3,6 m/s) oder Schlepplift/Sessel langsam, aber so steil, dass man es nicht fahren kann
+  if ((v > 3.6 && g > 0.12) || (v > 2.3 && g > 0.25)) for (let j = i; j <= i + W; j++) flag[j] = 1;
 }
 let runs = [], s = -1;
 for (let i = 0; i <= pts.length; i++) { if (flag[i] && s < 0) s = i; if (!flag[i] && s >= 0) { runs.push([s, i - 1]); s = -1; } }
