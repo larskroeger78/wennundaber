@@ -108,3 +108,5 @@ body.fpv #prof{bottom:auto;top:16px}
 @keyframes bsp{to{transform:rotate(360deg)}}
 #bootbar{width:min(320px,70vw);height:4px;background:rgba(255,255,255,.15);border-radius:2px;overflow:hidden}
 #bootbar i{display:block;height:100%;width:0;background:#f5a623;transition:width .4s}
+
+body.night #cockpit{filter:brightness(.55) saturate(.85)}
