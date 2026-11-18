@@ -4,7 +4,7 @@ export const AUDIO = (() => {
   let ctx = null, master = null, noise = null, on = true, vol = 0.8, ok = false;
   const N = {};              // Dauer-Klaenge: Name -> {g: GainNode, f: BiquadFilter}
   let rough = 0, splashBuf = null, deerBuf = null, boarBuf = null, wildT = 50 + Math.random() * 60, birdT = 3, clickAcc = 0, stoneAcc = 0, rainAcc = 0, lastSurf = 0, brakeG = null;
-  let hubN = 72; const HUBS = [0, 32, 56, 72];   // Freilauf: aus oder Zaehnezahl der Sperrklinken-Zahnscheibe (weniger Zaehne = gröber, klickernder)
+  let hubN = 72; const HUBS = [0, 16, 32, 56, 72];   // Freilauf: aus oder Zaehnezahl der Sperrklinken-Zahnscheibe (weniger Zaehne = gröber, klickernder)
   try { const v = localStorage.getItem('miworu_snd'); if (v === '0') on = false; const h = +localStorage.getItem('miworu_hub'); if (HUBS.indexOf(h) >= 0 && localStorage.getItem('miworu_hub') !== null) hubN = h; } catch (e) {}
 
   function mkNoise() {
@@ -166,8 +166,8 @@ export const AUDIO = (() => {
       const k = hubN / 72;   // weniger Zaehne: tieferes, rauheres Schnarren, einzelne Klicks bei langsamer Fahrt
       N.hub.o.frequency.setTargetAtTime(Math.max(12, f), t, 0.03);
       N.hub.hp.frequency.setTargetAtTime(1500 + 2100 * k, t, 0.05); N.hub.bp.frequency.setTargetAtTime(2600 + 2600 * k, t, 0.05);
-      set(N.hub, 0.9 * coast * (0.05 + 0.07 * Math.min(1, v / 9)) * (1 + 0.5 * (1 - k)), dt, coast ? 14 : 22);
-      if (coast && f < 75) { clickAcc += dt * f; let n = clickAcc | 0; clickAcc -= n; n = Math.min(n, 4); while (n--) burst(t + Math.random() * dt, 0.012, 'bandpass', 2400 + 1600 * k, 4, 0.05 + 0.05 * (1 - k)); }}
+      set(N.hub, 0.54 * coast * (0.05 + 0.07 * Math.min(1, v / 9)) * (1 + 0.5 * (1 - k)), dt, coast ? 14 : 22);
+      if (coast && f < 75) { clickAcc += dt * f; let n = clickAcc | 0; clickAcc -= n; n = Math.min(n, 4); while (n--) burst(t + Math.random() * dt, 0.012, 'bandpass', 2400 + 1600 * k, 4, 0.03 + 0.03 * (1 - k)); }}
     // Bremse: hohes Quietschen bei Tempo
     set(brakeG, s.brake && v > 1.5 ? 0.025 * Math.min(1, v / 8) : 0, dt, 10);
     // Pfuetze: Spritzen, solange man drin ist
