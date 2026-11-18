@@ -3,7 +3,7 @@
 export const AUDIO = (() => {
   let ctx = null, master = null, noise = null, on = true, vol = 0.8, ok = false;
   const N = {};              // Dauer-Klaenge: Name -> {g: GainNode, f: BiquadFilter}
-  let rough = 0, splashBuf = null, deerBuf = null, boarBuf = null, wildT = 50 + Math.random() * 60, birdT = 3, clickAcc = 0, stoneAcc = 0, rainAcc = 0, lastSurf = 0, brakeG = null;
+  let rough = 0, hubBuf = null, splashBuf = null, deerBuf = null, boarBuf = null, wildT = 50 + Math.random() * 60, birdT = 3, clickAcc = 0, stoneAcc = 0, rainAcc = 0, lastSurf = 0, brakeG = null;
   let hubN = 72; const HUBS = [0, 16, 32, 56, 72];   // Freilauf: aus oder Zaehnezahl der Sperrklinken-Zahnscheibe (weniger Zaehne = gröber, klickernder)
   try { const v = localStorage.getItem('miworu_snd'); if (v === '0') on = false; const h = +localStorage.getItem('miworu_hub'); if (HUBS.indexOf(h) >= 0 && localStorage.getItem('miworu_hub') !== null) hubN = h; } catch (e) {}
 
@@ -141,6 +141,9 @@ export const AUDIO = (() => {
       ok = true;
       fetch('/assets/audio/hirsch.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => { deerBuf = buf; }).catch(() => {});
       fetch('/assets/audio/wildschwein.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => { boarBuf = buf; }).catch(() => {});
+      fetch('/assets/audio/freilauf.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => {   // echte Freilauf-Aufnahme (16 Zaehne), als Loop; mehr Zaehne = schneller abgespielt
+        const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true; src.loopStart = 0.04; src.loopEnd = buf.duration - 0.04;
+        const g = ctx.createGain(); g.gain.value = 0; src.connect(g); g.connect(master); src.start(); N.hubS = { src, g }; hubBuf = buf; }).catch(() => {});
       fetch('/assets/audio/pfuetze.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => { splashBuf = buf; }).catch(() => {});   // echte Pfuetzen-Aufnahme
     } catch (e) { ok = false; }
   }
@@ -178,8 +181,12 @@ export const AUDIO = (() => {
       N.hub.o.frequency.setTargetAtTime(Math.max(12, f), t, 0.03);
       N.hub.hp.frequency.setTargetAtTime(1500 + 2100 * k, t, 0.05); N.hub.bp.frequency.setTargetAtTime(2600 + 2600 * k, t, 0.05);
       const lvl = N.wind.g.gain.value + N.asph.g.gain.value + N.road.g.gain.value + N.tyre.g.gain.value + (surf !== 0 ? 0.06 * Math.min(1, v / 10) : 0), mask = 1 - 0.62 * Math.min(1, lvl / 0.28);   // je mehr Wind und Abrollgeraeusch, desto staerker wird der Freilauf ueberdeckt (nie ganz weg)
+      if (hubBuf && N.hubS) {   // Aufnahme: 16 Zaehne bei ca. 8 m/s; Abspielgeschwindigkeit = Zaehne/16 x Tempo/8
+        N.hubS.src.playbackRate.setTargetAtTime(Math.max(0.12, Math.min(6, (hubN / 16) * (v / 8))), t, 0.04);
+        set(N.hubS, 0.7 * mask * coast * (0.5 + 0.5 * Math.min(1, v / 9)), dt, coast ? 14 : 22); set(N.hub, 0, dt, 30);
+      } else {
       set(N.hub, 0.32 * mask * coast * (0.05 + 0.07 * Math.min(1, v / 9)) * (1 + 0.5 * (1 - k)), dt, coast ? 14 : 22);
-      if (coast && f < 75) { clickAcc += dt * f; let n = clickAcc | 0; clickAcc -= n; n = Math.min(n, 4); while (n--) burst(t + Math.random() * dt, 0.012, 'bandpass', 2400 + 1600 * k, 4, (0.03 + 0.03 * (1 - k)) * 0.6 * mask); }}
+      if (coast && f < 75) { clickAcc += dt * f; let n = clickAcc | 0; clickAcc -= n; n = Math.min(n, 4); while (n--) burst(t + Math.random() * dt, 0.012, 'bandpass', 2400 + 1600 * k, 4, (0.03 + 0.03 * (1 - k)) * 0.6 * mask); } }}
     // Bremse: hohes Quietschen bei Tempo
     set(brakeG, s.brake && v > 1.5 ? 0.025 * Math.min(1, v / 8) : 0, dt, 10);
     // Pfuetze: Spritzen, solange man drin ist
