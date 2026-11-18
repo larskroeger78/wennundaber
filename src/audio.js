@@ -126,7 +126,7 @@ export const AUDIO = (() => {
       brakeG = loop('bandpass', 3400, 7);
       // Stollenreifen auf Asphalt: tiefes, raues Brummen. Zwei leicht verstimmte Saegezaehne (Schwebung = Rauheit), Tonhoehe folgt dem Tempo (Stollenreihen pro Sekunde),
       // dazu eine langsame Pulsation im Takt der Radumdrehung (die Stollenbloecke schlagen nacheinander auf)
-      { const o1 = ctx.createOscillator(), o2 = ctx.createOscillator(); o1.type = 'sawtooth'; o2.type = 'triangle'; o1.frequency.value = o2.frequency.value = 90;
+      { const o1 = ctx.createOscillator(), o2 = ctx.createOscillator(); o1.type = 'triangle'; o2.type = 'triangle'; o1.frequency.value = o2.frequency.value = 90;
         const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 600; lp.Q.value = 1.2;
         const am = ctx.createGain(); am.gain.value = 0.72; const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 3; lg.gain.value = 0.28; lfo.connect(lg); lg.connect(am.gain);
         const g = ctx.createGain(); g.gain.value = 0; o1.connect(lp); o2.connect(lp); lp.connect(am); am.connect(g); g.connect(master); o1.start(); o2.start(); lfo.start();
@@ -159,12 +159,12 @@ export const AUDIO = (() => {
     // Abrollen: nur auf Asphalt und erst ab 25 km/h (6,9 m/s), dann weich einblenden und mit Tempo etwas lauter, aber nie aufdringlich
     const rk = Math.max(0, Math.min(1, (v - 6.9) / 2.0)) * Math.min(1, 0.7 + 0.3 * (v - 6.9) / 7);
     rough = Math.max(0, rough - dt * 1.1); const duck = 1 - 0.9 * Math.min(1, rough);   // Poltern/Hubbel hat Vorrang: Abrollen tritt dann zurueck
-    set(N.asph, surf === 0 ? 0.008 * rk * duck : 0, dt, 5); N.asph.f.frequency.value = 240 + 120 * Math.min(1, v / 14);   // nur noch ein Hauch Rauschen darunter (klang sonst wie Wind)
+    set(N.asph, surf === 0 ? 0.013 * rk * duck : 0, dt, 5); N.asph.f.frequency.value = 240 + 120 * Math.min(1, v / 14);   // nur noch ein Hauch Rauschen darunter (klang sonst wie Wind)
     set(N.road, surf === 0 ? 0.03 * rk * duck : 0, dt, 5);
     { const T = N.tyre; T.j1 = (T.j1 || 0) + ((Math.random() - 0.5) * 9 * dt) - (T.j1 || 0) * 0.9 * dt; T.j2 = (T.j2 || 0) + ((Math.random() - 0.5) * 12 * dt) - (T.j2 || 0) * 1.3 * dt; T.j3 = (T.j3 || 0) + ((Math.random() - 0.5) * 7 * dt) - (T.j3 || 0) * 0.6 * dt;
       // unregelmaessig: Tonhoehe, Pulsation und Pegel driften leicht (Belagwechsel, Poren, Rillen), damit es nicht wie eine Maschine im Loop klingt
       const f = Math.max(55, Math.min(240, 20 + 11 * v)) * (1 + 0.035 * T.j1); T.o1.frequency.value = f; T.o2.frequency.value = f * (1.5 + 0.02 * T.j3); T.lfo.frequency.value = Math.max(1, v / 2.3 * 3 * (1 + 0.45 * T.j2)); T.lp.frequency.value = (350 + 30 * v) * (1 + 0.3 * T.j3);
-      set(T, surf === 0 ? 0.14 * rk * duck * Math.max(0.55, 1 + 0.45 * T.j2) : 0, dt, 5); }
+      set(T, surf === 0 ? 0.055 * rk * duck * Math.max(0.55, 1 + 0.45 * T.j2) : 0, dt, 5); }
     set(N.trail, 0, dt, 5);
     // Abfahrten auf Schotter/Trail: nur leises, dumpfes Knistern (Steinchen, Laub) - tief gefiltert
     if (v > 0.6 && (surf === 1 || surf === 2)) {

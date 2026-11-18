@@ -2837,6 +2837,13 @@ function wlBuild(kind){
     head.position.set(0.8,0.55,0);ell(head,0.3,0.17,0.16,0.12,-0.02,0);limb(head,[0.3,-0.04,0],[0.56,-0.1,0],0.09,0.06);
     ell(head,0.05,0.1,0.03,0,0.17,0.1,0.3);ell(head,0.05,0.1,0.03,0,0.17,-0.1,-0.3);
     eyeX=0.2;eyeY=0.05;eyeZ=0.09;legH=0.46;legX=[0.42,-0.4];legZ=0.17;
+  }else if(kind==='doe'){   // Reh: kompakt, Hinterhand hoeher als der Widerrist, kurzer Hals, kleiner Kopf mit grossen Lauschern, duenne Laeufe
+    ell(body,0.46,0.21,0.17,0,0.74,0);ell(body,0.27,0.22,0.17,0.3,0.78,0);ell(body,0.25,0.25,0.19,-0.3,0.8,0);ell(body,0.2,0.2,0.16,-0.46,0.78,0);
+    limb(body,[0.36,0.82,0],[0.62,1.06,0],0.1,0.058);
+    limb(body,[-0.62,0.8,0],[-0.68,0.74,0],0.03,0.02);
+    head.position.set(0.7,1.1,0);ell(head,0.15,0.075,0.062,0.07,-0.02,0);limb(head,[0.16,-0.03,0],[0.27,-0.06,0],0.045,0.03);
+    ell(head,0.035,0.115,0.022,-0.04,0.1,0.075,0.75);ell(head,0.035,0.115,0.022,-0.04,0.1,-0.075,-0.75);
+    eyeX=0.1;eyeY=0.025;eyeZ=0.058;legH=0.58;legX=[0.36,-0.4];legZ=0.11;
   }else{
     ell(body,0.68,0.3,0.25,0,1.12,0);ell(body,0.36,0.3,0.24,0.38,1.15,0);
     limb(body,[-0.62,1.2,0],[-0.7,1.0,0],0.04,0.025);
@@ -2851,9 +2858,9 @@ function wlBuild(kind){
     eyeX=0.12;eyeY=0.02;eyeZ=0.08;legH=0.84;legX=[0.45,-0.45];legZ=0.14;
   }
   body.add(head);
-  legX.forEach(x=>[1,-1].forEach(z=>{const lg=new THREE.Group();lg.position.set(x,legH,z*legZ);limb(lg,[0,0,0],[0,-legH,0],boar?0.065:0.05,boar?0.035:0.022);ell(lg,0.04,0.03,0.035,0.02,-legH,0);body.add(lg);legs.push(lg);}));
+  legX.forEach(x=>[1,-1].forEach(z=>{const lg=new THREE.Group();lg.position.set(x,legH,z*legZ);if(boar){limb(lg,[0,0,0],[0,-legH,0],0.065,0.035);ell(lg,0.04,0.03,0.035,0.02,-legH,0);}else{const r0=kind==='doe'?0.042:0.05,r1=kind==='doe'?0.017:0.022;limb(lg,[0,0,0],[-0.05,-legH*0.5,0],r0,r1*1.5);limb(lg,[-0.05,-legH*0.5,0],[0.02,-legH,0],r1*1.5,r1);ell(lg,0.032,0.028,0.026,0.03,-legH,0);}body.add(lg);legs.push(lg);}));
   const eyes=[1,-1].map(s=>{const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:wlEyeTex(),color:boar?0xffd9a0:0xe6ffc0,blending:THREE.AdditiveBlending,transparent:true,depthWrite:false,fog:false,opacity:0}));sp.position.set(eyeX,eyeY,s*eyeZ);head.add(sp);return sp;});
-  root.scale.setScalar(kind==='doe'?0.82:kind==='piglet'?0.4:1);root.visible=false;scene.add(root);
+  root.scale.setScalar(kind==='piglet'?0.4:1);root.visible=false;scene.add(root);
   return {kind:kind,g:root,body:body,head:head,legs:legs,eyes:eyes,mat:mat,boar:boar};
 }
 function wlPlace(kind,x,z,grp,delay){
