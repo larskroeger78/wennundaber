@@ -163,8 +163,8 @@ export const AUDIO = (() => {
     set(N.road, surf === 0 ? 0.03 * rk * duck : 0, dt, 5);
     { const T = N.tyre; T.j1 = (T.j1 || 0) + ((Math.random() - 0.5) * 9 * dt) - (T.j1 || 0) * 0.9 * dt; T.j2 = (T.j2 || 0) + ((Math.random() - 0.5) * 12 * dt) - (T.j2 || 0) * 1.3 * dt; T.j3 = (T.j3 || 0) + ((Math.random() - 0.5) * 7 * dt) - (T.j3 || 0) * 0.6 * dt;
       // unregelmaessig: Tonhoehe, Pulsation und Pegel driften leicht (Belagwechsel, Poren, Rillen), damit es nicht wie eine Maschine im Loop klingt
-      const f = Math.max(60, Math.min(250, 26 + 12 * v)) * (1 + 0.035 * T.j1); T.o1.frequency.value = f; T.o2.frequency.value = f * (1.5 + 0.02 * T.j3); T.lfo.frequency.value = Math.max(1, v / 2.3 * 3 * (1 + 0.45 * T.j2)); T.lp.frequency.value = (420 + 38 * v) * (1 + 0.3 * T.j3);
-      set(T, surf === 0 ? 0.12 * rk * duck * Math.max(0.55, 1 + 0.45 * T.j2) : 0, dt, 5); }
+      const f = Math.max(55, Math.min(240, 20 + 11 * v)) * (1 + 0.035 * T.j1); T.o1.frequency.value = f; T.o2.frequency.value = f * (1.5 + 0.02 * T.j3); T.lfo.frequency.value = Math.max(1, v / 2.3 * 3 * (1 + 0.45 * T.j2)); T.lp.frequency.value = (350 + 30 * v) * (1 + 0.3 * T.j3);
+      set(T, surf === 0 ? 0.14 * rk * duck * Math.max(0.55, 1 + 0.45 * T.j2) : 0, dt, 5); }
     set(N.trail, 0, dt, 5);
     // Abfahrten auf Schotter/Trail: nur leises, dumpfes Knistern (Steinchen, Laub) - tief gefiltert
     if (v > 0.6 && (surf === 1 || surf === 2)) {

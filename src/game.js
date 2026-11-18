@@ -2824,7 +2824,7 @@ function wlEyeTex(){
   g.fillStyle=r;g.fillRect(0,0,64,64);return WL.eyeTex=new THREE.CanvasTexture(c);
 }
 function wlBuild(kind){
-  const mat=new THREE.MeshLambertMaterial({color:0x060504,transparent:true,opacity:0}),root=new THREE.Group(),body=new THREE.Group();root.add(body);
+  const mat=new THREE.MeshLambertMaterial({color:0x060504,emissive:0x0b0e13,transparent:true,opacity:0}),root=new THREE.Group(),body=new THREE.Group();root.add(body);
   const ell=(par,rx,ry,rz,x,y,z,rz2)=>{const m=new THREE.Mesh(new THREE.SphereGeometry(1,10,8),mat);m.scale.set(rx,ry,rz);m.position.set(x,y,z);if(rz2)m.rotation.z=rz2;par.add(m);return m;};
   const limb=(par,a,b,r0,r1)=>{const d=new THREE.Vector3(b[0]-a[0],b[1]-a[1],b[2]-a[2]),L=d.length(),m=new THREE.Mesh(new THREE.CylinderGeometry(r1,r0,L,7,1),mat);
     m.position.set((a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());par.add(m);return m;};
@@ -2883,7 +2883,7 @@ function wlSpawnTry(){
   const kinds=['boar','stag','doe','doe','stag','boar'];
   for(let t=0;t<24;t++){
     const kind=kinds[(Math.random()*kinds.length)|0],bo=kind==='boar';   // Wildschweine sind niedrig und dunkel: sie stehen naeher und mittiger im Lampenkegel, sonst sieht man sie nie
-    const s=st.pos+(bo?26+Math.random()*22:45+Math.random()*55);if(s>TOTAL-60)break;
+    const s=st.pos+(bo?26+Math.random()*22:35+Math.random()*40);if(s>TOTAL-60)break;
     if(SURF[Math.min(N-1,Math.floor(s/SEG))]===0)continue;
     sample(s,wlS);const o=(Math.random()<0.5?-1:1)*(bo?8.5+Math.random()*4:10+Math.random()*7),x=wlS.x-Math.cos(wlS.h)*o,z=wlS.z+Math.sin(wlS.h)*o;   // 10-17 m vom Weg (auf Distanz), beim Wegrennen nie ueber ~30 m
     if(forestD(x,z)<0.38||inBuilding(x,z))continue;
@@ -2927,8 +2927,8 @@ function wlUpdateOne(a,dt){
   a.eyes.forEach(e=>{
     e.getWorldPosition(_wv);_wc.set(cp.x-_wv.x,cp.y-_wv.y,cp.z-_wv.z);const D=_wc.length();_wc.multiplyScalar(1/(D||1));
     const al=Math.max(0,fx*_wc.x+fz*_wc.z),la=-(_wd.x*_wc.x+_wd.y*_wc.y+_wd.z*_wc.z);
-    const sh=Math.pow(al,3)*Math.max(0,Math.min(1,(la-0.9)/0.08))*Math.max(0,1-D/110)*a.mat.opacity*blink;
-    e.material.opacity=sh;const sz=(0.05+0.0035*D)*(0.6+0.4*sh);e.scale.set(sz,sz,1);
+    const sh=Math.pow(al,2)*Math.max(0,Math.min(1,(la-0.86)/0.1))*Math.max(0,1-D/110)*a.mat.opacity*blink;
+    e.material.opacity=sh;const sz=(0.07+0.005*D)*(0.6+0.4*sh);e.scale.set(sz,sz,1);
   });
 }
 function updateWildlife(dt){
