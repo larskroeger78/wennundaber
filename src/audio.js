@@ -3,7 +3,7 @@
 export const AUDIO = (() => {
   let ctx = null, master = null, noise = null, on = true, vol = 0.8, ok = false;
   const N = {};              // Dauer-Klaenge: Name -> {g: GainNode, f: BiquadFilter}
-  let birdT = 3, clickAcc = 0, stoneAcc = 0, rainAcc = 0, lastSurf = 0, brakeG = null;
+  let wildT = 50 + Math.random() * 60, birdT = 3, clickAcc = 0, stoneAcc = 0, rainAcc = 0, lastSurf = 0, brakeG = null;
   try { const v = localStorage.getItem('miworu_snd'); if (v === '0') on = false; } catch (e) {}
 
   function mkNoise() {
@@ -43,6 +43,41 @@ export const AUDIO = (() => {
     else { chirp(t, 480, 400, 0.28, 0.07); chirp(t + 0.34, 460, 380, 0.3, 0.07); chirp(t + 0.75, 470, 390, 0.4, 0.06); }
   }
 
+  function pan(t, p, g0, dur) {   // Ausgabe-Kette fuer Tierlaute: Position links/rechts, leicht gedaempft (weit weg)
+    const g = ctx.createGain(); g.gain.value = g0;
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 4500; f.Q.value = 0.5;
+    let node = g; if (ctx.createStereoPanner) { const sp = ctx.createStereoPanner(); sp.pan.value = p; g.connect(sp); sp.connect(f); } else g.connect(f);
+    f.connect(master); return g;
+  }
+  function voice(t, dst, f0, f1, dur, shape, form, q, gain) {   // Saegezahn-Stimme durch Formantfilter mit Huellkurve
+    const o = ctx.createOscillator(); o.type = shape; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = form; bp.Q.value = q;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + dur * 0.12); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(bp); bp.connect(g); g.connect(dst); o.start(t); o.stop(t + dur + 0.03);
+  }
+  function wildlife(t) {
+    const k = Math.random(), p = (Math.random() < 0.5 ? -1 : 1) * (0.35 + Math.random() * 0.5);
+    if (k < 0.45) {   // Wildschwein: zwei bis vier kurze, tiefe Grunzer
+      const d = pan(t, p, 0.9), n = 2 + (Math.random() * 3 | 0);
+      for (let i = 0; i < n; i++) { const tt = t + i * (0.32 + Math.random() * 0.12), f = 85 + Math.random() * 30;
+        voice(tt, d, f * 1.25, f * 0.8, 0.26, 'sawtooth', 260 + Math.random() * 80, 2.2, 0.35);
+        voice(tt, d, f * 2.5, f * 1.6, 0.2, 'sawtooth', 520, 1.8, 0.1); }
+    } else if (k < 0.8) {   // Reh: heiseres, rauhes Bellen (Schrecken), drei bis fuenf Rufe
+      const d = pan(t, p, 0.8), n = 3 + (Math.random() * 3 | 0);
+      for (let i = 0; i < n; i++) { const tt = t + i * 0.55, f = 300 + Math.random() * 40;
+        voice(tt, d, f, f * 0.85, 0.22, 'sawtooth', 900, 1.6, 0.22); burst(tt, 0.2, 'bandpass', 1100, 1.2, 0.05, d); }
+    } else {   // Rehkitz: hohes, duennes Fiepen
+      const d = pan(t, p, 0.6), f = 6200 + Math.random() * 900;
+      for (let i = 0; i < 2; i++) { const tt = t + i * 0.55;
+        voice(tt, d, f, f * 0.78, 0.38, 'sine', 5600, 4, 0.1); }
+    }
+  }
+  function splash(v) {   // Platschen beim Einfahren in eine Pfuetze, Wucht nach Tempo
+    if (!ok || !on) return; const t = ctx.currentTime, k = Math.min(1, v / 9);
+    burst(t, 0.28, 'bandpass', 1800, 0.7, 0.2 * k + 0.05); burst(t + 0.02, 0.4, 'lowpass', 650, 0.7, 0.24 * k + 0.05); thump(t, 160, 70, 0.12, 0.12 * k);
+    for (let i = 0; i < 4; i++) burst(t + 0.06 + i * 0.07 + Math.random() * 0.04, 0.09, 'highpass', 2600, 0.6, (0.07 * k + 0.02) * (1 - i * 0.2));
+  }
+
   function init() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
     try {
@@ -51,7 +86,7 @@ export const AUDIO = (() => {
       const comp = ctx.createDynamicsCompressor(); master.connect(comp); comp.connect(ctx.destination);
       noise = mkNoise();
       N.wind = loop('lowpass', 500, 0.5);       // Fahrtwind
-      N.amb = loop('bandpass', 700, 0.4);       // Hintergrund: Blaetter, leises Rauschen
+      N.pud = loop('bandpass', 2200, 0.7);      // Spritzen beim Durchfahren einer Pfuetze
       N.asph = loop('bandpass', 420, 0.9);      // MTB-Stollenreifen auf Asphalt: tiefes, brummendes Abrollen
       N.road = loop('lowpass', 140, 0.7);       // Rollgeraeusch (Tiefe)
       N.trail = loop('bandpass', 900, 0.5);     // Waldboden: weiches Rascheln
@@ -77,12 +112,13 @@ export const AUDIO = (() => {
     master.gain.value += ((on ? vol : 0) - master.gain.value) * Math.min(1, dt * 5);
     const surf = s.surf;
     // Wind: quadratisch mit Tempo, heller bei hoher Geschwindigkeit
-    set(N.wind, (0.015 + 0.3 * sp * sp) * (s.running ? 1 : 0.3), dt, 4); N.wind.f.frequency.value = 350 + 1500 * sp;
-    set(N.amb, (0.035 + 0.035 * s.forest) * (0.4 + 0.6 * s.day), dt, 1); N.amb.f.frequency.value = 600 + 600 * (1 - s.forest);
+    // kein Grundrauschen: weder Wind in Baeumen noch Wasser; nur Fahrtwind, erst bei Tempo hoerbar
+    set(N.wind, 0.26 * sp * sp * sp * (s.running ? 1 : 0), dt, 4); N.wind.f.frequency.value = 350 + 1500 * sp;
     // Reifen je Untergrund (weiche Ueberblendung)
-    const rv = Math.min(1, v / 9);
-    set(N.asph, surf === 0 ? 0.05 * rv : 0, dt, 5); N.asph.f.frequency.value = 330 + 220 * rv;   // nur auf Asphalt, tief
-    set(N.road, surf === 0 ? 0.04 * rv : 0, dt, 5);
+    // Abrollen: nur auf Asphalt und erst ab 25 km/h (6,9 m/s), dann weich einblenden und mit Tempo etwas lauter, aber nie aufdringlich
+    const rk = Math.max(0, Math.min(1, (v - 6.9) / 2.0)) * Math.min(1, 0.7 + 0.3 * (v - 6.9) / 7);
+    set(N.asph, surf === 0 ? 0.085 * rk : 0, dt, 5); N.asph.f.frequency.value = 330 + 200 * Math.min(1, v / 14);   // tief, MTB-Stollen
+    set(N.road, surf === 0 ? 0.06 * rk : 0, dt, 5);
     set(N.trail, 0, dt, 5);
     // Abfahrten auf Schotter/Trail: nur leises, dumpfes Knistern (Steinchen, Laub) - tief gefiltert
     if (v > 0.6 && (surf === 1 || surf === 2)) {
@@ -96,11 +132,16 @@ export const AUDIO = (() => {
       set(N.hub, coast * (0.05 + 0.07 * Math.min(1, v / 9)), dt, coast ? 14 : 22);}
     // Bremse: hohes Quietschen bei Tempo
     set(brakeG, s.brake && v > 1.5 ? 0.025 * Math.min(1, v / 8) : 0, dt, 10);
+    // Pfuetze: Spritzen, solange man drin ist
+    set(N.pud, s.pud && v > 1.2 ? 0.1 * Math.min(1, v / 7) : 0, dt, 12);
     // Regen
     set(N.rain, 0.1 * s.rain, dt, 1.5); set(N.rain2, 0.09 * s.rain, dt, 1.5);
-    // Voegel: tagsueber im Wald, selten auf offenem Feld
-    birdT -= dt * (0.3 + 0.7 * s.forest) * s.day * (1 - 0.8 * s.rain);
-    if (birdT <= 0) { birdT = 5 + Math.random() * 10; if (Math.random() < 0.3 + 0.7 * s.forest) bird(t + Math.random() * 0.3); }
+    // Voegel: nur im Wald und nur am Tag
+    birdT -= dt * (s.forest > 0.35 ? 0.4 + 0.6 * s.forest : 0) * s.day * (1 - 0.8 * s.rain);
+    // Wild: ab und zu Wildschwein-Grunzen, Rehbock-Schrecken oder Kitz-Fiepen (selten, nur im Wald, am Tag und Abend)
+    wildT -= dt * (s.forest > 0.35 && s.day > 0.25 && s.rain < 0.6 ? 1 : 0);
+    if (wildT <= 0) { wildT = 70 + Math.random() * 110; wildlife(t + 0.1); }
+    if (birdT <= 0) { birdT = 5 + Math.random() * 10; if (s.forest > 0.35) bird(t + Math.random() * 0.3); }
   }
   // Einmalige Ereignisse
   function bump(a, surf) { if (!ok || !on) return; const t = ctx.currentTime, k = Math.min(1, a / 0.3); thump(t, 85, 45, 0.1, 0.14 * k); burst(t, 0.06, 'lowpass', 320, 0.7, 0.16 * k); }
@@ -112,5 +153,5 @@ export const AUDIO = (() => {
   // Browser starten Audio erst nach einer Nutzergeste (Klick, Taste, Touch): beim ersten Mal Kontext anlegen bzw. fortsetzen
   const wake = () => { init(); if (ctx && ctx.state === 'suspended') ctx.resume(); };
   ['pointerdown', 'keydown', 'touchstart', 'click'].forEach(ev => window.addEventListener(ev, wake, { passive: true }));
-  return { init, get suspended() { return !ctx || ctx.state !== 'running'; }, update, bump, takeoff, land, edge, gear, toggle, get on() { return on; } };
+  return { splash, init, get suspended() { return !ctx || ctx.state !== 'running'; }, update, bump, takeoff, land, edge, gear, toggle, get on() { return on; } };
 })();
