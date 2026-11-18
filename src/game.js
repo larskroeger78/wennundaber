@@ -1912,7 +1912,7 @@ if(WXLIVE)setTimeout(wxFetch,600);
 // ================= Zustand, Eingabe, Physik =================
 const M=95,CDA=0.38,RHO=1.2,GRAV=9.81,PMAX=300,BRAKE=260;
 const keys={};
-let running=false,inputMode='keyboard',st,FPV=true;
+let running=false,inputMode='keyboard',st;
 const trainer=new Trainer(),click=new ClickPad();let paused=false,gear=0,bleMsg='',lastMenu=null;   // gear: virtuelle Schaltung = Widerstand in %-Steigung (+/-)
 let gearUsed=false,toastT=0;
 const DIFFN={1:'Leicht',2:'Normal',3:'Hardcore',4:'Eskalation',5:'Marvin'};
@@ -1944,7 +1944,7 @@ setInterval(()=>{if(trainer.connected&&trainer.dev&&trainer.dev.gatt&&!trainer.d
 click.onNote=t=>{toastEl.textContent=t;toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),3500);};
 let bleKey='';
 const bleChange=()=>{if(trainer.connected)inputMode='trainer';else if(inputMode==='trainer')inputMode='keyboard';const ck=click.connected+'|'+click.devs.length;if(bleKey.indexOf(ck)<0&&bleMsg.indexOf('Click')===0)bleMsg='';const k=trainer.connected+'|'+ck+'|'+bleMsg;if(k===bleKey)return;bleKey=k;if(ov.style.display!=='none'&&lastMenu&&!helpOpen)menu(lastMenu[0],lastMenu[1]);};
-trainer.onChange=bleChange;click.onChange=bleChange;   // FPV: Cockpit-Ansicht aus Fahrersicht (Taste C wechselt)
+trainer.onChange=bleChange;click.onChange=bleChange;   // nur noch Lenkeransicht (Cockpit)
 const cockpitEl=document.getElementById('cockpit'),glowEl=document.getElementById('glow'),_cd=new THREE.Vector3(),_sv=new THREE.Vector3();
 function reset(){SHK.y=SHK.vy=SHK.r=SHK.vr=0;SHK.i=0;SHK.fi=0;SHK.w=SHK.wv=0;SHK.air=null;st={pos:0,v:0,x:0.4,power:0,t:0,crank:0.6,wheel:0,lean:0,bar:0,pitch:0,done:false};resetJoggers();vanWait=12;VANS&&VANS.forEach(v=>{if(!v.parked){v.active=false;v.g.visible=false;}});}
 reset();
@@ -1952,7 +1952,6 @@ window.addEventListener('keydown',e=>{
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].indexOf(e.key)>=0)e.preventDefault();
   keys[e.key]=true;
   if(e.key==='r'||e.key==='R')start();
-  if(e.key==='c'||e.key==='C')FPV=!FPV;
   if(e.key==='Escape')pauseGame();
   if(e.key==='q'||e.key==='Q')cycleQ();
   if(e.key==='n'||e.key==='N'){AUDIO.toggle();toastEl.textContent='Sound: '+(AUDIO.on?'an':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}
@@ -2127,7 +2126,7 @@ function mineHtml(){   // Streckenliste: feste Strecken + eigene GPX-Strecken (Z
   const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const cur=GPX_ID?'gpx_'+GPX_ID:(!ROUTE?'halde':(ROUTES[RKEY]&&!ROUTES[RKEY].custom?RKEY:'tour2'));
   const base=[['tour2','MIWORU'],['wuppertal','Wupfeld'],['hagen','Hagmoor'],['iserlohn','Isehorst'],['hemer','Hemstein'],['buellberg','Bölkamp'],['dortmund','Dorbach'],['alpen','Sölden']];
-  let h='<div class="mine"><div class="mh">Strecken</div>'+(hasPass()?'':'<div class="mr" style="grid-column:1/-1"><span class="mn">Alle Strecken freischalten<small>5 € einmalig · oder Community-Code</small></span><button class="main" data-unlock="">Freischalten</button></div>')+base.map(b=>'<div class="mr'+(b[0]===cur?' cur':'')+'"><span class="mn">'+b[1]+'</span>'+(b[0]===cur?'<span class="act">aktiv</span>':(LOCKED.indexOf(b[0])>=0&&!hasPass()?'<button class="sec" data-unlock="'+b[0]+'">🔒 Freischalten</button>':'<button class="sec" data-route="'+b[0]+'">Fahren</button>'))+'</div>').join('');
+  let h='<div class="mine"><div class="mh">Strecken</div>'+(hasPass()?'':'<div class="mr" style="grid-column:1/-1"><span class="mn">Weitere Strecken<small>mit einer kleinen Spende ab 1 € · oder Community-Code</small></span><button class="main" data-unlock="">Spenden</button></div>')+base.map(b=>'<div class="mr'+(b[0]===cur?' cur':'')+'"><span class="mn">'+b[1]+'</span>'+(b[0]===cur?'<span class="act">aktiv</span>':(LOCKED.indexOf(b[0])>=0&&!hasPass()?'<button class="sec" data-unlock="'+b[0]+'">🔒 Spenden</button>':'<button class="sec" data-route="'+b[0]+'">Fahren</button>'))+'</div>').join('');
   const L=listRoutes();
   if(L.length)h+='<div class="mh" style="margin-top:10px">Meine Strecken (GPX)</div>'+L.map(e=>'<div class="mr'+(e.id===GPX_ID?' cur':'')+'"><span class="mn">'+esc(e.name)+'<small>'+String(e.km).replace('.',',')+' km</small></span>'
     +(e.id===GPX_ID?'<span class="act">aktiv</span>':'<button class="sec" data-gpx-go="'+e.id+'">Fahren</button>')+'<button class="sec" data-gpx-ren="'+e.id+'" title="Umbenennen">✎</button><button class="sec" data-gpx-del="'+e.id+'" title="Löschen">🗑</button></div>').join('');
@@ -2136,57 +2135,71 @@ function mineHtml(){   // Streckenliste: feste Strecken + eigene GPX-Strecken (Z
 let helpOpen=false;
 function showHelp(){
   helpOpen=true;ov.style.display='flex';
-  ov.innerHTML='<div class="intro"><div class="panel">'+
-    '<div class="by">by Wenn &amp; Aber Bike Crew</div><h1>So fährst du</h1>'+
-    '<div class="help keys">'+
-    '<div><b>↑</b> treten &nbsp;·&nbsp; <b>↓</b> bremsen &nbsp;·&nbsp; mit Trainer: einfach treten</div>'+
-    '<div><b>+</b> / <b>−</b> (oder Bild↑/↓): Gang schwerer / leichter</div>'+
-    '<div>Zwift Click (rechts): <b>+</b> kurz drücken = schwerer · gedrückt halten oder andere Taste = leichter</div>'+
-    '<div><b>1</b> Leicht (1,6x Wirkung deiner Watt, Steigungen nur 40 %) · <b>2</b> Normal · <b>3</b> Hardcore (Steigungen 150 %, 0,85x Watt) · <b>4</b> Eskalation (20 % härter als realistisch) · <b>M</b> Marvin (30 % härter als Eskalation) · auch oben rechts antippbar</div>'+
-    '<div><b>Q</b> Grafik: Niedrig / Mittel / Hoch · <b>C</b> Ansicht (Cockpit/Außen) · <b>R</b> Neustart · <b>Esc</b> Pause und Menü</div>'+
-    '<div><b>Gruppenfahrt</b>: im Menü einen Gruppencode eingeben (alle Freunde denselben, dieselbe Strecke wählen). Mitfahrer erscheinen als farbige Punkte, in Minikarte und Profil immer.</div>'+
-    '<div>Ins <b>Höhenprofil</b> klicken oder ziehen: an diese Stelle der Strecke springen</div>'+
-    '<div class="note">Lenken und Ausweichen laufen automatisch. Abfahrten sind neutral: Tempo entsteht nur durchs Treten.</div></div>'+
+  const sec=(h,rows)=>'<div class="hs"><h3>'+h+'</h3>'+rows.map(r=>'<p>'+r+'</p>').join('')+'</div>';
+  ov.innerHTML='<div class="intro"><div class="panel helpP">'+
+    '<div class="by">by Wenn &amp; Aber Bike Crew</div><h1 style="font-size:clamp(34px,5vw,56px)">So funktioniert&rsquo;s</h1>'+
+    '<div class="hscroll">'+
+    sec('Das Spiel',['Du fährst echte Mountainbike-Strecken aus der Lenkersicht. Dein Tempo entsteht nur durch dein Treten, auch bergab: Abfahrten sind neutral. Lenken und Ausweichen laufen automatisch.','Mit einem Smart-Trainer (Bluetooth) trittst du einfach los, ohne Trainer geht es mit der Tastatur.'])+
+    sec('Fahren',['<b>↑</b> treten · <b>↓</b> bremsen','<b>+</b> / <b>−</b> (oder Bild↑ / Bild↓): Gang schwerer / leichter. Zwift Click: <b>+</b> kurz = schwerer, gedrückt halten oder andere Taste = leichter.','<b>R</b> Neustart · <b>Esc</b> Pause und Menü','Ins <b>Höhenprofil</b> oben klicken oder ziehen: an diese Stelle der Strecke springen.'])+
+    sec('Schwierigkeit',['<b>1</b> Leicht: 1,6-fache Wirkung deiner Watt, Steigungen nur zu 40 %','<b>2</b> Normal','<b>3</b> Hardcore: Steigungen zu 150 %, 0,85-fache Watt','<b>4</b> Eskalation: 20 % härter als realistisch','<b>M</b> Marvin: noch einmal 30 % härter','Die Stufen sind auch oben rechts antippbar.'])+
+    sec('Anzeige und Sound ein- und ausschalten',['<b>Q</b> Grafik: Niedrig, Mittel, Hoch (bei ruckelndem Bild eine Stufe tiefer)','<b>W</b> Wetter: aus, Regen und weitere Stufen','<b>L</b> Nightride: Nachtfahrt an oder aus (nur auf den festen Strecken)','<b>N</b> Sound: alle Geräusche an oder aus','<b>F</b> Freilauf: schaltet durch aus, 16, 32, 56 und 72 Zähne. Weniger Zähne klingen gröber und klickernder, 72 ist das feine Surren. Bei hohem Tempo wird der Freilauf von Wind und Reifenabrollen überdeckt, ganz weg ist er nur auf „aus“.'])+
+    sec('Nachtfahrt und Tiere',['Im Nightride fährst du mit Stirnlampe, Mond und Sternen. Nur dort und nur im dunklen Wald tauchen ab und zu Tiere auf: Wildschweine in einer Rotte mit Frischlingen, Hirsche und Rehe.','Du siehst sie nur schemenhaft am Wegrand, ihre Augen reflektieren das Licht deiner Lampe. Vor dem Weggehen rufen sie leise. Kommst du näher als 10 Meter, rennen sie weg und verschwinden in der Dunkelheit.','Ausschalten: <b>L</b> beendet den Nightride, und damit sind auch die Tiere weg. Ihre Rufe sind Teil von <b>N</b> (Sound).'])+
+    sec('Strecken und Liftfahrten',['MIWORU bleibt kostenlos. Weitere Strecken schaltest du mit einer kleinen Spende ab 1 € oder einem Community-Code frei.','Auf der Strecke in Sölden bringen dich Bergbahnen nach oben: Ein Hinweis zeigt Höhenmeter und Fahrzeit, die Liftzeit zählt nicht zu deiner Fahrzeit.'])+
+    sec('Gruppenfahrt',['Im Menü einen Gruppencode eingeben (alle Freunde denselben, dieselbe Strecke wählen). Mitfahrer erscheinen als farbige Punkte, in Minikarte und Höhenprofil immer.'])+
+    '</div>'+
     '<div class="btns"><button id="hback" class="main">← Zurück</button></div>'+
   '</div></div>';
   document.getElementById('hback').onclick=()=>{helpOpen=false;if(lastMenu)menu(lastMenu[0],lastMenu[1]);};
 }
-function showUnlock(want){   // Strecken freischalten: Community-Code oder 5 € per PayPal (Zahlung wird auf dem Server geprueft)
+function showUnlock(want){   // Spendenfenster: Betrag ab 1 EUR, kurze Geschichte zum Projekt, PayPal. Eine Spende schaltet alle weiteren Strecken frei (Pruefung auf dem Server)
   helpOpen=true;ov.style.display='flex';menuBtn.style.display='none';
   const wname=want&&ROUTES[want]?ROUTES[want].label:'';
   ov.innerHTML='<div class="intro"><div class="panel unlock">'+
-    '<div class="by">by Wenn &amp; Aber Bike Crew</div><h1>Alle Strecken freischalten</h1>'+
-    '<div class="help">'+(wname?'<b>'+wname+'</b> ist gesperrt. ':'')+'MIWORU bleibt kostenlos. Die Strecken Wupfeld, Hagmoor, Isehorst, Hemstein, Bölkamp und Dorbach gibt es für einmalig <b>5,00 €</b> (ohne Konto, gilt für diesen Browser).</div>'+
-    '<div class="ucode"><div class="uh">Community-Code</div><div class="urow"><input id="ucode" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Code eingeben"><button id="ucodeb" class="sec">Einlösen</button></div></div>'+
-    '<div class="ucode"><div class="uh">Kaufen</div>'+
-    '<label class="uchk"><input id="uchk" type="checkbox"><span>Ich stimme ausdrücklich zu, dass der Anbieter vor Ablauf der Widerrufsfrist mit der Ausführung des Vertrags beginnt (sofortige Freischaltung der Strecken). Mir ist bekannt, dass ich mit Beginn der Ausführung mein Widerrufsrecht verliere.</span></label>'+
-    '<button id="ubuy" class="main" disabled>Zahlungspflichtig bestellen · 5,00 €</button><div id="upp"></div></div>'+
+    '<div class="by">by Wenn &amp; Aber Bike Crew</div><h1>Spenden &amp; weitere Strecken</h1>'+
+    '<div class="help">'+(wname?'<b>'+wname+'</b> gehört zu den weiteren Strecken. ':'')+'MIWORU bleibt kostenlos. Wer weitere Strecken fahren möchte, kann mir gern eine kleine Spende hinterlassen: <b>ab 1 €</b>, den Betrag bestimmst du selbst. Damit sind Wupfeld, Hagmoor, Isehorst, Hemstein, Bölkamp, Dorbach und Sölden in diesem Browser freigeschaltet.</div>'+
+    '<div class="ucode"><div class="uh">Betrag</div><div class="urow"><input id="uamt" type="text" inputmode="decimal" autocomplete="off" value="5" aria-label="Spendenbetrag in Euro"><span class="ueur">€</span><button id="ubuy" class="main">Spenden</button></div><div id="upp"></div></div>'+
     '<div class="help" id="umsg"></div>'+
-    '<div class="help ulinks"><a href="/rechtliches.html#impressum" target="_blank" rel="noopener">Impressum</a> · <a href="/rechtliches.html#datenschutz" target="_blank" rel="noopener">Datenschutz</a> · <a href="/rechtliches.html#widerruf" target="_blank" rel="noopener">Widerruf</a></div>'+
+    '<div class="ucode"><div class="uh">Community-Code</div><div class="urow"><input id="ucode" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Code eingeben"><button id="ucodeb" class="sec">Einlösen</button></div></div>'+
+    '<div class="help ulinks"><a href="#" id="ustory">Warum gibt es das Projekt?</a> · <a href="/rechtliches.html#impressum" target="_blank" rel="noopener">Impressum</a> · <a href="/rechtliches.html#datenschutz" target="_blank" rel="noopener">Datenschutz</a></div>'+
     '<div class="btns"><button id="uback" class="sec">← Zurück</button></div>'+
   '</div></div>';
   const msg=t=>{document.getElementById('umsg').textContent=t||'';};
   const done=()=>{const q=want?'?route='+want:'';location.href=location.pathname+q+'#go';if(location.search===q)location.reload();};
   document.getElementById('uback').onclick=()=>{helpOpen=false;if(lastMenu)menu(lastMenu[0],lastMenu[1]);else location.href=location.pathname;};
+  document.getElementById('ustory').onclick=e=>{e.preventDefault();showStory();};
   const ci=document.getElementById('ucode');
   const doRedeem=async()=>{const c=ci.value.trim();if(!c)return;msg('Prüfe Code …');try{const r=await redeem(c);if(r.ok){msg('Freigeschaltet!');setTimeout(done,500);}else msg(r.error||'Code nicht gültig.');}catch(e){msg('Keine Verbindung zum Server.');}};
   document.getElementById('ucodeb').onclick=doRedeem;ci.onkeydown=e=>{e.stopPropagation();if(e.key==='Enter')doRedeem();};ci.onkeyup=ci.onkeypress=e=>e.stopPropagation();
-  const chk=document.getElementById('uchk'),buy=document.getElementById('ubuy');
-  chk.onchange=()=>{buy.disabled=!chk.checked;};
+  const ai=document.getElementById('uamt'),buy=document.getElementById('ubuy');ai.onkeydown=ai.onkeyup=ai.onkeypress=e=>e.stopPropagation();
+  const amount=()=>{const n=Math.round(parseFloat(String(ai.value).replace(',','.'))*100)/100;return isFinite(n)&&n>=1&&n<=500?n:null;};
   buy.onclick=async()=>{
-    if(!chk.checked)return;buy.disabled=true;msg('PayPal wird geladen …');
+    const a=amount();if(a===null){msg('Bitte einen Betrag von 1 bis 500 € eingeben.');return;}
+    buy.disabled=true;ai.disabled=true;msg('PayPal wird geladen …');
     try{
-      const cfg=await payConfig();if(!cfg.clientId){msg('Bezahlung ist noch nicht eingerichtet.');buy.disabled=false;return;}
+      const cfg=await payConfig();if(!cfg.clientId){msg('Bezahlung ist noch nicht eingerichtet.');buy.disabled=false;ai.disabled=false;return;}
       const pp=await loadPayPal(cfg.clientId);msg('');
-      pp.Buttons({style:{layout:'vertical',shape:'rect',label:'pay'},
-        createOrder:()=>payCreate(),
-        onApprove:async d=>{msg('Zahlung wird bestätigt …');try{await payCapture(d.orderID);msg('Danke! Alle Strecken sind freigeschaltet.');setTimeout(done,900);}catch(e){msg('Zahlung konnte nicht bestätigt werden: '+(e&&e.message||e)+' Bitte melde dich mit der PayPal-Transaktionsnummer.');}},
-        onCancel:()=>{msg('Abgebrochen.');},
-        onError:e=>{msg('PayPal-Fehler: '+(e&&e.message||e));}
+      pp.Buttons({style:{layout:'vertical',shape:'rect',label:'donate'},
+        createOrder:()=>payCreate(a.toFixed(2)),
+        onApprove:async d=>{msg('Spende wird bestätigt …');try{await payCapture(d.orderID);msg('Vielen Dank für deine Spende! Alle Strecken sind freigeschaltet.');setTimeout(done,1200);}catch(e){msg('Zahlung konnte nicht bestätigt werden: '+(e&&e.message||e)+' Bitte melde dich mit der PayPal-Transaktionsnummer.');}},
+        onCancel:()=>{msg('Abgebrochen.');buy.disabled=false;ai.disabled=false;},
+        onError:e=>{msg('PayPal-Fehler: '+(e&&e.message||e));buy.disabled=false;ai.disabled=false;}
       }).render('#upp');
-      chk.disabled=true;
-    }catch(e){msg(String(e&&e.message||e));buy.disabled=false;}
+    }catch(e){msg(String(e&&e.message||e));buy.disabled=false;ai.disabled=false;}
   };
+  setTimeout(()=>{if(helpOpen&&document.getElementById('ustory')&&!sessionStorage.getItem('miworu_story_seen')){try{sessionStorage.setItem('miworu_story_seen','1');}catch(e){}showStory();}},350);   // kleines Fenster mit der Geschichte, einmal pro Sitzung
+}
+function showStory(){   // kleines Fenster ueber dem Spendenfenster: Foto und persoenlicher Text
+  if(document.getElementById('story'))return;
+  const d=document.createElement('div');d.id='story';
+  d.innerHTML='<div class="sbox"><button class="sx" aria-label="Schließen">×</button>'+
+    '<img class="sph" src="/assets/lars.jpg" alt="Lars" onerror="this.style.display=\'none\'">'+
+    '<h2>Moin, ich bin Lars</h2>'+
+    '<p>Ich fahre sehr gern Mountainbike, und wir sind eine kleine Crew. Eigentlich wollen wir oft zusammen raus, aber das Wetter spielt selten mit, und zeitlich bekommen wir regelmäßige Touren auch nicht immer hin.</p>'+
+    '<p>Rennrad fahren möchte ich nicht. Also habe ich überlegt, wie ich das ganze System aus Swift, Rouvy und Co. aufs Mountainbiken übertragen kann. Daraus ist dieses Projekt entstanden.</p>'+
+    '<p>Wer weitere Strecken fahren möchte, kann mir gern eine kleine Spende hinterlassen. Ich entwickle das Programm ständig weiter.</p>'+
+    '<button class="main sok">Zur Spende</button></div>';
+  document.body.appendChild(d);
+  const c=()=>d.remove();d.querySelector('.sx').onclick=c;d.querySelector('.sok').onclick=c;d.onclick=e=>{if(e.target===d)c();};
 }
 function menu(title,sub){
   helpOpen=false;lastMenu=[title,sub];menuBtn.style.display='none';
@@ -2294,7 +2307,7 @@ function render(dt,now){
   bike.rotation.set(st.pitch,smp.h,st.lean);
   wheels[0].rotation.x=st.wheel;wheels[1].rotation.x=st.wheel;
   poseLegs(st.crank);
-  const fp=FPV&&(running||st.done);
+  const fp=running||st.done;
   bike.visible=!fp;
   cockpitEl.style.display=fp?'block':'none';document.body.classList.toggle('fpv',fp);
   if(fp){
@@ -2305,16 +2318,6 @@ function render(dt,now){
     lookT.set(smp2.x+rx*st.x*0.9,smp2.y+1.15,smp2.z+rz*st.x*0.9);
     if(!camInit){lookC.copy(lookT);camInit=true;}else lookC.lerp(lookT,k);
     camera.fov+=((70+Math.min(12,st.v*0.9))-camera.fov)*Math.min(1,dt*3);camera.updateProjectionMatrix();
-    ctr.set(bx,by,bz);
-  }else if(running||st.done){
-    sample(st.pos-6.2,smp2);
-    const r2x=-Math.cos(smp2.h),r2z=Math.sin(smp2.h);
-    camT.set(smp2.x+r2x*st.x*0.75,Math.max(smp2.y,by-0.4)+2.25,smp2.z+r2z*st.x*0.75);
-    sample(st.pos+9,smp2);
-    lookT.set(smp2.x+rx*st.x*0.5,smp2.y+1.0,smp2.z+rz*st.x*0.5);
-    const k=camInit?1-Math.exp(-dt*7):1;camInit=true;
-    camera.position.lerp(camT,k);lookC.lerp(lookT,k);
-    camera.fov+=((62+Math.min(16,st.v*1.1))-camera.fov)*Math.min(1,dt*3);camera.updateProjectionMatrix();
     ctr.set(bx,by,bz);
   }else{
     const t=now*0.00006+0.6;

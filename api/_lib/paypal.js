@@ -1,5 +1,6 @@
 // PayPal Orders v2 (Server-seitig). Zugangsdaten nur aus Umgebungsvariablen.
-export const PRICE = '5.00';
+export const MIN = 1, MAX = 500;   // Spende: frei waehlbar von 1 bis 500 Euro
+export const cleanAmount = (a) => { const n = Math.round(parseFloat(String(a).replace(',', '.')) * 100) / 100; if (!isFinite(n) || n < MIN || n > MAX) throw new Error('Betrag muss zwischen 1 und 500 Euro liegen'); return n.toFixed(2); };
 export const CURRENCY = 'EUR';
 
 const base = () => (process.env.PAYPAL_ENV === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com');
@@ -16,14 +17,14 @@ export async function accessToken() {
   return (await r.json()).access_token;
 }
 
-export async function createOrder() {
-  const t = await accessToken();
+export async function createOrder(amount) {
+  const val = cleanAmount(amount), t = await accessToken();
   const r = await fetch(base() + '/v2/checkout/orders', {
     method: 'POST',
     headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       intent: 'CAPTURE',
-      purchase_units: [{ description: 'MIWORU - alle Strecken freischalten', amount: { currency_code: CURRENCY, value: PRICE } }],
+      purchase_units: [{ description: 'MIWORU - Spende', amount: { currency_code: CURRENCY, value: val } }],
     }),
   });
   if (!r.ok) throw new Error('Bestellung konnte nicht angelegt werden (' + r.status + ')');
@@ -44,5 +45,5 @@ export async function captureOrder(orderID) {
 // Nur echte, abgeschlossene Zahlung ueber den richtigen Betrag zaehlt
 export function paidOk(d) {
   const c = d && d.purchase_units && d.purchase_units[0] && d.purchase_units[0].payments && d.purchase_units[0].payments.captures && d.purchase_units[0].payments.captures[0];
-  return !!(d && d.status === 'COMPLETED' && c && c.status === 'COMPLETED' && c.amount && c.amount.currency_code === CURRENCY && c.amount.value === PRICE);
+  return !!(d && d.status === 'COMPLETED' && c && c.status === 'COMPLETED' && c.amount && c.amount.currency_code === CURRENCY && parseFloat(c.amount.value) >= MIN);
 }
