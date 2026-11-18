@@ -2533,16 +2533,33 @@ if(MW&&OBJ_RAW){
           if(Math.max(fl,fr,bl,br)-Math.min(fl,fr,bl,br)>0.4)continue;
           CP.push({x:x,z:z,y:mean,H:H,pitch:-Math.atan(((fl+fr)-(bl+br))/2/(2*a)),roll:Math.atan(((fr+br)-(fl+bl))/2/(2*b)),hl:hl,hw:hw,typ:typ,c:COL[(rs()*COL.length)|0]});n++;}
         run+=l;}});
-    if(CP.length){const NB=CP.length,mk=(geo,col)=>{const m=new THREE.InstancedMesh(geo,new THREE.MeshStandardMaterial({color:0xffffff,roughness:col===1?0.25:0.55,metalness:col===1?0.1:0.35}),NB*(col===2?4:1));m.castShadow=true;m.receiveShadow=true;m.frustumCulled=false;scene.add(m);return m;},
-        bx=new THREE.BoxGeometry(1,1,1),cy=new THREE.CylinderGeometry(1,1,1,10),Mb=mk(bx,0),Mg=mk(bx,1),Mr=mk(bx,0),Mw=mk(cy,2),P=new THREE.Object3D(),L_=new THREE.Object3D(),cc=new THREE.Color(),M4=new THREE.Matrix4();
-      const put=(M,idx,px,py,pz,sx,sy,sz,rz_)=>{L_.position.set(px,py,pz);L_.rotation.set(0,0,rz_||0);L_.scale.set(sx,sy,sz);L_.updateMatrix();M4.multiplyMatrices(P.matrix,L_.matrix);M.setMatrixAt(idx,M4);};
-      CP.forEach((a,k)=>{P.position.set(a.x,a.y,a.z);P.rotation.order='YXZ';P.rotation.set(a.pitch,a.H,a.roll);P.scale.set(1,1,1);P.updateMatrix();
-        const van=a.typ<0.12,kom=a.typ<0.35,cl=a.hl*2,cabL=van?cl*0.78:kom?cl*0.52:cl*0.42,cabZ=van?-cl*0.05:kom?-cl*0.14:-cl*0.1,cabH=van?0.95:0.5;
-        put(Mb,k,0,0.62,0,a.hw*2,0.62,cl);cc.setHex(a.c);Mb.setColorAt(k,cc);
-        put(Mg,k,0,0.93+cabH/2,cabZ,a.hw*2-0.2,cabH,cabL);cc.setHex(0x1b232b);Mg.setColorAt(k,cc);
-        put(Mr,k,0,0.93+cabH+0.04,cabZ,a.hw*2-0.28,0.1,cabL-0.15);cc.setHex(a.c);Mr.setColorAt(k,cc);
-        [[-1,1],[1,1],[-1,-1],[1,-1]].forEach(([sx,sz],wi)=>{put(Mw,k*4+wi,sx*(a.hw-0.08),0.33,sz*a.hl*0.62,0.33,0.24,0.33,Math.PI/2);cc.setHex(0x151515);Mw.setColorAt(k*4+wi,cc);});});
-      [Mb,Mg,Mr,Mw].forEach(m=>{m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true;});}
+    if(CP.length){   // Fantasieautos mit Seitenprofil: abgerundete Karosserie (Extrusion), getoentes Fensterband, Raeder mit Felgen, Front-/Rueckleuchten
+      const TY=[
+        {hl:2.25,wz:1.38,zf:2.14,zr:-2.25,yh:0.66,yt:0.86,body:[[-2.2,0.22],[-2.26,0.7],[-2.2,1.3],[-2.05,1.48],[0.1,1.52],[0.85,1.04],[1.2,0.96],[2.05,0.82],[2.15,0.62],[2.1,0.22]],
+         glass:[[[-2.05,1.06],[-2.02,1.4],[-1.9,1.44],[-0.42,1.44],[-0.42,1.06]],[[-0.24,1.06],[-0.24,1.44],[0.1,1.44],[0.8,1.08]]]},
+        {hl:2.05,wz:1.25,zf:2.04,zr:-2.05,yh:0.66,yt:0.78,body:[[-2.0,0.22],[-2.06,0.7],[-1.95,0.98],[-1.45,1.42],[-1.2,1.5],[0.2,1.5],[0.95,1.0],[1.15,0.95],[1.95,0.8],[2.05,0.62],[2.0,0.22]],
+         glass:[[[-1.8,1.04],[-1.4,1.38],[-1.15,1.43],[-0.42,1.43],[-0.42,1.04]],[[-0.24,1.04],[-0.24,1.43],[0.12,1.43],[0.82,1.06]]]},
+        {hl:2.25,wz:1.4,zf:2.19,zr:-2.25,yh:0.64,yt:0.8,body:[[-2.2,0.22],[-2.26,0.65],[-2.18,1.0],[-1.7,1.03],[-1.2,1.48],[-0.9,1.52],[0.1,1.52],[0.85,1.03],[1.2,0.97],[2.1,0.8],[2.2,0.62],[2.15,0.22]],
+         glass:[[[-1.62,1.07],[-1.2,1.42],[-0.95,1.46],[-0.42,1.46],[-0.42,1.07]],[[-0.24,1.07],[-0.24,1.46],[0.08,1.46],[0.8,1.07]]]}];
+      const W=1.76,mkShape=pts=>{const sh=new THREE.Shape();pts.forEach((q,i)=>i?sh.lineTo(q[0],q[1]):sh.moveTo(q[0],q[1]));sh.closePath();return sh;};
+      const orient=g=>{g.rotateY(-Math.PI/2);return g;};
+      TY.forEach(T=>{
+        const bt=0.07;let g=new THREE.ExtrudeGeometry(mkShape(T.body),{depth:W-2*bt,bevelEnabled:true,bevelThickness:bt,bevelSize:0.07,bevelSegments:2,curveSegments:1});g.translate(0,0,-(W-2*bt)/2);T.bg=orient(g);
+        const gs=[];T.glass.forEach(pl=>{const q=new THREE.ExtrudeGeometry(mkShape(pl),{depth:W+0.03,bevelEnabled:false});q.translate(0,0,-(W+0.03)/2);gs.push(orient(q));});T.gg=gs;});
+      const wrap=(geo,tint,cnt,rough,met)=>{const m=new THREE.InstancedMesh(geo,new THREE.MeshStandardMaterial({color:0xffffff,roughness:rough,metalness:met}),cnt);m.castShadow=true;m.receiveShadow=true;m.frustumCulled=false;scene.add(m);return m;};
+      const NT=[0,0,0],tOf=a=>a.typ<0.35?0:a.typ<0.7?1:2;CP.forEach(a=>{a.t=tOf(a);a.k=NT[a.t]++;});
+      const bx=new THREE.BoxGeometry(1,1,1),cy=new THREE.CylinderGeometry(1,1,1,12),NB=CP.length;
+      const MT=TY.map((T,t)=>({b:wrap(T.bg,0,Math.max(1,NT[t]),0.4,0.45),g:T.gg.map(q=>wrap(q,0,Math.max(1,NT[t]),0.15,0.2))}));
+      const Mtire=wrap(cy,0,NB*4,0.9,0),Mrim=wrap(cy,0,NB*4,0.35,0.7),Mhl=wrap(bx,0,NB*2,0.3,0),Mtl=wrap(bx,0,NB*2,0.4,0),Mund=wrap(bx,0,NB,0.9,0);
+      const P=new THREE.Object3D(),L_=new THREE.Object3D(),cc=new THREE.Color(),M4=new THREE.Matrix4(),I=new THREE.Matrix4();
+      const put=(M,idx,col,px,py,pz,sx,sy,sz,rz_)=>{L_.position.set(px,py,pz);L_.rotation.set(0,0,rz_||0);L_.scale.set(sx,sy,sz);L_.updateMatrix();M4.multiplyMatrices(P.matrix,L_.matrix);M.setMatrixAt(idx,M4);cc.setHex(col);M.setColorAt(idx,cc);};
+      CP.forEach((a,ci)=>{const T=TY[a.t],m=MT[a.t],k=a.k,sc=a.sc||1;P.position.set(a.x,a.y,a.z);P.rotation.order='YXZ';P.rotation.set(a.pitch,a.H,a.roll);P.scale.set(1,1,1);P.updateMatrix();
+        put(m.b,k,a.c,0,0,0,1,1,1);m.g.forEach(q=>put(q,k,0x1c252d,0,0,0,1,1,1));
+        put(Mund,ci,0x101010,0,0.2,0,1.5,0.1,T.hl*1.8);
+        [[-1,1],[1,1],[-1,-1],[1,-1]].forEach(([sx,sz],wi)=>{const id=ci*4+wi;put(Mtire,id,0x141414,sx*0.84,0.33,sz*T.wz,0.33,0.2,0.33,Math.PI/2);put(Mrim,id,0xaab0b6,sx*0.94,0.33,sz*T.wz,0.2,0.2,0.2,Math.PI/2);});
+        [-1,1].forEach((sx,wi)=>{put(Mhl,ci*2+wi,0xf4f1e2,sx*0.62,T.yh,T.zf-0.01,0.42,0.12,0.07);put(Mtl,ci*2+wi,0xb41a1a,sx*0.66,T.yt,T.zr+0.01,0.4,0.13,0.07);});});
+      const fin=M=>{M.instanceMatrix.needsUpdate=true;if(M.instanceColor)M.instanceColor.needsUpdate=true;};
+      MT.forEach(m=>{fin(m.b);m.g.forEach(fin);});[Mtire,Mrim,Mhl,Mtl,Mund].forEach(fin);}
     if(window.__counts)window.__counts.mwcars=n;window.__mwcars=n;window.__cp=CP;}
 }
 window.__vans=VANS;
