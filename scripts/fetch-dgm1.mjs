@@ -11,7 +11,16 @@ const ROUTE = rd(`${NAME}.json`), GEL = rd(`${NAME}.gelaende.json`);
 const OUT = new URL(`../src/routes/${NAME}.dgm1.json`, import.meta.url);
 const [LAT0, LON0] = ROUTE.origin, KX = 111320 * Math.cos(LAT0 * Math.PI / 180), KY = 111320;
 const WCS = 'https://www.wcs.nrw.de/geobasis/wcs_nw_dgm', CELL = 2, BAND = 60;
-const get = async url => { const r = await fetch(url, { headers: { 'User-Agent': 'miworu-dgm1/1.0' } }); if (!r.ok) throw new Error(`${r.status} bei ${url}\n${(await r.text()).slice(0, 600)}`); return r; };
+// bei Netzfehlern und 5xx bis zu 8 Mal wiederholen (der NRW-Server bricht Verbindungen gelegentlich ab)
+const get = async url => {
+  let last;
+  for (let t = 0; t < 8; t++) {
+    try { const r = await fetch(url, { headers: { 'User-Agent': 'miworu-dgm1/1.0' } }); if (r.ok) return r; const txt = (await r.text()).slice(0, 600); last = new Error(`${r.status} bei ${url}\n${txt}`); if (r.status < 500 && r.status !== 429) throw last; }
+    catch (e) { last = e; if (e.message && /^[34]\d\d bei /.test(e.message) && !/^429/.test(e.message)) throw e; }
+    await new Promise(r => setTimeout(r, 1500 * (t + 1)));
+  }
+  throw last;
+};
 const toUtm = (x, z) => toUTM(LAT0 - z / KY, LON0 + x / KX);
 
 // Grobes Raster (wie im Spiel)

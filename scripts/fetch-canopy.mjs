@@ -10,7 +10,16 @@ const rd = (f, opt) => { try { return JSON.parse(fs.readFileSync(new URL(`../src
 const ROUTE = rd(`${NAME}.json`), GEL = rd(`${NAME}.gelaende.json`), OSM = rd(`${NAME}.umgebung.json`, 1), L2 = rd(`${NAME}.lod2.json`, 1);
 const OUT = new URL(`../src/routes/${NAME}.canopy.json`, import.meta.url);
 const [LAT0, LON0] = ROUTE.origin, KX = 111320 * Math.cos(LAT0 * Math.PI / 180), KY = 111320;
-const get = async url => { const r = await fetch(url, { headers: { 'User-Agent': 'miworu-canopy/1.0' } }); if (!r.ok) throw new Error(`${r.status} bei ${url}\n${(await r.text()).slice(0, 600)}`); return r; };
+// bei Netzfehlern und 5xx bis zu 8 Mal wiederholen (der NRW-Server bricht Verbindungen gelegentlich ab)
+const get = async url => {
+  let last;
+  for (let t = 0; t < 8; t++) {
+    try { const r = await fetch(url, { headers: { 'User-Agent': 'miworu-canopy/1.0' } }); if (r.ok) return r; const txt = (await r.text()).slice(0, 600); last = new Error(`${r.status} bei ${url}\n${txt}`); if (r.status < 500 && r.status !== 429) throw last; }
+    catch (e) { last = e; if (e.message && /^[34]\d\d bei /.test(e.message) && !/^429/.test(e.message)) throw e; }
+    await new Promise(r => setTimeout(r, 1500 * (t + 1)));
+  }
+  throw last;
+};
 
 // Gebiet in UTM
 const gx0 = GEL.x0, gx1 = GEL.x0 + GEL.nx * GEL.cell, gz0 = GEL.z0, gz1 = GEL.z0 + GEL.nz * GEL.cell;
