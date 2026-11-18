@@ -2874,7 +2874,7 @@ function wlBuild(kind){
 function wlPlace(kind,x,z,grp,delay){
   const pl=WL.pool[kind]||(WL.pool[kind]=[]);let T=pl.find(q=>!q.on);if(!T){T=wlBuild(kind);if(kind==='boar'||kind==='piglet')T.mat.color.setHex(0x0b0907);pl.push(T);}
   T.on=true;T.called=false;T.panic=false;T.grp=grp;WL.list.push(T);T.x=x;T.z=z;T.t=-delay;T.ph='in';T.stand=grp.stand+(Math.random()-0.5);T.speed=0;T.blink=1.5+Math.random()*3;
-  T.willCall=kind==='piglet'?Math.random()<0.5:kind==='boar'?Math.random()<0.7:true;T.callAt=Math.random()*0.9;
+  T.willCall=kind==='piglet'?false:true;T.callAt=Math.random()*0.9;
   T.yaw=Math.atan2(-(camera.position.z-z),camera.position.x-x)+(Math.random()-0.5)*1.1;
   T.g.position.set(x,gnd(x,z),z);T.g.rotation.y=T.yaw;T.g.visible=true;T.mat.opacity=0;return T;
 }
@@ -2920,7 +2920,7 @@ function wlUpdateOne(a,dt){
     else if(a.ph==='stand'&&(a.t>1.8+a.stand||dist>110)){a.ph='call';a.ct=0;}
     if(a.ph==='call'){
       a.ct+=dt;
-      if(!a.called&&a.ct>=a.callAt){a.called=true;if(a.willCall){const me=camera.matrixWorld.elements,pn=Math.max(-1,Math.min(1,((a.x-cp.x)*me[0]+(a.z-cp.z)*me[2])/Math.max(8,dist)));AUDIO.call(a.kind,Math.max(0,Math.min(1,1.15-dist/110)),pn);}}   // jedes Tier ruft hoechstens einmal, leise
+      if(!a.called&&a.ct>=a.callAt){a.called=true;if(a.willCall&&!a.grp.called){a.grp.called=true;const me=camera.matrixWorld.elements,pn=Math.max(-1,Math.min(1,((a.x-cp.x)*me[0]+(a.z-cp.z)*me[2])/Math.max(8,dist)));AUDIO.call(a.kind,Math.max(0,Math.min(1,1.15-dist/110)),pn);}}   // jedes Tier ruft hoechstens einmal, leise
       if(a.ct>(a.kind==='stag'?2.1:1.7)){a.ph='go';a.gt=0;a.speed=a.boar?4.6:4.2;a.away=Math.atan2(dz,-dx)+(Math.random()-0.5)*0.9;}
     }
   }else{

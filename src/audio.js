@@ -103,7 +103,9 @@ export const AUDIO = (() => {
     if (!ok || !on) return; const t = ctx.currentTime, k = Math.min(1, v / 9);
     if (splashBuf) {   // Aufnahme: Lautstaerke und Tonhoehe leicht nach Tempo, kleine Zufallsvariation
       const s = ctx.createBufferSource(); s.buffer = splashBuf; s.playbackRate.value = (0.94 + Math.random() * 0.12) * (0.95 + 0.1 * k);
-      const g = ctx.createGain(); g.gain.value = 0.16 * (0.45 + 0.55 * k); s.connect(g); g.connect(master); s.start(t); return;
+      const g = ctx.createGain(), lp = ctx.createBiquadFilter(), pk = 0.15 * (0.45 + 0.55 * k);   // weicher: hohe Anteile gedaempft, kurzes Einblenden statt hartem Anschlag
+      lp.type = 'lowpass'; lp.frequency.value = 2400; lp.Q.value = 0.5; s.playbackRate.value *= 0.92;
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(pk, t + 0.035); s.connect(lp); lp.connect(g); g.connect(master); s.start(t); return;
     }
     burst(t, 0.28, 'bandpass', 1800, 0.7, 0.2 * k + 0.05); burst(t + 0.02, 0.4, 'lowpass', 650, 0.7, 0.24 * k + 0.05); thump(t, 160, 70, 0.12, 0.12 * k);
     for (let i = 0; i < 4; i++) burst(t + 0.06 + i * 0.07 + Math.random() * 0.04, 0.09, 'highpass', 2600, 0.6, (0.07 * k + 0.02) * (1 - i * 0.2));
