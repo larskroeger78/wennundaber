@@ -124,41 +124,59 @@ async function build(CELL, MARGIN, PIX, TM, OUT, COV = cov) {
             const img = await (await fromArrayBuffer(buf)).getImage();
             const data = (await img.readRasters())[0];
             tryTile.v = v; return { img, data };
-          } catch (e) { last = e; await sleep(1000 * (t + 1)); }
+          } catch (e) { last = e; if (/^4\d\d /.test(e.message) && !/^429/.test(e.message)) break; await sleep(1000 * (t + 1)); }
         }
         throw last;
       } catch (e) { errs.push(`Variante ${v + 1}: ${e.message.split('\n').slice(0, 3).join(' | ')}`); }
     }
     throw new Error('Keine Anfrage-Variante hat funktioniert:\n' + errs.join('\n---\n'));
   };
-  const cols = Math.ceil((eMax - eMin) / T), rows = Math.ceil((nMax - nMin) / T), tiles = [];
+  const cols = Math.ceil((eMax - eMin) / T), rows = Math.ceil((nMax - nMin) / T), tiles = []; let missing = 0;
   console.log(`Lade ${cols * rows} Kacheln …`);
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
     const e0 = eMin + c * T, n0 = nMin + r * T, e1 = e0 + T, n1 = n0 + T, ov = 4 * k;
-    const { img, data } = await tryTile(e0 - ov, e1 + ov, n0 - ov, n1 + ov);
-    const [bx0, by0, bx1, by1] = img.getBoundingBox(), w = img.getWidth(), h = img.getHeight();
-    const nodata = img.getGDALNoData();
-    tiles.push({ bx0, by1, w, h, px: (bx1 - bx0) / w, py: (by1 - by0) / h, nodata, data });
-    process.stdout.write(`\r  Kachel ${tiles.length}/${cols * rows}  (Variante ${tryTile.v + 1})`);
+    try {
+      const { img, data } = await tryTile(e0 - ov, e1 + ov, n0 - ov, n1 + ov);
+      const [bx0, by0, bx1, by1] = img.getBoundingBox(), w = img.getWidth(), h = img.getHeight();
+      tiles.push({ bx0, by1, w, h, px: (bx1 - bx0) / w, py: (by1 - by0) / h, data });
+    } catch (e) {            // z. B. ausserhalb von Tirol (Italien/Bayern): keine Daten, wird spaeter aus der Umgebung aufgefuellt
+      tiles.push(null); missing++; if (missing <= 3) console.log('\n  Kachel ' + (tiles.length) + ' ohne Daten (vermutlich ausserhalb Tirols): ' + e.message.split('\n').slice(0, 2).join(' ').slice(0, 160));
+    }
+    process.stdout.write(`\r  Kachel ${tiles.length}/${cols * rows}  (Variante ${(tryTile.v || 0) + 1}, ohne Daten: ${missing})`);
   }
+  if (missing === cols * rows) throw new Error('Keine einzige Kachel geladen – Dienst/Coverage prüfen.');
   console.log('\nGelände erhalten.');
   const at = (E, N) => {
     const c = Math.max(0, Math.min(cols - 1, Math.floor((E - eMin) / T))), r = Math.max(0, Math.min(rows - 1, Math.floor((N - nMin) / T)));
     const t = tiles[r * cols + c];
+    if (!t) return NaN;
     const u = (E - t.bx0) / t.px - 0.5, v = (t.by1 - N) / t.py - 0.5, i = Math.floor(u), j = Math.floor(v);
     const g = (ii, jj) => t.data[Math.max(0, Math.min(t.h - 1, jj)) * t.w + Math.max(0, Math.min(t.w - 1, ii))];
     const fu = u - i, fv = v - j;
     return (g(i, j) * (1 - fu) + g(i + 1, j) * fu) * (1 - fv) + (g(i, j + 1) * (1 - fu) + g(i + 1, j + 1) * fu) * fv;
   };
-  const q = new Int16Array(nx * nz);
+  const q = new Int16Array(nx * nz), F = new Float32Array(nx * nz);
   let mn = 1e9, mx = -1e9, bad = 0;
   const heightAt = (x, z) => { const [E, N] = proj(...toLL(x, z)); return at(E, N); };
   for (let iz = 0; iz < nz; iz++) for (let ix = 0; ix < nx; ix++) {
-    let e = heightAt(x0 + ix * CELL, z0 + iz * CELL);
-    if (!(e > 300 && e < 4000)) { e = NHN0; bad++; }
-    mn = Math.min(mn, e); mx = Math.max(mx, e);
-    q[iz * nx + ix] = Math.round((e - NHN0) * 10);
+    const e = heightAt(x0 + ix * CELL, z0 + iz * CELL);
+    if (e > 300 && e < 4000) F[iz * nx + ix] = e; else { F[iz * nx + ix] = NaN; bad++; }
   }
+  // Luecken (ausserhalb des Datengebiets) schrittweise aus den Nachbarn auffuellen (weiche Fortsetzung des Gelaendes)
+  let todo = [];
+  for (let k2 = 0; k2 < F.length; k2++) if (Number.isNaN(F[k2])) todo.push(k2);
+  while (todo.length) {
+    const add = [], rest = [];
+    for (const k2 of todo) {
+      const ix = k2 % nx, iz = (k2 - ix) / nx; let sm = 0, n = 0;
+      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { const X = ix + dx, Z = iz + dz; if (X < 0 || Z < 0 || X >= nx || Z >= nz) continue; const v = F[Z * nx + X]; if (!Number.isNaN(v)) { sm += v; n++; } }
+      if (n) add.push([k2, sm / n]); else rest.push(k2);
+    }
+    if (!add.length) break;
+    for (const [k2, v] of add) F[k2] = v;
+    todo = rest;
+  }
+  for (let k2 = 0; k2 < F.length; k2++) { const e = Number.isNaN(F[k2]) ? NHN0 : F[k2]; mn = Math.min(mn, e); mx = Math.max(mx, e); q[k2] = Math.round((e - NHN0) * 10); }
   // Prüfung gegen die GPX-Höhen
   let sum = 0, cnt = 0;
   for (let i = 0; i < ROUTE.pts.length; i += 10) { const p = ROUTE.pts[i], e = heightAt(p[0], -p[1]); if (e > 300 && e < 4000) { sum += Math.abs(e - p[2]); cnt++; } }
