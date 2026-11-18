@@ -1,7 +1,7 @@
 // Tirol: Geländemodell (DGM, Land Tirol, CC BY 4.0 – "Datenquelle: Land Tirol - data.tirol.gv.at")
 // per WCS "Gelände Tirol" -> src/routes/<name>.gelaende.json (gleiches Format wie fetch-terrain.mjs).
 // Aufruf: npm run terrain-tirol -- alpen            (Node 18+, Internet nötig)
-// Optionen: --wcs=<URL> --cov=<Name> --cell=8 --margin=1200 --pix=2 --crs=25832|3857 --fern=9000 (Rand Fernmodell) --ohne-fern --force
+// Optionen: --wcs=<URL> --cov=<Name> --cell=8 --margin=1200 --pix=2 --crs=25832|3857 --fern=9000 (Rand Fernmodell) --ohne-fern --nur-fern --force
 // Das Skript sucht den Dienst, die Ebene und das Koordinatensystem selbst, zeigt alles an und prüft am Ende
 // das Ergebnis gegen die Höhen der GPX-Strecke (fängt falsche Ebenen/Koordinatensysteme ab).
 import fs from 'node:fs';
@@ -117,9 +117,16 @@ async function build(CELL, MARGIN, PIX, TM, OUT) {
     const errs = [];
     for (let v = (tryTile.v || 0); v < variants.length; v++) {
       try {
-        const buf = await (await get(variants[v](e0, e1, n0, n1))).arrayBuffer();
-        const img = await (await fromArrayBuffer(buf)).getImage();
-        tryTile.v = v; return img;
+        let last;
+        for (let t = 0; t < 3; t++) {            // abgeschnittene/defekte Antworten: gleiche Anfrage bis zu 3x wiederholen
+          try {
+            const buf = await (await get(variants[v](e0, e1, n0, n1))).arrayBuffer();
+            const img = await (await fromArrayBuffer(buf)).getImage();
+            const data = (await img.readRasters())[0];
+            tryTile.v = v; return { img, data };
+          } catch (e) { last = e; await sleep(1000 * (t + 1)); }
+        }
+        throw last;
       } catch (e) { errs.push(`Variante ${v + 1}: ${e.message.split('\n').slice(0, 3).join(' | ')}`); }
     }
     throw new Error('Keine Anfrage-Variante hat funktioniert:\n' + errs.join('\n---\n'));
@@ -128,10 +135,10 @@ async function build(CELL, MARGIN, PIX, TM, OUT) {
   console.log(`Lade ${cols * rows} Kacheln …`);
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
     const e0 = eMin + c * T, n0 = nMin + r * T, e1 = e0 + T, n1 = n0 + T, ov = 4 * k;
-    const img = await tryTile(e0 - ov, e1 + ov, n0 - ov, n1 + ov);
+    const { img, data } = await tryTile(e0 - ov, e1 + ov, n0 - ov, n1 + ov);
     const [bx0, by0, bx1, by1] = img.getBoundingBox(), w = img.getWidth(), h = img.getHeight();
     const nodata = img.getGDALNoData();
-    tiles.push({ bx0, by1, w, h, px: (bx1 - bx0) / w, py: (by1 - by0) / h, nodata, data: (await img.readRasters())[0] });
+    tiles.push({ bx0, by1, w, h, px: (bx1 - bx0) / w, py: (by1 - by0) / h, nodata, data });
     process.stdout.write(`\r  Kachel ${tiles.length}/${cols * rows}  (Variante ${tryTile.v + 1})`);
   }
   console.log('\nGelände erhalten.');
@@ -162,8 +169,8 @@ async function build(CELL, MARGIN, PIX, TM, OUT) {
   console.log(`Fertig → ${OUT.pathname.split('/').pop()} (${(fs.statSync(OUT).size / 1e6).toFixed(1)} MB)`);
 }
 const FERN = args.includes('--ohne-fern') ? null : +opt('fern', 9000);
-await build(+opt('cell', 8), +opt('margin', 1200), +opt('pix', 2), 1000, new URL(`../src/routes/${NAME}.gelaende.json`, import.meta.url));
+if (!args.includes('--nur-fern')) await build(+opt('cell', 8), +opt('margin', 1200), +opt('pix', 2), 1000, new URL(`../src/routes/${NAME}.gelaende.json`, import.meta.url));
 if (FERN) {
   console.log('\n--- Fernmodell für das Bergpanorama (grob, ' + FERN + ' m Rand) ---');
-  await build(40, FERN, 20, 10000, new URL(`../src/routes/${NAME}.fern.json`, import.meta.url));
+  await build(40, FERN, 16, 4000, new URL(`../src/routes/${NAME}.fern.json`, import.meta.url));
 }
