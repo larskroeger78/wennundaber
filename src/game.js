@@ -2823,19 +2823,27 @@ function wlEyeTex(){
   r.addColorStop(0,'rgba(255,255,235,1)');r.addColorStop(0.22,'rgba(215,255,170,.9)');r.addColorStop(0.55,'rgba(130,210,90,.25)');r.addColorStop(1,'rgba(100,180,70,0)');
   g.fillStyle=r;g.fillRect(0,0,64,64);return WL.eyeTex=new THREE.CanvasTexture(c);
 }
+function wlBlob(){   // Kugel mit leichter Unregelmaessigkeit (Fell, Muskeln): wirkt weniger wie ein Klotz
+  const g=new THREE.SphereGeometry(1,18,13),p=g.attributes.position;
+  for(let i=0;i<p.count;i++){const x=p.getX(i),y=p.getY(i),z=p.getZ(i),n=1+0.06*Math.sin(x*5.1+y*3.3)*Math.cos(z*4.7+x*2.1)+0.03*Math.sin(y*9+z*7.3);p.setXYZ(i,x*n,y*n,z*n);}
+  g.computeVertexNormals();return g;
+}
 function wlBuild(kind){
-  const mat=new THREE.MeshLambertMaterial({color:0x060504,emissive:0x0b0e13,transparent:true,opacity:0}),root=new THREE.Group(),body=new THREE.Group();root.add(body);
-  const ell=(par,rx,ry,rz,x,y,z,rz2)=>{const m=new THREE.Mesh(new THREE.SphereGeometry(1,10,8),mat);m.scale.set(rx,ry,rz);m.position.set(x,y,z);if(rz2)m.rotation.z=rz2;par.add(m);return m;};
+  const mat=new THREE.MeshLambertMaterial({color:0x040303,emissive:0x05070a,transparent:true,opacity:0}),root=new THREE.Group(),body=new THREE.Group();root.add(body);
+  const ell=(par,rx,ry,rz,x,y,z,rz2)=>{const m=new THREE.Mesh(wlBlob(),mat);m.scale.set(rx,ry,rz);m.position.set(x,y,z);if(rz2)m.rotation.z=rz2;par.add(m);return m;};
   const limb=(par,a,b,r0,r1)=>{const d=new THREE.Vector3(b[0]-a[0],b[1]-a[1],b[2]-a[2]),L=d.length(),m=new THREE.Mesh(new THREE.CylinderGeometry(r1,r0,L,7,1),mat);
     m.position.set((a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());par.add(m);return m;};
   const boar=kind==='boar'||kind==='piglet',stag=kind==='stag',head=new THREE.Group(),legs=[];
   let eyeX,eyeY,eyeZ,legH,legX,legZ;
   if(boar){
-    ell(body,0.62,0.34,0.32,0,0.62,0);ell(body,0.38,0.33,0.31,0.3,0.7,0);ell(body,0.4,0.3,0.28,-0.38,0.6,0);
-    for(let i=0;i<8;i++){const c=new THREE.Mesh(new THREE.ConeGeometry(0.035,0.14,5),mat);c.position.set(-0.45+i*0.17,0.97-Math.abs(i-4)*0.012,0);c.rotation.z=-0.25;body.add(c);}   // Borsten
-    limb(body,[-0.9,0.7,0],[-1.02,0.55,0],0.03,0.018);
-    head.position.set(0.8,0.55,0);ell(head,0.3,0.17,0.16,0.12,-0.02,0);limb(head,[0.3,-0.04,0],[0.56,-0.1,0],0.09,0.06);
-    ell(head,0.05,0.1,0.03,0,0.17,0.1,0.3);ell(head,0.05,0.1,0.03,0,0.17,-0.1,-0.3);
+    // Wildschwein: hohe, keilfoermige Schulter, nach hinten abfallender Ruecken, kraeftiger Nacken, langer Keilkopf, Borstenkamm
+    ell(body,0.6,0.3,0.28,-0.02,0.6,0);ell(body,0.4,0.36,0.31,0.3,0.7,0);ell(body,0.34,0.27,0.26,-0.42,0.56,0);ell(body,0.28,0.3,0.27,0.58,0.64,0);
+    for(let i=0;i<16;i++){const u=i/15,c=new THREE.Mesh(new THREE.ConeGeometry(0.02+0.012*(1-u),0.1+0.13*(1-Math.abs(u-0.25)*1.2),5),mat);
+      c.position.set(0.52-u*1.0,0.98-u*0.2,(Math.random()-0.5)*0.05);c.rotation.z=-0.55+u*0.2;c.rotation.x=(Math.random()-0.5)*0.3;body.add(c);}   // Borstenkamm
+    limb(body,[-0.74,0.62,0],[-0.9,0.5,0],0.035,0.015);
+    head.position.set(0.84,0.52,0);ell(head,0.24,0.16,0.14,0.1,0,0);limb(head,[0.2,0.0,0],[0.5,-0.1,0],0.115,0.05);ell(head,0.05,0.045,0.06,0.5,-0.1,0);
+    ell(head,0.045,0.09,0.03,-0.02,0.15,0.09,0.35);ell(head,0.045,0.09,0.03,-0.02,0.15,-0.09,-0.35);
+    limb(head,[0.3,-0.1,0.05],[0.36,-0.16,0.06],0.012,0.008);limb(head,[0.3,-0.1,-0.05],[0.36,-0.16,-0.06],0.012,0.008);   // kleine Hauer
     eyeX=0.2;eyeY=0.05;eyeZ=0.09;legH=0.46;legX=[0.42,-0.4];legZ=0.17;
   }else if(kind==='doe'){   // Reh: kompakt, Hinterhand hoeher als der Widerrist, kurzer Hals, kleiner Kopf mit grossen Lauschern, duenne Laeufe
     ell(body,0.46,0.21,0.17,0,0.74,0);ell(body,0.27,0.22,0.17,0.3,0.78,0);ell(body,0.25,0.25,0.19,-0.3,0.8,0);ell(body,0.2,0.2,0.16,-0.46,0.78,0);
@@ -2858,13 +2866,13 @@ function wlBuild(kind){
     eyeX=0.12;eyeY=0.02;eyeZ=0.08;legH=0.84;legX=[0.45,-0.45];legZ=0.14;
   }
   body.add(head);
-  legX.forEach(x=>[1,-1].forEach(z=>{const lg=new THREE.Group();lg.position.set(x,legH,z*legZ);if(boar){limb(lg,[0,0,0],[0,-legH,0],0.065,0.035);ell(lg,0.04,0.03,0.035,0.02,-legH,0);}else{const r0=kind==='doe'?0.042:0.05,r1=kind==='doe'?0.017:0.022;limb(lg,[0,0,0],[-0.05,-legH*0.5,0],r0,r1*1.5);limb(lg,[-0.05,-legH*0.5,0],[0.02,-legH,0],r1*1.5,r1);ell(lg,0.032,0.028,0.026,0.03,-legH,0);}body.add(lg);legs.push(lg);}));
+  legX.forEach(x=>[1,-1].forEach(z=>{const lg=new THREE.Group();lg.position.set(x,legH,z*legZ);if(boar){limb(lg,[0,0,0],[0.0,-legH*0.55,0],0.06,0.036);limb(lg,[0,-legH*0.55,0],[0.01,-legH,0],0.034,0.024);ell(lg,0.034,0.03,0.03,0.025,-legH,0);}else{const r0=kind==='doe'?0.042:0.05,r1=kind==='doe'?0.017:0.022;limb(lg,[0,0,0],[-0.05,-legH*0.5,0],r0,r1*1.5);limb(lg,[-0.05,-legH*0.5,0],[0.02,-legH,0],r1*1.5,r1);ell(lg,0.032,0.028,0.026,0.03,-legH,0);}body.add(lg);legs.push(lg);}));
   const eyes=[1,-1].map(s=>{const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:wlEyeTex(),color:boar?0xffd9a0:0xe6ffc0,blending:THREE.AdditiveBlending,transparent:true,depthWrite:false,fog:false,opacity:0}));sp.position.set(eyeX,eyeY,s*eyeZ);head.add(sp);return sp;});
   root.scale.setScalar(kind==='piglet'?0.4:1);root.visible=false;scene.add(root);
   return {kind:kind,g:root,body:body,head:head,legs:legs,eyes:eyes,mat:mat,boar:boar};
 }
 function wlPlace(kind,x,z,grp,delay){
-  const pl=WL.pool[kind]||(WL.pool[kind]=[]);let T=pl.find(q=>!q.on);if(!T){T=wlBuild(kind);if(kind==='boar'||kind==='piglet')T.mat.color.setHex(0x15110e);pl.push(T);}
+  const pl=WL.pool[kind]||(WL.pool[kind]=[]);let T=pl.find(q=>!q.on);if(!T){T=wlBuild(kind);if(kind==='boar'||kind==='piglet')T.mat.color.setHex(0x0b0907);pl.push(T);}
   T.on=true;T.called=false;T.panic=false;T.grp=grp;WL.list.push(T);T.x=x;T.z=z;T.t=-delay;T.ph='in';T.stand=grp.stand+(Math.random()-0.5);T.speed=0;T.blink=1.5+Math.random()*3;
   T.willCall=kind==='piglet'?Math.random()<0.5:kind==='boar'?Math.random()<0.7:true;T.callAt=Math.random()*0.9;
   T.yaw=Math.atan2(-(camera.position.z-z),camera.position.x-x)+(Math.random()-0.5)*1.1;
@@ -2887,7 +2895,7 @@ function wlSpawnGroup(kind,x,z){   // Wildschweine kommen in Rotten: 2-3 Bachen 
   return grp;
 }
 function wlSpawnTry(){
-  const kinds=['boar','stag','doe','doe','stag','boar'];
+  const kinds=['boar','boar','boar','boar','stag','doe'];
   for(let t=0;t<24;t++){
     const kind=kinds[(Math.random()*kinds.length)|0],bo=kind==='boar';   // Wildschweine sind niedrig und dunkel: sie stehen naeher und mittiger im Lampenkegel, sonst sieht man sie nie
     const s=st.pos+(bo?26+Math.random()*22:35+Math.random()*40);if(s>TOTAL-60)break;
