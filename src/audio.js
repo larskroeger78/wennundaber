@@ -132,14 +132,14 @@ export const AUDIO = (() => {
       const k = hubN / 72;   // weniger Zaehne: tieferes, rauheres Schnarren, einzelne Klicks bei langsamer Fahrt
       N.hub.o.frequency.setTargetAtTime(Math.max(12, f), t, 0.03);
       N.hub.hp.frequency.setTargetAtTime(1500 + 2100 * k, t, 0.05); N.hub.bp.frequency.setTargetAtTime(2600 + 2600 * k, t, 0.05);
-      set(N.hub, coast * (0.05 + 0.07 * Math.min(1, v / 9)) * (1 + 0.5 * (1 - k)), dt, coast ? 14 : 22);
+      set(N.hub, 0.9 * coast * (0.05 + 0.07 * Math.min(1, v / 9)) * (1 + 0.5 * (1 - k)), dt, coast ? 14 : 22);
       if (coast && f < 75) { clickAcc += dt * f; let n = clickAcc | 0; clickAcc -= n; n = Math.min(n, 4); while (n--) burst(t + Math.random() * dt, 0.012, 'bandpass', 2400 + 1600 * k, 4, 0.05 + 0.05 * (1 - k)); }}
     // Bremse: hohes Quietschen bei Tempo
     set(brakeG, s.brake && v > 1.5 ? 0.025 * Math.min(1, v / 8) : 0, dt, 10);
     // Pfuetze: Spritzen, solange man drin ist
     set(N.pud, s.pud && v > 1.2 ? 0.1 * Math.min(1, v / 7) : 0, dt, 12);
     // Regen
-    set(N.rain, 0.1 * s.rain, dt, 1.5); set(N.rain2, 0.09 * s.rain, dt, 1.5);
+    set(N.rain, 0.07 * s.rain, dt, 1.5); set(N.rain2, 0.063 * s.rain, dt, 1.5);   // Regen 30 % leiser
     // Voegel: nur im Wald und nur am Tag
     birdT -= dt * (s.forest > 0.35 ? 0.4 + 0.6 * s.forest : 0) * s.day * (1 - 0.8 * s.rain);
     // Wild: ab und zu Wildschwein-Grunzen, Rehbock-Schrecken oder Kitz-Fiepen (selten, nur im Wald, am Tag und Abend)

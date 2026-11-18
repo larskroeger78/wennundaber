@@ -90,7 +90,7 @@ body.fpv #prof{bottom:auto;top:16px}
 #hint button{font:600 12px/1 'Barlow Condensed',system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#fff;background:rgba(20,20,20,.45);border:1px solid rgba(255,255,255,.35);border-radius:7px;padding:8px 10px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 #hint button.on{color:#f5a524;border-color:#f5a524}
 @media (min-width:1px){#hint{gap:4px}#hint button{font-size:11px;letter-spacing:.06em;padding:7px 6px}#hint b{margin-right:3px;min-width:11px;padding:0 2px}}
-@media (max-width:1250px){#hint{gap:3px}#hint button{padding:5px 4px;font-size:10px;letter-spacing:.03em}}
+@media (max-width:1250px){#hint{gap:2px}#hint button{padding:5px 3px;font-size:9px;letter-spacing:0}#hint b{margin-right:2px;min-width:9px}}
 #hint button:active{background:rgba(245,165,36,.8);color:#111}
 @media (pointer:coarse){#hint button{padding:12px 14px;font-size:14px;min-height:44px}#hint{top:92px;flex-wrap:wrap;max-width:62vw}#menuBtn{top:150px}}   /* iPad: Buttons unter dem Hoehenprofil, damit es per Finger bedienbar ist */
 
