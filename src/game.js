@@ -415,13 +415,13 @@ function fxSetup(){
     const rt=new THREE.WebGLMultisampleRenderTarget(w,h,{type:THREE.HalfFloatType,format:THREE.RGBAFormat,minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter});rt.samples=4;
     composer=new EffectComposer(renderer,rt);composer.addPass(new RenderPass(scene,camera));
     const bl=new UnrealBloomPass(new THREE.Vector2(w/2,h/2),0.14,0.55,0.93);composer.addPass(bl);
-    FXP=new ShaderPass({uniforms:{tDiffuse:{value:null},exposure:{value:0.95},vig:{value:0.16}},vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+    FXP=new ShaderPass({uniforms:{tDiffuse:{value:null},exposure:{value:0.95},vig:{value:0.1}},vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
       fragmentShader:`uniform sampler2D tDiffuse;uniform float exposure,vig;varying vec2 vUv;
         vec3 RRT(vec3 v){vec3 a=v*(v+0.0245786)-0.000090537;vec3 b=v*(0.983729*v+0.4329510)+0.238081;return a/b;}
-        void main(){vec3 c=texture2D(tDiffuse,vUv).rgb;c*=exposure/0.6;
+        void main(){vec3 c=texture2D(tDiffuse,vUv).rgb;c*=exposure*1.03/0.6;
           c=mat3(vec3(0.59719,0.07600,0.02840),vec3(0.35458,0.90834,0.13383),vec3(0.04823,0.01566,0.83777))*c;c=RRT(c);
           c=mat3(vec3(1.60475,-0.10208,-0.00327),vec3(-0.53108,1.10813,-0.07276),vec3(-0.07367,-0.00605,1.07602))*c;c=clamp(c,0.0,1.0);
-          float l=dot(c,vec3(0.2126,0.7152,0.0722));c=mix(vec3(l),c,1.06);c=(c-0.5)*1.04+0.5;   // leichte Saettigung und Kontrast
+          float l=dot(c,vec3(0.2126,0.7152,0.0722));c=mix(vec3(l),c,1.06);c=pow(c,vec3(0.9))+0.01;   // leichte Saettigung und Kontrast
           vec2 d=vUv-0.5;c*=1.0-vig*dot(d,d)*2.2;
           c=mix(pow(clamp(c,0.0,1.0),vec3(0.41666))*1.055-0.055,c*12.92,vec3(lessThanEqual(c,vec3(0.0031308))));
           gl_FragColor=vec4(c,1.0);}`});
