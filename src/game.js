@@ -394,12 +394,13 @@ try{const q=new URLSearchParams(location.search).get('wetter');WX=q!==null&&!isN
 // Qualitaetsstufen (Taste Q): Aufloesung, Schattenkarte
 const TILES=[];const TREE_FAR=[0,300,560,950];let GRS=null;   // Sichtweite fuer Baum-/Buschkacheln je Qualitaetsstufe (m)
 const QN={1:'Niedrig',2:'Mittel',3:'Hoch'};let quality=2;try{quality=clamp(+localStorage.getItem('miworu_q')||2,1,3);}catch(e){}
+const QE=()=>quality>1?3:1;   // Mittel und Hoch teilen die Aufloesung/Sichtweite/Schatten der frueheren Stufe Hoch (lief auf dem iPad gut); Hoch fuegt nur die Nachbearbeitung hinzu
 function applyQ(){
   const dpr=window.devicePixelRatio||1;
-  renderer.setPixelRatio([0,Math.min(dpr,0.7),Math.min(dpr,1.25),Math.max(Math.min(dpr,2),1.5)][quality]);   // Niedrig bewusst weich, Hoch mit Supersampling
-  scene.fog.density=[0,0.0009,0.00055,0.0004][quality]*[1,5,2.2][WX];                                                        // Niedrig: naeher Dunst, spart Fernsicht
+  renderer.setPixelRatio([0,Math.min(dpr,0.7),Math.min(dpr,1.25),Math.max(Math.min(dpr,2),1.5)][QE()]);   // Niedrig bewusst weich, Hoch mit Supersampling
+  scene.fog.density=[0,0.0009,0.00055,0.0004][QE()]*[1,5,2.2][WX];                                                        // Niedrig: naeher Dunst, spart Fernsicht
   sun.castShadow=quality>1;if(GRS)GRS.visible=quality>1;                                                       // Niedrig: keine Schatten, kein Gras
-  const sz=[0,1024,2048,4096][quality];
+  const sz=[0,1024,2048,4096][QE()];
   if(sun.shadow.mapSize.x!==sz){sun.shadow.mapSize.set(sz,sz);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null;}}
   resize();
 }
@@ -495,7 +496,7 @@ function applySun(force){
     scene.fog.color.setRGB(h2[0],h2[1],h2[2]);scene.background=new THREE.Color(h2[0],h2[1],h2[2]);
     sun.intensity*=WX===1?0.42:0.3;hemi.intensity*=WX===1?1.15:0.95;
   }
-  scene.fog.density=[0,0.0009,0.00055,0.0004][quality]*[1,5,2.2][WX];
+  scene.fog.density=[0,0.0009,0.00055,0.0004][QE()]*[1,5,2.2][WX];
   window.__sun={alt:deg,az:A*180/Math.PI,utc:utc};
 }
 if(BK)applySun(true);
@@ -1780,7 +1781,7 @@ function applyWXOther(){   // Strecken ohne Sonnenstand-Modell: Himmel/Dunst gra
   WXS.rain=WX===2?1:0;
   if(WX){const g=WX===1?0.72:0.5,c=new THREE.Color(g,g*1.01,g*1.04);scene.background=c;scene.fog.color.copy(c);sky.visible=false;sun.intensity=WXB.sun*(WX===1?0.42:0.3);hemi.intensity=WXB.hemi*(WX===1?1.15:0.95);}
   else{scene.background=HDRTEX||HORIZON;scene.fog.color.copy(WXB.fog);sky.visible=!HDRTEX;sun.intensity=WXB.sun;hemi.intensity=WXB.hemi;}
-  scene.fog.density=[0,0.0009,0.00055,0.0004][quality]*[1,5,2.2][WX];
+  scene.fog.density=[0,0.0009,0.00055,0.0004][QE()]*[1,5,2.2][WX];
 }
 function cycleWX(){WX=(WX+1)%3;try{localStorage.setItem('miworu_wx',WX);}catch(_){}if(BK)applySun(true);else applyWXOther();toastEl.textContent='Wetter: '+WXN[WX];toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}
 
@@ -2176,7 +2177,7 @@ function render(dt,now){
 }
 let tileN=0;
 function updateTiles(cp){   // weit entfernte Kacheln nicht zeichnen, Schatten nur im Nahbereich (Schattenkarte deckt nur +-90 m ab)
-  const far=TREE_FAR[quality],far2=(far+130)*(far+130),sh2=(running||st.done?170:520)*(running||st.done?170:520);
+  const far=TREE_FAR[QE()],far2=(far+130)*(far+130),sh2=(running||st.done?170:520)*(running||st.done?170:520);
   for(let i=0;i<TILES.length;i++){const T=TILES[i],dx=T.x-cp.x,dz=T.z-cp.z,d2=dx*dx+dz*dz;T.m.visible=d2<far2;if(T.sh)T.m.castShadow=d2<sh2;}
 }
 {   // Kleinobjekte aus OpenStreetMap: Zaeune, Mauern, Hecken, Leitplanken, Laternen, Baenke, Wegweiser, Masten, Stromleitungen
