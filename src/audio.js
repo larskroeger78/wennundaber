@@ -103,9 +103,9 @@ export const AUDIO = (() => {
     if (!ok || !on) return; const t = ctx.currentTime, k = Math.min(1, v / 9);
     if (splashBuf) {   // Aufnahme: Lautstaerke und Tonhoehe leicht nach Tempo, kleine Zufallsvariation
       const s = ctx.createBufferSource(); s.buffer = splashBuf; s.playbackRate.value = (0.94 + Math.random() * 0.12) * (0.95 + 0.1 * k);
-      const g = ctx.createGain(), lp = ctx.createBiquadFilter(), pk = 0.15 * (0.45 + 0.55 * k);   // weicher: hohe Anteile gedaempft, kurzes Einblenden statt hartem Anschlag
-      lp.type = 'lowpass'; lp.frequency.value = 2400; lp.Q.value = 0.5; s.playbackRate.value *= 0.92;
-      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(pk, t + 0.035); s.connect(lp); lp.connect(g); g.connect(master); s.start(t); return;
+      const g = ctx.createGain(), lp = ctx.createBiquadFilter(), pk = 0.055 * (0.45 + 0.55 * k);   // weicher: hohe Anteile gedaempft, kurzes Einblenden statt hartem Anschlag
+      lp.type = 'lowpass'; lp.frequency.value = 1500; lp.Q.value = 0.4; s.playbackRate.value *= 0.88;
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(pk, t + 0.08); s.connect(lp); lp.connect(g); g.connect(master); s.start(t); return;
     }
     burst(t, 0.28, 'bandpass', 1800, 0.7, 0.2 * k + 0.05); burst(t + 0.02, 0.4, 'lowpass', 650, 0.7, 0.24 * k + 0.05); thump(t, 160, 70, 0.12, 0.12 * k);
     for (let i = 0; i < 4; i++) burst(t + 0.06 + i * 0.07 + Math.random() * 0.04, 0.09, 'highpass', 2600, 0.6, (0.07 * k + 0.02) * (1 - i * 0.2));
@@ -162,7 +162,7 @@ export const AUDIO = (() => {
     const surf = s.surf;
     // Wind: quadratisch mit Tempo, heller bei hoher Geschwindigkeit
     // kein Grundrauschen: weder Wind in Baeumen noch Wasser; nur Fahrtwind, erst bei Tempo hoerbar
-    set(N.wind, 0.17 * sp * sp * sp * (s.running ? 1 : 0), dt, 4); N.wind.f.frequency.value = 350 + 1500 * sp;
+    set(N.wind, 0.09 * sp * sp * sp * (s.running ? 1 : 0), dt, 4); N.wind.f.frequency.value = 350 + 1500 * sp;
     // Reifen je Untergrund (weiche Ueberblendung)
     // Abrollen: nur auf Asphalt und erst ab 25 km/h (6,9 m/s), dann weich einblenden und mit Tempo etwas lauter, aber nie aufdringlich
     const rk = Math.max(0, Math.min(1, (v - 6.9) / 0.9)) * Math.min(1, 0.7 + 0.3 * (v - 6.9) / 7);
