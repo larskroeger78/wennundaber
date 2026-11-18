@@ -154,15 +154,15 @@ export const AUDIO = (() => {
     const surf = s.surf;
     // Wind: quadratisch mit Tempo, heller bei hoher Geschwindigkeit
     // kein Grundrauschen: weder Wind in Baeumen noch Wasser; nur Fahrtwind, erst bei Tempo hoerbar
-    set(N.wind, 0.26 * sp * sp * sp * (s.running ? 1 : 0), dt, 4); N.wind.f.frequency.value = 350 + 1500 * sp;
+    set(N.wind, 0.17 * sp * sp * sp * (s.running ? 1 : 0), dt, 4); N.wind.f.frequency.value = 350 + 1500 * sp;
     // Reifen je Untergrund (weiche Ueberblendung)
     // Abrollen: nur auf Asphalt und erst ab 25 km/h (6,9 m/s), dann weich einblenden und mit Tempo etwas lauter, aber nie aufdringlich
     const rk = Math.max(0, Math.min(1, (v - 6.9) / 2.0)) * Math.min(1, 0.7 + 0.3 * (v - 6.9) / 7);
     rough = Math.max(0, rough - dt * 1.1); const duck = 1 - 0.9 * Math.min(1, rough);   // Poltern/Hubbel hat Vorrang: Abrollen tritt dann zurueck
-    set(N.asph, surf === 0 ? 0.022 * rk * duck : 0, dt, 5); N.asph.f.frequency.value = 240 + 120 * Math.min(1, v / 14);   // nur noch ein Hauch Rauschen darunter (klang sonst wie Wind)
-    set(N.road, surf === 0 ? 0.045 * rk * duck : 0, dt, 5);
+    set(N.asph, surf === 0 ? 0.008 * rk * duck : 0, dt, 5); N.asph.f.frequency.value = 240 + 120 * Math.min(1, v / 14);   // nur noch ein Hauch Rauschen darunter (klang sonst wie Wind)
+    set(N.road, surf === 0 ? 0.03 * rk * duck : 0, dt, 5);
     { const T = N.tyre, f = Math.max(60, Math.min(250, 26 + 12 * v)); T.o1.frequency.value = f; T.o2.frequency.value = f * 1.014; T.lfo.frequency.value = Math.max(1, v / 2.3 * 3); T.lp.frequency.value = 420 + 38 * v;
-      set(T, surf === 0 ? 0.07 * rk * duck : 0, dt, 5); }
+      set(T, surf === 0 ? 0.12 * rk * duck : 0, dt, 5); }
     set(N.trail, 0, dt, 5);
     // Abfahrten auf Schotter/Trail: nur leises, dumpfes Knistern (Steinchen, Laub) - tief gefiltert
     if (v > 0.6 && (surf === 1 || surf === 2)) {
