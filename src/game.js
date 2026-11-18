@@ -1948,11 +1948,23 @@ trainer.onChange=bleChange;click.onChange=bleChange;   // nur noch Lenkeransicht
 const cockpitEl=document.getElementById('cockpit'),glowEl=document.getElementById('glow'),_cd=new THREE.Vector3(),_sv=new THREE.Vector3();
 function reset(){SHK.y=SHK.vy=SHK.r=SHK.vr=0;SHK.i=0;SHK.fi=0;SHK.w=SHK.wv=0;SHK.air=null;st={pos:0,v:0,x:0.4,power:0,t:0,crank:0.6,wheel:0,lean:0,bar:0,pitch:0,done:false};resetJoggers();vanWait=12;VANS&&VANS.forEach(v=>{if(!v.parked){v.active=false;v.g.visible=false;}});}
 reset();
+// Vollbild: Esc beendet es (Browser), auf dem Tablet gibt es dafuer das X oben links
+const isFS=()=>!!(document.fullscreenElement||document.webkitFullscreenElement);
+function toggleFS(){
+  const d=document,el=d.documentElement;
+  try{
+    if(isFS()){(d.exitFullscreen||d.webkitExitFullscreen).call(d);}
+    else{const rq=el.requestFullscreen||el.webkitRequestFullscreen;if(rq){const r=rq.call(el);if(r&&r.catch)r.catch(()=>{});}else{toastEl.textContent='Vollbild: auf dem iPad „Zum Home-Bildschirm“ nutzen';toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),2200);}}
+  }catch(e){}
+}
+{const x=document.createElement('button');x.id='fsx';x.textContent='✕';x.setAttribute('aria-label','Vollbild beenden');x.onclick=()=>{try{(document.exitFullscreen||document.webkitExitFullscreen).call(document);}catch(e){}};document.body.appendChild(x);
+ const sync=()=>{x.style.display=isFS()?'block':'none';};['fullscreenchange','webkitfullscreenchange'].forEach(ev=>document.addEventListener(ev,sync));sync();}
 window.addEventListener('keydown',e=>{
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].indexOf(e.key)>=0)e.preventDefault();
   keys[e.key]=true;
   if(e.key==='r'||e.key==='R')start();
   if(e.key==='Escape')pauseGame();
+  if(e.key==='v'||e.key==='V')toggleFS();
   if(e.key==='q'||e.key==='Q')cycleQ();
   if(e.key==='n'||e.key==='N'){AUDIO.toggle();toastEl.textContent='Sound: '+(AUDIO.on?'an':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}
   if(e.key==='w'||e.key==='W')cycleWX();
@@ -2140,7 +2152,7 @@ function showHelp(){
     '<div class="by">by Wenn &amp; Aber Bike Crew</div><h1 style="font-size:clamp(34px,5vw,56px)">So funktioniert&rsquo;s</h1>'+
     '<div class="hscroll">'+
     sec('Das Spiel',['Du fährst echte Mountainbike-Strecken aus der Lenkersicht. Dein Tempo entsteht nur durch dein Treten, auch bergab: Abfahrten sind neutral. Lenken und Ausweichen laufen automatisch.','Mit einem Smart-Trainer (Bluetooth) trittst du einfach los, ohne Trainer geht es mit der Tastatur.'])+
-    sec('Fahren',['<b>↑</b> treten · <b>↓</b> bremsen','<b>+</b> / <b>−</b> (oder Bild↑ / Bild↓): Gang schwerer / leichter. Zwift Click: <b>+</b> kurz = schwerer, gedrückt halten oder andere Taste = leichter.','<b>R</b> Neustart · <b>Esc</b> Pause und Menü','Ins <b>Höhenprofil</b> oben klicken oder ziehen: an diese Stelle der Strecke springen.'])+
+    sec('Fahren',['<b>↑</b> treten · <b>↓</b> bremsen','<b>+</b> / <b>−</b> (oder Bild↑ / Bild↓): Gang schwerer / leichter. Zwift Click: <b>+</b> kurz = schwerer, gedrückt halten oder andere Taste = leichter.','<b>R</b> Neustart · <b>Esc</b> Pause und Menü · <b>V</b> Vollbild (Esc beendet es, auf dem Tablet das ✕ oben links)','Ins <b>Höhenprofil</b> oben klicken oder ziehen: an diese Stelle der Strecke springen.'])+
     sec('Schwierigkeit',['<b>1</b> Leicht: 1,6-fache Wirkung deiner Watt, Steigungen nur zu 40 %','<b>2</b> Normal','<b>3</b> Hardcore: Steigungen zu 150 %, 0,85-fache Watt','<b>4</b> Eskalation: 20 % härter als realistisch','<b>M</b> Marvin: noch einmal 30 % härter','Die Stufen sind auch oben rechts antippbar.'])+
     sec('Anzeige und Sound ein- und ausschalten',['<b>Q</b> Grafik: Niedrig, Mittel, Hoch (bei ruckelndem Bild eine Stufe tiefer)','<b>W</b> Wetter: aus, Regen und weitere Stufen','<b>L</b> Nightride: Nachtfahrt an oder aus (nur auf den festen Strecken)','<b>N</b> Sound: alle Geräusche an oder aus','<b>F</b> Freilauf: schaltet durch aus, 16, 32, 56 und 72 Zähne. Weniger Zähne klingen gröber und klickernder, 72 ist das feine Surren. Bei hohem Tempo wird der Freilauf von Wind und Reifenabrollen überdeckt, ganz weg ist er nur auf „aus“.'])+
     sec('Nachtfahrt und Tiere',['Im Nightride fährst du mit Stirnlampe, Mond und Sternen. Nur dort und nur im dunklen Wald tauchen ab und zu Tiere auf: Wildschweine in einer Rotte mit Frischlingen, Hirsche und Rehe.','Du siehst sie nur schemenhaft am Wegrand, ihre Augen reflektieren das Licht deiner Lampe. Vor dem Weggehen rufen sie leise. Kommst du näher als 10 Meter, rennen sie weg und verschwinden in der Dunkelheit.','Ausschalten: <b>L</b> beendet den Nightride, und damit sind auch die Tiere weg. Ihre Rufe sind Teil von <b>N</b> (Sound).'])+
@@ -2213,7 +2225,7 @@ function menu(title,sub){
       (sub?'<div class="res">'+sub+'</div>':'')+
       '<div class="route">'+(ROUTE?RT.label:TRACK_NAME)+'</div>'+
       '<div class="stats"><div><b>'+km+'</b><i>km</i></div><div><b>'+HM+'</b><i>Höhenmeter</i></div></div>'+
-      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused||SAVED?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(()=>{const n=click.devs.filter(x=>!x.lost).length;return n>=2?'Zwift Click: beide Hälften ✓':n===1&&click.connected?'Zwift Click ✓ · zweite Hälfte koppeln (stabiler)':(click.devs.length?'Zwift Click: getrennt – neu koppeln':'Zwift Click koppeln');})()+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button>'+'<button id="dif" class="sec">Schwierigkeit: '+DIFFN[diff]+'</button><button id="qual" class="sec">Grafik: '+QN[quality]+'</button><button id="snd" class="sec">Sound: '+(AUDIO.on?'an':'aus')+'</button><button id="wxb" class="sec">Wetter: '+WXL()+'</button><button id="nghb" class="sec" style="display:'+(MW?'':'none')+'">Nightride: '+(NIGHT?'an':'aus')+'</button><button id="hubb" class="sec">Freilauf: '+(AUDIO.hub?AUDIO.hub+' Zähne':'aus')+'</button><button id="grpb" class="sec">'+(GRP_CODE?'Gruppe: '+GRP_CODE:'Gruppenfahrt')+'</button><button id="hlp" class="sec">So fährst du</button></div>'+mineHtml()+
+      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused||SAVED?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="fsb" class="sec">'+(isFS()?'Vollbild beenden':'Vollbild')+'</button><button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(()=>{const n=click.devs.filter(x=>!x.lost).length;return n>=2?'Zwift Click: beide Hälften ✓':n===1&&click.connected?'Zwift Click ✓ · zweite Hälfte koppeln (stabiler)':(click.devs.length?'Zwift Click: getrennt – neu koppeln':'Zwift Click koppeln');})()+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button>'+'<button id="dif" class="sec">Schwierigkeit: '+DIFFN[diff]+'</button><button id="qual" class="sec">Grafik: '+QN[quality]+'</button><button id="snd" class="sec">Sound: '+(AUDIO.on?'an':'aus')+'</button><button id="wxb" class="sec">Wetter: '+WXL()+'</button><button id="nghb" class="sec" style="display:'+(MW?'':'none')+'">Nightride: '+(NIGHT?'an':'aus')+'</button><button id="hubb" class="sec">Freilauf: '+(AUDIO.hub?AUDIO.hub+' Zähne':'aus')+'</button><button id="grpb" class="sec">'+(GRP_CODE?'Gruppe: '+GRP_CODE:'Gruppenfahrt')+'</button><button id="hlp" class="sec">So fährst du</button></div>'+mineHtml()+
       '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?(IOS?'iPad: Seite in der App Bluefy öffnen (Safari kann kein Bluetooth).':'Bluetooth nur in Chrome/Edge (nicht Safari).'):'D100 oder KICKR einschalten, dann „Trainer koppeln“.')+(bleMsg?'<br>'+bleMsg:'')+''+(click.connected?'<br>'+click.name+' verbunden'+'<br>Click: kurz drücken = schwerer · gedrückt halten = leichter':'')+'</div>'+
     '<div class="help" style="font-size:11px;opacity:.6">© OpenStreetMap-Mitwirkende · © Geobasis NRW · Datenquelle: Land Tirol - data.tirol.gv.at (CC BY 4.0) · <a href="/rechtliches.html" target="_blank" rel="noopener" style="color:inherit">Rechtliches</a></div>'+
     '</div></div>';
@@ -2233,6 +2245,7 @@ function menu(title,sub){
   document.getElementById('mode').onclick=()=>{inputMode=inputMode==='keyboard'?'off':'keyboard';menu(title,sub);};
   document.querySelectorAll('[data-unlock]').forEach(b=>b.onclick=()=>showUnlock(b.getAttribute('data-unlock')||null));
   document.querySelectorAll('[data-route]').forEach(b=>b.onclick=()=>{const r=b.getAttribute('data-route');location.href=location.pathname+(r?'?route='+r:'')+'#go';});
+  document.getElementById('fsb').onclick=()=>{toggleFS();setTimeout(()=>{const b=document.getElementById('fsb');if(b)b.textContent=isFS()?'Vollbild beenden':'Vollbild';},400);};
   document.getElementById('trn').onclick=async()=>{bleMsg='';if(bleGuard())return;try{await trainer.connect();}catch(e){bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Trainer: '+(e&&e.message||e);}menu(title,sub);};
   document.getElementById('hlp').onclick=showHelp;
   document.getElementById('clk').onclick=async()=>{bleMsg='';if(bleGuard())return;try{await click.connect();}catch(e){click.dbg('Koppeln fehlgeschlagen: '+(e&&e.name||'')+' '+(e&&e.message||e));bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Click: '+(e&&e.message||e);}menu(title,sub);};

@@ -147,3 +147,5 @@ body.night #cockpit{filter:brightness(.55) saturate(.85)}
 .helpP .hs h3{margin:0 0 6px;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:#f5a524}
 .helpP .hs p{margin:0 0 7px;font-size:15px;line-height:1.5;opacity:.92}
 .helpP .hs b{display:inline-block;min-width:16px;padding:0 5px;text-align:center;border:1px solid rgba(255,255,255,.45);border-radius:3px;font-size:13px}
+#fsx{position:fixed;left:14px;top:14px;z-index:70;display:none;width:46px;height:46px;border-radius:50%;border:1px solid rgba(255,255,255,.4);background:rgba(0,0,0,.55);color:#fff;font-size:22px;line-height:1;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+#fsx:active{background:rgba(245,165,36,.85);color:#111}
