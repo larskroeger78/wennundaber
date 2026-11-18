@@ -137,7 +137,7 @@ export const AUDIO = (() => {
       const k = hubN / 72;   // weniger Zaehne: tieferes, rauheres Schnarren, einzelne Klicks bei langsamer Fahrt
       N.hub.o.frequency.setTargetAtTime(Math.max(12, f), t, 0.03);
       N.hub.hp.frequency.setTargetAtTime(1500 + 2100 * k, t, 0.05); N.hub.bp.frequency.setTargetAtTime(2600 + 2600 * k, t, 0.05);
-      set(N.hub, 0.9 * coast * (0.05 + 0.07 * Math.min(1, v / 9)) * (1 + 0.5 * (1 - k)), dt, coast ? 14 : 22);
+      set(N.hub, 0.63 * coast * (0.05 + 0.07 * Math.min(1, v / 9)) * (1 + 0.5 * (1 - k)), dt, coast ? 14 : 22);
       if (coast && f < 75) { clickAcc += dt * f; let n = clickAcc | 0; clickAcc -= n; n = Math.min(n, 4); while (n--) burst(t + Math.random() * dt, 0.012, 'bandpass', 2400 + 1600 * k, 4, 0.05 + 0.05 * (1 - k)); }}
     // Bremse: hohes Quietschen bei Tempo
     set(brakeG, s.brake && v > 1.5 ? 0.025 * Math.min(1, v / 8) : 0, dt, 10);
