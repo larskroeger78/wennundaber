@@ -508,6 +508,8 @@ function nightApply(){
   if(NT.lamp){NT.lamp.visible=NIGHT;NT.lamp.castShadow=NIGHT&&quality>1;NT.flood.visible=NIGHT;}
   NT.emi.forEach(m=>{m.emissiveIntensity=NIGHT?m.userData.nI:m.userData.dI;});
   NT.pools.forEach(p=>{p.visible=NIGHT;});
+  if(window.__pudM){const w=window.__pudM;   // Pfuetzen nachts: leicht aufgerauht, damit die Stirnlampe ein breites Glanzlicht erzeugt, und mit schwachem Himmelsschimmer
+    w.roughness=NIGHT?0.1:0.015;w.color.setHex(NIGHT?0x2c3340:0x1f1c18);w.emissive.setHex(NIGHT?0x101a2c:0x000000);w.envMapIntensity=NIGHT?4.2:2.4;w.opacity=NIGHT?0.97:0.93;}
   if(NT.bloom){NT.bloom.strength=NIGHT?0.75:0.14;NT.bloom.threshold=NIGHT?0.7:0.93;NT.bloom.radius=NIGHT?0.7:0.55;}
   sun.castShadow=quality>1&&!NIGHT;
   applySun(true);hintHud.k=null;
@@ -1273,7 +1275,7 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
     const mudT=blob(7),watT=blob(5);mudT.encoding=watT.encoding=THREE.LinearEncoding;
     const mudM=new THREE.MeshStandardMaterial({color:0x2a2017,roughness:0.6,alphaMap:mudT,transparent:true,opacity:0.7,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-6,polygonOffsetUnits:-6});
     const watM=new THREE.MeshStandardMaterial({color:0x1f1c18,roughness:0.015,metalness:0.0,alphaMap:watT,transparent:true,opacity:0.93,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-7,polygonOffsetUnits:-7});
-    watM.envMapIntensity=2.4;watM.userData.keepEnv=true;
+    watM.envMapIntensity=2.4;watM.userData.keepEnv=true;window.__pudM=watM;if(typeof NIGHT!=='undefined'&&NIGHT){watM.roughness=0.1;watM.color.setHex(0x2c3340);watM.emissive.setHex(0x101a2c);watM.envMapIntensity=4.2;watM.opacity=0.97;}
     const mud=new THREE.InstancedMesh(pg2,mudM,Math.max(1,pud.length)),wat=new THREE.InstancedMesh(pg2,watM,Math.max(1,pud.length));
     mud.count=wat.count=pud.length;
     pud.forEach((p,i)=>{
