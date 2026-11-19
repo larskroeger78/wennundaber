@@ -1580,6 +1580,9 @@ function poseJogger(j){
   });
 },undefined,e=>console.warn(file+' nicht geladen, Platzhalter bleiben',e&&e.message)));
 function resetJoggers(){joggers.forEach((j,n)=>{j.active=false;j.g.visible=false;j.wait=n===0?0.5:6+n*11;});}
+function downAt(sPos){   // Abfahrtsstueck? mittleres Gefaelle +-30 m unter -4 %
+  const i0=Math.floor(sPos/SEG);let a=0,n=0;for(let i=Math.max(0,i0-15);i<=Math.min(N-1,i0+15);i+=3){a+=GR[i];n++;}return n>0&&a/n<-4;
+}
 function updateJoggers(dt){
   const sMax=ROUTE?TOTAL-40:(iTrail-30)*SEG;
   joggers.forEach(j=>{
@@ -1587,13 +1590,13 @@ function updateJoggers(dt){
       j.wait-=dt;
       if(j.wait<=0){
         const s=st.pos+170+Math.random()*230;
-        if(s<sMax&&SURF[Math.floor(s/SEG)]<2){j.s=s;j.x=-(0.85+Math.random()*0.6);j.active=true;j.g.visible=true;}
+        if(s<sMax&&SURF[Math.floor(s/SEG)]<2&&!downAt(s)){j.s=s;j.x=-(0.85+Math.random()*0.6);j.active=true;j.g.visible=true;}
         else j.wait=4;
       }
       return;
     }
     j.s-=j.speed*dt;j.phase+=dt*9.5;
-    if(j.s<st.pos-30||j.s<4||(ROUTE&&SURF[Math.floor(j.s/SEG)]===2)){j.active=false;j.g.visible=false;j.wait=7+Math.random()*16;return;}
+    if(j.s<st.pos-30||j.s<4||(ROUTE&&SURF[Math.floor(j.s/SEG)]===2)||downAt(j.s)){j.active=false;j.g.visible=false;j.wait=7+Math.random()*16;return;}
     if(window.__vans&&window.__vans.some(c=>!c.parked&&c.active&&Math.abs(c.s-j.s)<10)){j.active=false;j.g.visible=false;j.wait=6+Math.random()*10;return;}   // nie durch ein Auto laufen
     if(Math.abs(j.s-st.pos)<1.1&&Math.abs(j.x-st.x)<0.55)st.v*=0.4;   // Rempler bremst
     sample(j.s,jS);
@@ -2885,7 +2888,7 @@ function wlSpawnAt(kind,s,o){   // Einzeltier (auch fuer Tests)
 function wlSpawnGroup(kind,x,z){   // Wildschweine kommen in Rotten: 2-3 Bachen mit 2-4 Frischlingen; Hirsch/Reh einzeln oder als kleines Paar
   const grp={stand:4+Math.random()*6,panic:false};
   if(kind==='boar'){
-    const nb=2+((Math.random()*2)|0),np=2+((Math.random()*3)|0);
+    const nb=2+((Math.random()*3)|0),np=3+((Math.random()*3)|0);
     for(let i=0;i<nb;i++)wlPlace('boar',x+(Math.random()-0.5)*5,z+(Math.random()-0.5)*5,grp,i*0.5+Math.random()*0.6);
     for(let i=0;i<np;i++)wlPlace('piglet',x+(Math.random()-0.5)*4,z+(Math.random()-0.5)*4,grp,0.3+Math.random()*1.4);
   }else{
@@ -2895,7 +2898,7 @@ function wlSpawnGroup(kind,x,z){   // Wildschweine kommen in Rotten: 2-3 Bachen 
   return grp;
 }
 function wlSpawnTry(){
-  const kinds=['boar','boar','boar','boar','stag','doe'];
+  const kinds=['boar','boar','boar','boar','boar','boar','stag','doe'];
   for(let t=0;t<24;t++){
     const kind=kinds[(Math.random()*kinds.length)|0],bo=kind==='boar';   // Wildschweine sind niedrig und dunkel: sie stehen naeher und mittiger im Lampenkegel, sonst sieht man sie nie
     const s=st.pos+(bo?26+Math.random()*22:35+Math.random()*40);if(s>TOTAL-60)break;
