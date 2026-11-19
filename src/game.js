@@ -384,6 +384,35 @@ const scene=new THREE.Scene();
 const HORIZON=new THREE.Color(0.62,0.74,0.86);
 scene.background=HORIZON;
 scene.fog=new THREE.FogExp2(HORIZON,0.00055);
+// ================= Grafik+: Bodennebel, Jahreszeiten (gemeinsame Uniforms + Shader-Patches) =================
+const GF={value:new THREE.Vector3(0,0,22)};   // x: Staerke Bodennebel, y: Obergrenze (Welt-y), z: Dicke des Uebergangs
+const SEA={aut:{value:0},win:{value:0},snowY:{value:-1e5},snowK:{value:1}};   // Herbst 0..1, Winter 0..1, Schneegrenze (nur Alpen), Schneedeckung
+(function(){const C=THREE.ShaderChunk;
+  C.fog_pars_vertex='#ifdef USE_FOG\n varying float fogDepth;\n varying float fogWY;\n#endif';
+  C.fog_vertex='#ifdef USE_FOG\n fogDepth=-mvPosition.z;\n fogWY=cameraPosition.y+dot(viewMatrix[1].xyz,mvPosition.xyz);\n#endif';
+  C.fog_pars_fragment='#ifdef USE_FOG\n uniform vec3 fogColor;uniform vec3 uGF;varying float fogDepth;varying float fogWY;\n #ifdef FOG_EXP2\n uniform float fogDensity;\n #else\n uniform float fogNear;uniform float fogFar;\n #endif\n#endif';
+  C.fog_fragment='#ifdef USE_FOG\n #ifdef FOG_EXP2\n float fogFactor=1.0-exp(-fogDensity*fogDensity*fogDepth*fogDepth);\n #else\n float fogFactor=smoothstep(fogNear,fogFar,fogDepth);\n #endif\n'
+   +' if(uGF.x>0.0){float lay=uGF.x*clamp((uGF.y-fogWY)/uGF.z,0.0,1.0);fogFactor=1.0-(1.0-fogFactor)*(1.0-lay*(1.0-exp(-fogDepth*0.014)));}\n'
+   +' gl_FragColor.rgb=mix(gl_FragColor.rgb,fogColor,fogFactor);\n#endif';
+  THREE.Material.prototype.onBeforeCompile=function(s){s.uniforms.uGF=GF;};
+})();
+const SEA_SN='float sn=clamp(uWin*smoothstep(uSnowY-60.0,uSnowY+40.0,vWP.y)*(0.8+0.2*sin(vWP.x*0.31)*sin(vWP.z*0.37)),0.0,1.0)*uSnowK;';
+const SEA_CODE={
+  leaf:'float sN=sH(vSeed.xz*0.731+vSeed.y);float sL=dot(diffuseColor.rgb,vec3(.3,.55,.15));vec3 sA=sN<.3?vec3(1.0,.64,.14):(sN<.58?vec3(.95,.42,.08):(sN<.8?vec3(.72,.17,.07):vec3(.86,.78,.22)));diffuseColor.rgb=mix(diffuseColor.rgb,sA*sL*1.9,uAut);if(uWin>0.0&&sN<uWin*.88)discard;diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.8,.85,.9),uWin*.4);',
+  fir:'float sN=sH(vSeed.xz*0.731+vSeed.y);'+SEA_SN+'diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.86,.9,.95),sn*(.4+.35*sN));',
+  grs:SEA_SN+'float sL=dot(diffuseColor.rgb,vec3(.3,.55,.15));diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.62,.46,.2)*sL*2.0,uAut*.6);diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.76,.79,.84),sn*.85);',
+  gnd:SEA_SN+'float sL=dot(diffuseColor.rgb,vec3(.3,.55,.15));diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.55,.36,.18)*sL*2.2,uAut*.35);diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.78,.82,.89),sn);',
+  trl:SEA_SN+'diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.78,.82,.89),sn*.5);'};
+function seaPatch(mat,kind,inst){
+  mat.onBeforeCompile=function(s){
+    s.uniforms.uGF=GF;s.uniforms.uAut=SEA.aut;s.uniforms.uWin=SEA.win;s.uniforms.uSnowY=SEA.snowY;s.uniforms.uSnowK=SEA.snowK;
+    s.vertexShader=s.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vSeed;varying vec3 vWP;')
+      .replace('#include <begin_vertex>','#include <begin_vertex>\nvSeed='+(inst?'instanceMatrix[3].xyz':'vec3(0.0)')+';vWP=(modelMatrix*'+(inst?'instanceMatrix*':'')+'vec4(transformed,1.0)).xyz;');
+    const pre='#include <common>\nuniform float uAut,uWin,uSnowY,uSnowK;varying vec3 vSeed;varying vec3 vWP;\nfloat sH(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}';
+    if(kind==='dep')s.fragmentShader=s.fragmentShader.replace('#include <common>',pre).replace('#include <alphatest_fragment>','if(uWin>0.0&&sH(vSeed.xz*0.731+vSeed.y)<uWin*.88)discard;\n#include <alphatest_fragment>');
+    else s.fragmentShader=s.fragmentShader.replace('#include <common>',pre).replace('#include <color_fragment>','#include <color_fragment>\n'+SEA_CODE[kind]);
+  };
+}
 const camera=new THREE.PerspectiveCamera(64,16/9,0.4,(RT&&RT.alp)?18000:6000);
 const BK=!!RT&&!RT.custom&&!!RT.dem;   // feste Strecken: Sonnenstand nach Uhrzeit, fliegende Voegel
 const SUN=new THREE.Vector3(-0.55,0.62,0.42).normalize();
@@ -428,14 +457,17 @@ function fxSetup(){
     const rt=new THREE.WebGLMultisampleRenderTarget(w,h,{type:THREE.HalfFloatType,format:THREE.RGBAFormat,minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter});rt.samples=4;
     composer=new EffectComposer(renderer,rt);composer.addPass(new RenderPass(scene,camera));
     const bl=new UnrealBloomPass(new THREE.Vector2(w/2,h/2),0.14,0.55,0.93);composer.addPass(bl);NT.bloom=bl;if(NIGHT){bl.strength=0.75;bl.threshold=0.7;bl.radius=0.7;}
-    FXP=new ShaderPass({uniforms:{tDiffuse:{value:null},exposure:{value:0.95},vig:{value:0.1}},vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
-      fragmentShader:`uniform sampler2D tDiffuse;uniform float exposure,vig;varying vec2 vUv;
+    FXP=new ShaderPass({uniforms:{tDiffuse:{value:null},exposure:{value:0.95},vig:{value:0.1},spd:{value:0},ray:{value:0},sunUV:{value:new THREE.Vector2(0.5,0.5)},rayCol:{value:new THREE.Color(1.0,0.8,0.52)}},vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+      fragmentShader:`uniform sampler2D tDiffuse;uniform float exposure,vig,spd,ray;uniform vec2 sunUV;uniform vec3 rayCol;varying vec2 vUv;
         vec3 RRT(vec3 v){vec3 a=v*(v+0.0245786)-0.000090537;vec3 b=v*(0.983729*v+0.4329510)+0.238081;return a/b;}
-        void main(){vec3 c=texture2D(tDiffuse,vUv).rgb;c*=exposure*1.03/0.6;
+        void main(){vec3 c=texture2D(tDiffuse,vUv).rgb;
+          if(spd>0.01){vec2 d2=vUv-0.5;vec3 ab=c;for(int k=1;k<=5;k++)ab+=texture2D(tDiffuse,vUv-d2*spd*0.045*float(k)).rgb;c=ab/6.0;}
+          if(ray>0.001){vec2 dv=sunUV-vUv;vec3 ac=vec3(0.0);float w=1.0;for(int i=0;i<14;i++){vec2 q=vUv+dv*(float(i)+0.5)/14.0*0.9;vec3 sm=texture2D(tDiffuse,q).rgb;float L=dot(sm,vec3(0.33,0.5,0.17));ac+=vec3(smoothstep(0.62,1.0,L))*w;w*=0.93;}c+=rayCol*ac*ray*(1.0-clamp(length(dv),0.0,1.0)*0.5)*0.11;}
+          c*=exposure*1.03/0.6;
           c=mat3(vec3(0.59719,0.07600,0.02840),vec3(0.35458,0.90834,0.13383),vec3(0.04823,0.01566,0.83777))*c;c=RRT(c);
           c=mat3(vec3(1.60475,-0.10208,-0.00327),vec3(-0.53108,1.10813,-0.07276),vec3(-0.07367,-0.00605,1.07602))*c;c=clamp(c,0.0,1.0);
           float l=dot(c,vec3(0.2126,0.7152,0.0722));c=mix(vec3(l),c,1.06);c=pow(c,vec3(0.9))+0.01;   // leichte Saettigung und Kontrast
-          vec2 d=vUv-0.5;c*=1.0-vig*dot(d,d)*2.2;
+          vec2 d=vUv-0.5;c*=1.0-(vig+spd*0.5)*dot(d,d)*2.2;
           c=mix(pow(clamp(c,0.0,1.0),vec3(0.41666))*1.055-0.055,c*12.92,vec3(lessThanEqual(c,vec3(0.0031308))));
           gl_FragColor=vec4(c,1.0);}`});
     composer.addPass(FXP);composer.setPixelRatio(renderer.getPixelRatio());composer.setSize(w,h);
@@ -534,12 +566,12 @@ function toggleNight(){if(!MW)return;NIGHT=!NIGHT;try{localStorage.setItem('miwo
 
 // Sonnenstand nach Uhrzeit (nur Bergkamen). Nie dunkler als leichte Daemmerung: unter ~5 Grad Sonnenhoehe bleibt das Licht auf diesem Niveau.
 // Test: ?zeit=7.5 (Uhrzeit in Stunden, lokale Zeit)
-let _sunMin=-1;
+let _sunMin=-1,TODM=0,TODUTC=null;const TODN=['Live','Morgen','Mittag','Abend','Dämmerung'];
 function applySun(force){
   if(!BK)return;
   const d=new Date(),mn=Math.floor(d.getTime()/60000);if(!force&&mn===_sunMin)return;_sunMin=mn;
   let utc=d.getUTCHours()+d.getUTCMinutes()/60;
-  const zp=new URLSearchParams(location.search).get('zeit');if(zp!==null&&!isNaN(+zp))utc=+zp+d.getTimezoneOffset()/60;
+  const zp=new URLSearchParams(location.search).get('zeit');if(zp!==null&&!isNaN(+zp))utc=+zp+d.getTimezoneOffset()/60;if(TODUTC!==null)utc=TODUTC;
   const doy=Math.floor((Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate())-Date.UTC(d.getUTCFullYear(),0,0))/864e5);
   const phi=51.6*Math.PI/180,dec=23.44*Math.PI/180*Math.sin(2*Math.PI*(284+doy)/365),H=((utc+7.6/15)%24-12)*15*Math.PI/180;
   const sa=Math.sin(phi)*Math.sin(dec)+Math.cos(phi)*Math.cos(dec)*Math.cos(H),alt=Math.asin(clamp(sa,-1,1));
@@ -570,6 +602,8 @@ function applySun(force){
   }
   if(MW)nightSky(u);
   scene.fog.density=[0,0.0009,0.00055,0.0004][QE()]*[1,5,2.2][WX]*(NIGHT?1.35:1)*((RT&&RT.alp)?0.32:1);
+  {let mn=1e9,mx=-1e9;for(let i=0;i<=N;i+=4){mn=Math.min(mn,PY[i]);mx=Math.max(mx,PY[i]);}GF.value.y=mn+(mx-mn)*0.35+5;GF.value.z=20;
+   GF.value.x=((NIGHT?0.2:(H<0?0.85:0.3)*(1-sstep(2,22,deg)))*(TODM===2?0:1))*(WX===1?0.4:1)+SEA.win.value*0.12;}
   window.__sun={alt:deg,az:A*180/Math.PI,utc:utc};
 }
 if(BK)applySun(true);
@@ -766,7 +800,7 @@ function forestD(x,z){
     g.attributes.color.needsUpdate=true;
   };
   slopeDirt(g,pos,col,col2,dopM,VX*VZ);
-  const tm=new THREE.MeshStandardMaterial({map:texGround,vertexColors:true,roughness:1,metalness:0});
+  const tm=new THREE.MeshStandardMaterial({map:texGround,vertexColors:true,roughness:1,metalness:0});seaPatch(tm,'gnd',false);
   // In Kacheln zerlegt (je 40x40 Zellen = 160 m), damit nur sichtbare Gelaendestuecke gezeichnet werden (Frustum-Culling)
   const CH=40,chunks=[],col2A=new THREE.BufferAttribute(col2,3),FINES=[];
   const dopApply=(pos,col,col2,M,cnt)=>{   // Luftbild: Farbton vom Foto, Helligkeit/Struktur bleiben vom Spiel
@@ -905,13 +939,13 @@ function ribbon(i0,i1,wScale,mat,vLen,lift){
 const asphaltMat=new THREE.MeshStandardMaterial({map:texAsphalt,roughness:0.85,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
 applyPhoto(asphaltMat,'asphalt_02',1,2,{arm:true,color:new THREE.Color(1.1,1.1,1.1)});
 if(!ROUTE)ribbon(0,Math.min(N,iTrail+4),1,asphaltMat,8,0.05);
-const trailMat=new THREE.MeshStandardMaterial({vertexColors:true,map:texDirt,roughness:1,side:THREE.DoubleSide,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3});
+const trailMat=new THREE.MeshStandardMaterial({vertexColors:true,map:texDirt,roughness:1,side:THREE.DoubleSide,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3});seaPatch(trailMat,'trl',false);
 applyPhoto(trailMat,'forest_ground_04',1,1.6,{arm:true,color:new THREE.Color(1.25,1.2,1.15),onDiffuse:()=>{
   trailMat.alphaMap=canvasTex(64,4,(g,w,h)=>{const ag=g.createLinearGradient(0,0,w,0);ag.addColorStop(0,'#000');ag.addColorStop(0.3,'#fff');ag.addColorStop(0.7,'#fff');ag.addColorStop(1,'#000');g.fillStyle=ag;g.fillRect(0,0,w,h);},true);
   trailMat.alphaMap.encoding=THREE.LinearEncoding;trailMat.needsUpdate=true;}});
 if(!ROUTE)ribbon(iTrail-2,N,1.7,trailMat,5,0.07);
 else{
-  const gravelMat=new THREE.MeshStandardMaterial({vertexColors:true,map:texDirt,roughness:1,side:THREE.DoubleSide,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3});
+  const gravelMat=new THREE.MeshStandardMaterial({vertexColors:true,map:texDirt,roughness:1,side:THREE.DoubleSide,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3});seaPatch(gravelMat,'trl',false);
   applyPhoto(gravelMat,'forest_ground_04',1,1.6,{arm:true,color:new THREE.Color(1.65,1.58,1.45),onDiffuse:()=>{
     gravelMat.alphaMap=canvasTex(64,4,(g,w,h)=>{const ag=g.createLinearGradient(0,0,w,0);ag.addColorStop(0,'#000');ag.addColorStop(0.25,'#fff');ag.addColorStop(0.75,'#fff');ag.addColorStop(1,'#000');g.fillStyle=ag;g.fillRect(0,0,w,h);},true);
     gravelMat.alphaMap.encoding=THREE.LinearEncoding;gravelMat.needsUpdate=true;}});
@@ -946,8 +980,8 @@ const foliageGeo=(function(){
 })();
 const grassGeo=cardGeo([0,1,2].map(k=>{const a=k*Math.PI/3,cx=Math.cos(a)*0.5,cz=Math.sin(a)*0.5;return [[-cx,0,-cz],[cx,0,cz],[cx,1,cz],[-cx,1,-cz]];}),()=>[0,1,0]);
 const leafMat=new THREE.MeshLambertMaterial({map:texLeaf,alphaTest:0.35});
-const leafDepth=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking,map:texLeaf,alphaTest:0.35});
-const grassMat=new THREE.MeshLambertMaterial({map:texGrass,alphaTest:0.3});
+const leafDepth=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking,map:texLeaf,alphaTest:0.35});seaPatch(leafMat,'leaf',true);seaPatch(leafDepth,'dep',true);
+const grassMat=new THREE.MeshLambertMaterial({map:texGrass,alphaTest:0.3});seaPatch(grassMat,'grs',true);
 const trunkGeo=new THREE.CylinderGeometry(0.6,1,1,6,1,true);trunkGeo.translate(0,0.5,0);
 const trunkMat=new THREE.MeshLambertMaterial({color:C(0x6a5f52)});
 applyPhoto(trunkMat,'tree_bark_03',2,7,{normal:false,color:new THREE.Color(0.75,0.72,0.7)});
@@ -983,7 +1017,7 @@ const texBirch=canvasTex(64,128,(g,w,h)=>{
   for(let i=0;i<40;i++){g.fillStyle='rgba(120,115,105,0.22)';g.fillRect(rnd()*w,rnd()*h,2+rnd()*8,1+rnd()*2);}
 },true);
 texBirch.repeat.set(1,3);
-const firMat=new THREE.MeshLambertMaterial({map:texFir,side:THREE.DoubleSide});
+const firMat=new THREE.MeshLambertMaterial({map:texFir,side:THREE.DoubleSide});seaPatch(firMat,'fir',true);
 const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
 
 (function plant(){
@@ -1973,6 +2007,8 @@ window.addEventListener('keydown',e=>{
   if(e.key==='q'||e.key==='Q')cycleQ();
   if(e.key==='n'||e.key==='N'){AUDIO.toggle();toastEl.textContent='Sound: '+(AUDIO.on?'an':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}
   if(e.key==='w'||e.key==='W')cycleWX();
+  if(e.key==='t'||e.key==='T'){todSet((TODM+1)%5);toastMsg('Tageszeit: '+TODN[TODM]);}
+  if(e.key==='j'||e.key==='J'){seasonSet((SEAS+1)%3);toastMsg('Jahreszeit: '+SEAN[SEAS]);}
   if(e.key==='l'||e.key==='L')toggleNight();
   if(e.key==='f'||e.key==='F'){const h=AUDIO.cycleHub();hintHud.k=null;toastEl.textContent='Freilauf: '+(h?h+' Zähne':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1200);}
   if(e.key==='1')setDiff(1);
@@ -2158,7 +2194,7 @@ function showHelp(){
     sec('Das Spiel',['Du fährst echte Mountainbike-Strecken aus der Lenkersicht. Dein Tempo entsteht nur durch dein Treten, auch bergab: Abfahrten sind neutral. Lenken und Ausweichen laufen automatisch.','Mit einem Smart-Trainer (Bluetooth) trittst du einfach los, ohne Trainer geht es mit der Tastatur.'])+
     sec('Fahren',['<b>↑</b> treten · <b>↓</b> bremsen','<b>+</b> / <b>−</b> (oder Bild↑ / Bild↓): Gang schwerer / leichter. Zwift Click: <b>+</b> kurz = schwerer, gedrückt halten oder andere Taste = leichter.','<b>R</b> Neustart · <b>Esc</b> Pause und Menü · <b>V</b> Vollbild (Esc beendet es, auf dem Tablet das ✕ oben links)','Ins <b>Höhenprofil</b> oben klicken oder ziehen: an diese Stelle der Strecke springen.'])+
     sec('Schwierigkeit',['<b>1</b> Leicht: 1,6-fache Wirkung deiner Watt, Steigungen nur zu 40 %','<b>2</b> Normal','<b>3</b> Hardcore: Steigungen zu 150 %, 0,85-fache Watt','<b>4</b> Eskalation: 20 % härter als realistisch','Die Stufen sind auch oben rechts antippbar.'])+
-    sec('Anzeige und Sound ein- und ausschalten',['<b>Q</b> Grafik: Niedrig, Mittel, Hoch (bei ruckelndem Bild eine Stufe tiefer)','<b>W</b> Wetter: aus, Regen und weitere Stufen','<b>L</b> Nightride: Nachtfahrt an oder aus (nur auf den festen Strecken)','<b>N</b> Sound: alle Geräusche an oder aus','<b>F</b> Freilauf: schaltet durch aus, 16, 32, 56 und 72 Zähne. Weniger Zähne klingen gröber und klickernder, 72 ist das feine Surren. Bei hohem Tempo wird der Freilauf von Wind und Reifenabrollen überdeckt, ganz weg ist er nur auf „aus“.'])+
+    sec('Anzeige und Sound ein- und ausschalten',['<b>Q</b> Grafik: Niedrig, Mittel, Hoch (bei ruckelndem Bild eine Stufe tiefer)','<b>T</b> Tageszeit: Live, Morgen, Mittag, Abend, Dämmerung (Nebel in den Senken, Sonnenstrahlen)','<b>J</b> Jahreszeit: Standard, Herbst (Laubfarben, fallendes Laub), Winter (Schnee, kahle Bäume)','Auf Stufe Hoch: Sonnenstrahlen, Randunschärfe bei hohem Tempo, bei Nightride sichtbarer Lichtkegel mit Insekten','<b>W</b> Wetter: aus, Regen und weitere Stufen','<b>L</b> Nightride: Nachtfahrt an oder aus (nur auf den festen Strecken)','<b>N</b> Sound: alle Geräusche an oder aus','<b>F</b> Freilauf: schaltet durch aus, 16, 32, 56 und 72 Zähne. Weniger Zähne klingen gröber und klickernder, 72 ist das feine Surren. Bei hohem Tempo wird der Freilauf von Wind und Reifenabrollen überdeckt, ganz weg ist er nur auf „aus“.'])+
     sec('Nachtfahrt und Tiere',['Im Nightride fährst du mit Stirnlampe, Mond und Sternen. Nur dort und nur im dunklen Wald tauchen ab und zu Tiere auf: Wildschweine in einer Rotte mit Frischlingen, Hirsche und Rehe.','Du siehst sie nur schemenhaft am Wegrand, ihre Augen reflektieren das Licht deiner Lampe. Vor dem Weggehen rufen sie leise. Kommst du näher als 10 Meter, rennen sie weg und verschwinden in der Dunkelheit.','Ausschalten: <b>L</b> beendet den Nightride, und damit sind auch die Tiere weg. Ihre Rufe sind Teil von <b>N</b> (Sound).'])+
     sec('Strecken und Liftfahrten',['MIWORU bleibt kostenlos. Weitere Strecken schaltest du mit einer kleinen Spende ab 1 € oder einem Community-Code frei.','Auf der Strecke in Sölden bringen dich Bergbahnen nach oben: Ein Hinweis zeigt Höhenmeter und Fahrzeit, die Liftzeit zählt nicht zu deiner Fahrzeit.'])+
     sec('Gruppenfahrt',['Im Menü einen Gruppencode eingeben (alle Freunde denselben, dieselbe Strecke wählen). Mitfahrer erscheinen als farbige Punkte, in Minikarte und Höhenprofil immer.'])+
@@ -2313,8 +2349,104 @@ function drawDrops(dt){
     dropX.fillStyle=g;dropX.beginPath();dropX.ellipse(d.x,d.y,rx,ry,0,0,6.2832);dropX.fill();
     dropX.fillStyle='rgba(255,255,255,'+(0.8*al).toFixed(3)+')';dropX.beginPath();dropX.ellipse(d.x-rx*0.3,d.y-ry*0.4,rx*0.22,ry*0.16,0,0,6.2832);dropX.fill();}
 }
+// ================= Grafik+: Tageszeit (T), Jahreszeit (J), Partikel (Laub, Schnee, Staub), Tempo-Effekte =================
+function softTex(kind){const c=document.createElement('canvas');c.width=c.height=32;const x=c.getContext('2d');
+  if(kind==='leaf'){x.fillStyle='#fff';x.beginPath();x.ellipse(16,16,13,7,0.6,0,6.3);x.fill();}
+  else{const g=x.createRadialGradient(16,16,0,16,16,16);g.addColorStop(0,'rgba(255,255,255,1)');g.addColorStop(0.45,'rgba(255,255,255,.6)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,32,32);}
+  return new THREE.CanvasTexture(c);}
+const PTS_U={uScale:{value:600},uLit:{value:1}};
+function mkPts(n,tex,additive){
+  const g=new THREE.BufferGeometry(),pos=new Float32Array(n*3),sz=new Float32Array(n),al=new Float32Array(n),col=new Float32Array(n*3);
+  g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('aSize',new THREE.BufferAttribute(sz,1));g.setAttribute('aAlpha',new THREE.BufferAttribute(al,1));g.setAttribute('aCol',new THREE.BufferAttribute(col,3));
+  const m=new THREE.ShaderMaterial({uniforms:{map:{value:tex},uScale:PTS_U.uScale,uLit:PTS_U.uLit},transparent:true,depthWrite:false,blending:additive?THREE.AdditiveBlending:THREE.NormalBlending,
+    vertexShader:'attribute float aSize,aAlpha;attribute vec3 aCol;uniform float uScale;varying float vA;varying vec3 vC;void main(){vec4 mv=modelViewMatrix*vec4(position,1.0);gl_Position=projectionMatrix*mv;gl_PointSize=min(160.0,aSize*uScale/max(0.1,-mv.z));vA=aAlpha;vC=aCol;}',
+    fragmentShader:'uniform sampler2D map;uniform float uLit;varying float vA;varying vec3 vC;void main(){vec4 t=texture2D(map,gl_PointCoord);gl_FragColor=vec4(vC*uLit,t.a*vA);}'});
+  const p=new THREE.Points(g,m);p.frustumCulled=false;p.visible=false;scene.add(p);
+  return {p,g,pos,sz,al,col,n,m};}
+const T_LEAF=softTex('leaf'),T_SOFT=softTex('soft');
+const FALL=mkPts(380,T_LEAF,false),FALL_PH=new Float32Array(380).map(()=>Math.random()*6.283);
+const DUST=mkPts(110,T_SOFT,false),DUST_V=new Float32Array(110*3),DUST_L=new Float32Array(110),DUST_A=new Float32Array(110);let dustI=0,dustAcc=0;
+let SEAS=0,SPD=0;const SEAN=['Standard','Herbst','Winter'];
+function seasonSet(m){
+  SEAS=m;try{localStorage.setItem('miworu_sea',m);}catch(e){}
+  SEA.aut.value=m===1?1:0;SEA.win.value=m===2?1:0;
+  let mn=1e9,mx=-1e9;for(let i=0;i<=N;i+=4){mn=Math.min(mn,PY[i]);mx=Math.max(mx,PY[i]);}
+  SEA.snowY.value=(RT&&RT.alp)?mn+(mx-mn)*0.3:-1e5;
+  FALL.p.visible=m>0;FALL.m.uniforms.map.value=m===1?T_LEAF:T_SOFT;
+  const c=camera.position;for(let i=0;i<FALL.n;i++){FALL.pos[i*3]=c.x+(Math.random()-0.5)*32;FALL.pos[i*3+1]=c.y-4+Math.random()*16;FALL.pos[i*3+2]=c.z+(Math.random()-0.5)*32;
+    const k=Math.random();if(m===1){const a=k<0.3?[1,.62,.14]:k<0.58?[.95,.42,.08]:k<0.8?[.72,.17,.07]:[.86,.78,.22];FALL.col.set(a,i*3);}else FALL.col.set([.95,.97,1],i*3);FALL.al[i]=m===1?0.92:0.8;FALL.sz[i]=m===1?0.15:0.065;}
+  FALL.g.attributes.aCol.needsUpdate=true;FALL.g.attributes.aAlpha.needsUpdate=true;
+  if(BK)applySun(true);
+}
+function sunAltAt(utc){const d=new Date(),doy=Math.floor((Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate())-Date.UTC(d.getUTCFullYear(),0,0))/864e5);
+  const phi=51.6*Math.PI/180,dec=23.44*Math.PI/180*Math.sin(2*Math.PI*(284+doy)/365),H=(((utc+7.6/15)%24+24)%24-12)*15*Math.PI/180;
+  return Math.asin(clamp(Math.sin(phi)*Math.sin(dec)+Math.cos(phi)*Math.cos(dec)*Math.cos(H),-1,1))*180/Math.PI;}
+function todSet(m){
+  TODM=m;TODUTC=null;try{localStorage.setItem('miworu_tod',m);}catch(e){}
+  if(m>0){let mx=-99,hm=12;for(let h=0;h<24;h+=0.05){const a=sunAltAt(h);if(a>mx){mx=a;hm=h;}}
+    TODUTC=hm;
+    if(m===1){const t=Math.min(8,mx*0.6);for(let h=hm;h>0;h-=0.05)if(sunAltAt(h)<t){TODUTC=h;break;}}
+    else if(m===3){const t=Math.min(6,mx*0.45);for(let h=hm;h<24;h+=0.05)if(sunAltAt(h)<t){TODUTC=h;break;}}
+    else if(m===4){for(let h=hm;h<24;h+=0.05)if(sunAltAt(h)<-3){TODUTC=h;break;}}}
+  if(BK)applySun(true);
+}
+function toastMsg(t){toastEl.textContent=t;toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1600);}
+const _gd=new THREE.Vector3(),_gs=new THREE.Vector3();
+function updateFx(dt,now){
+  PTS_U.uScale.value=renderer.domElement.height/(2*Math.tan(camera.fov*Math.PI/360));
+  const hl=NIGHT?0.12:clamp(0.3+sun.intensity*0.3+hemi.intensity*0.2,0.3,1.0);PTS_U.uLit.value=hl;
+  const c=camera.position,t=now*0.001,run=running&&!st.done;
+  if(FALL.p.visible){const sp=SEAS===1?1.0:1.3,p=FALL.pos;
+    for(let i=0;i<FALL.n;i++){const ph=FALL_PH[i],j=i*3;
+      p[j]+=(Math.sin(t*1.3+ph)*(SEAS===1?0.7:0.3)+0.25)*dt;p[j+1]-=sp*dt*(0.7+0.3*Math.sin(ph*3));p[j+2]+=Math.cos(t*1.1+ph*1.7)*(SEAS===1?0.5:0.2)*dt;
+      let dx=p[j]-c.x,dz=p[j+2]-c.z;if(dx>16)p[j]-=32;else if(dx<-16)p[j]+=32;if(dz>16)p[j+2]-=32;else if(dz<-16)p[j+2]+=32;
+      if(p[j+1]<c.y-4)p[j+1]+=16;
+      if(SEAS===1)FALL.sz[i]=0.15*(0.5+0.5*Math.abs(Math.sin(t*2.4+ph*7)));}
+    FALL.g.attributes.position.needsUpdate=true;if(SEAS===1)FALL.g.attributes.aSize.needsUpdate=true;}
+  // Staub und Spritzer auf Schotter/Trail
+  const si=clamp(Math.round(st.pos/SEG),0,N),dusty=run&&SURF[si]!==0&&st.v>3.5&&WX!==2;
+  if(dusty){camera.getWorldDirection(_gd);_gd.y=0;_gd.normalize();dustAcc+=dt*st.v*2.4;
+    while(dustAcc>1){dustAcc-=1;const i=dustI++%DUST.n,j=i*3,fw=1.6+Math.random()*1.4,sd=(Math.random()-0.5)*1.5;
+      const x=c.x+_gd.x*fw-_gd.z*sd,z=c.z+_gd.z*fw+_gd.x*sd;DUST.pos[j]=x;DUST.pos[j+1]=gnd(x,z)+0.08;DUST.pos[j+2]=z;
+      DUST_V[j]=-_gd.x*st.v*0.12+(Math.random()-0.5)*0.8;DUST_V[j+1]=0.5+Math.random()*0.9;DUST_V[j+2]=-_gd.z*st.v*0.12+(Math.random()-0.5)*0.8;
+      DUST_L[i]=0.7+Math.random()*0.8;DUST_A[i]=0;DUST.col.set([0.62,0.55,0.45],j);}
+    DUST.g.attributes.aCol.needsUpdate=true;}
+  let any=false;for(let i=0;i<DUST.n;i++){if(DUST_L[i]<=0){DUST.al[i]=0;continue;}any=true;const j=i*3;DUST_A[i]+=dt;const u=DUST_A[i]/DUST_L[i];
+    if(u>=1){DUST_L[i]=0;DUST.al[i]=0;continue;}
+    DUST.pos[j]+=DUST_V[j]*dt;DUST.pos[j+1]+=DUST_V[j+1]*dt;DUST.pos[j+2]+=DUST_V[j+2]*dt;DUST_V[j+1]*=1-dt*1.2;
+    DUST.sz[i]=0.25+u*0.9;DUST.al[i]=0.4*Math.pow(1-u,1.4);}
+  DUST.p.visible=any;if(any){DUST.g.attributes.position.needsUpdate=true;DUST.g.attributes.aSize.needsUpdate=true;DUST.g.attributes.aAlpha.needsUpdate=true;}
+  // Tempo: Randunschaerfe und Vignette, Sonnenstrahlen (nur Stufe Hoch)
+  SPD+=((run?sstep(9,19,st.v):0)-SPD)*Math.min(1,dt*2.5);
+  if(FXon&&FXP){const U=FXP.uniforms;U.spd.value=SPD;
+    camera.getWorldDirection(_gd);const fc=_gd.dot(SUN);let ray=0;
+    if(BK&&fc>0.12&&!NIGHT&&WX!==2){_gs.copy(c).addScaledVector(SUN,1000).project(camera);U.sunUV.value.set(_gs.x*0.5+0.5,_gs.y*0.5+0.5);
+      const alt=window.__sun?window.__sun.alt:30;ray=sstep(0.12,0.55,fc)*(0.4+0.6*(1-sstep(10,34,alt)))*(WX===1?0.45:1)*(TODM===2?0.5:1);}
+    U.ray.value=ray;}
+}
+
+// Nightride-Lampe: sichtbarer Lichtkegel (additive Scheiben, von Baeumen verdeckt) und Insekten im Strahl; nur Stufe Hoch
+const BEAM=new THREE.Group();BEAM.visible=false;scene.add(BEAM);
+for(let k=0;k<14;k++){const d=3+k*3.2,m=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({map:T_SOFT,color:0xfff1d6,transparent:true,opacity:0.02,blending:THREE.AdditiveBlending,depthWrite:false,fog:false}));m.position.z=-d;m.scale.setScalar(2*d*0.27);m.renderOrder=5;m.frustumCulled=false;m.userData.o=0.02*Math.exp(-d/26);BEAM.add(m);}
+const INS=mkPts(70,T_SOFT,true),INS_W=new Float32Array(70*3),INS_P=new Float32Array(70).map(()=>Math.random()*6.28);INS.m.uniforms.uLit={value:1};
+const _im=new THREE.Matrix4(),_iv=new THREE.Vector3();
+function updateBeam(dt,now){
+  const on=NIGHT&&quality>2;BEAM.visible=on;INS.p.visible=on;if(!on)return;
+  const c=camera.position,t=now*0.001;
+  BEAM.quaternion.copy(camera.quaternion);BEAM.position.set(0,-0.28,-0.3).applyQuaternion(camera.quaternion).add(c);
+  const bm=1+(WX?1.8:0)+GF.value.x*2.5;BEAM.children.forEach(m=>{m.material.opacity=m.userData.o*bm;});
+  camera.updateMatrixWorld();_im.copy(camera.matrixWorld).invert();
+  for(let i=0;i<70;i++){const j=i*3;INS_W[j]+=(Math.random()-0.5)*dt*3.5;INS_W[j+1]+=(Math.random()-0.5)*dt*3.5;INS_W[j+2]+=(Math.random()-0.5)*dt*3.5;
+    _iv.set(INS_W[j],INS_W[j+1],INS_W[j+2]).applyMatrix4(_im);
+    if(_iv.z>-2||_iv.z<-26||Math.hypot(_iv.x,_iv.y+0.3)>-_iv.z*0.27){const z=-(6+Math.random()*18),r=Math.sqrt(Math.random())*0.25*-z,a=Math.random()*6.283;_iv.set(Math.cos(a)*r,Math.sin(a)*r-0.3,z).applyMatrix4(camera.matrixWorld);INS_W[j]=_iv.x;INS_W[j+1]=_iv.y;INS_W[j+2]=_iv.z;}
+    INS.pos[j]=INS_W[j];INS.pos[j+1]=INS_W[j+1];INS.pos[j+2]=INS_W[j+2];INS.sz[i]=0.07;INS.al[i]=0.3+0.7*Math.abs(Math.sin(t*(7+INS_P[i])+INS_P[i]*9));INS.col.set([1,0.95,0.8],j);}
+  INS.g.attributes.position.needsUpdate=true;INS.g.attributes.aAlpha.needsUpdate=true;INS.g.attributes.aSize.needsUpdate=true;INS.g.attributes.aCol.needsUpdate=true;
+}
+try{const q=new URLSearchParams(location.search);let a=({standard:0,herbst:1,winter:2})[q.get('jahreszeit')],b=({live:0,morgen:1,mittag:2,abend:3,daemmerung:4})[q.get('tageszeit')];
+  if(a===undefined)a=+localStorage.getItem('miworu_sea')||0;if(b===undefined)b=+localStorage.getItem('miworu_tod')||0;
+  if(a>0)seasonSet(a);if(b>0&&BK)todSet(b);}catch(e){}
 function render(dt,now){
-  updateRain(dt);drawDrops(dt);
+  updateRain(dt);drawDrops(dt);updateFx(dt,now);updateBeam(dt,now);
   sample(st.pos,smp);
   const rx=-Math.cos(smp.h),rz=Math.sin(smp.h);
   const bx=smp.x+rx*st.x,bz=smp.z+rz*st.x,by=smp.y+0.07+(running||st.done?tabH(st.pos):0);
