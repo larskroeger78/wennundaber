@@ -13,7 +13,7 @@ export async function accessToken() {
     headers: { Authorization: 'Basic ' + Buffer.from(id + ':' + sec).toString('base64'), 'Content-Type': 'application/x-www-form-urlencoded' },
     body: 'grant_type=client_credentials',
   });
-  if (!r.ok) throw new Error('PayPal-Anmeldung fehlgeschlagen (' + r.status + ')');
+  if (!r.ok) { const e = await r.json().catch(() => ({})); console.error('PayPal token', r.status, e.error, e.error_description); throw new Error('PayPal-Anmeldung fehlgeschlagen (' + r.status + (e.error ? ', ' + e.error : '') + ') - Client-ID/Secret/Modus pruefen'); }
   return (await r.json()).access_token;
 }
 
@@ -27,8 +27,9 @@ export async function createOrder(amount) {
       purchase_units: [{ description: 'MIWORU - Spende', amount: { currency_code: CURRENCY, value: val } }],
     }),
   });
-  if (!r.ok) throw new Error('Bestellung konnte nicht angelegt werden (' + r.status + ')');
-  return r.json();
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { const iss = (d.details && d.details[0] && d.details[0].issue) || d.name || ''; console.error('PayPal order', r.status, JSON.stringify(d).slice(0, 600)); throw new Error('Bestellung konnte nicht angelegt werden (' + r.status + (iss ? ', ' + iss : '') + ')'); }
+  return d;
 }
 
 export async function captureOrder(orderID) {
