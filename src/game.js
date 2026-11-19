@@ -2428,7 +2428,7 @@ function updateFx(dt,now){
 // Nightride-Lampe: sichtbarer Lichtkegel (additive Scheiben, von Baeumen verdeckt) und Insekten im Strahl; nur Stufe Hoch
 const BEAM=new THREE.Group();BEAM.visible=false;scene.add(BEAM);
 for(let k=0;k<14;k++){const d=3+k*3.2,m=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({map:T_SOFT,color:0xfff1d6,transparent:true,opacity:0.02,blending:THREE.AdditiveBlending,depthWrite:false,fog:false}));m.position.z=-d;m.scale.setScalar(2*d*0.27);m.renderOrder=5;m.frustumCulled=false;m.userData.o=0.02*Math.exp(-d/26);BEAM.add(m);}
-const INS=mkPts(70,T_SOFT,true),INS_W=new Float32Array(70*3),INS_P=new Float32Array(70).map(()=>Math.random()*6.28);INS.m.uniforms.uLit={value:1};
+const INS=mkPts(22,T_SOFT,true),INS_W=new Float32Array(22*3),INS_P=new Float32Array(22).map(()=>Math.random()*6.28);INS.m.uniforms.uLit={value:1};
 const _im=new THREE.Matrix4(),_iv=new THREE.Vector3();
 function updateBeam(dt,now){
   const on=NIGHT&&quality>2;BEAM.visible=on;INS.p.visible=on;if(!on)return;
@@ -2436,10 +2436,10 @@ function updateBeam(dt,now){
   BEAM.quaternion.copy(camera.quaternion);BEAM.position.set(0,-0.28,-0.3).applyQuaternion(camera.quaternion).add(c);
   const bm=1+(WX?1.8:0)+GF.value.x*2.5;BEAM.children.forEach(m=>{m.material.opacity=m.userData.o*bm;});
   camera.updateMatrixWorld();_im.copy(camera.matrixWorld).invert();
-  for(let i=0;i<70;i++){const j=i*3;INS_W[j]+=(Math.random()-0.5)*dt*3.5;INS_W[j+1]+=(Math.random()-0.5)*dt*3.5;INS_W[j+2]+=(Math.random()-0.5)*dt*3.5;
+  for(let i=0;i<22;i++){const j=i*3;INS_W[j]+=(Math.random()-0.5)*dt*3.5;INS_W[j+1]+=(Math.random()-0.5)*dt*3.5;INS_W[j+2]+=(Math.random()-0.5)*dt*3.5;
     _iv.set(INS_W[j],INS_W[j+1],INS_W[j+2]).applyMatrix4(_im);
     if(_iv.z>-2||_iv.z<-26||Math.hypot(_iv.x,_iv.y+0.3)>-_iv.z*0.27){const z=-(6+Math.random()*18),r=Math.sqrt(Math.random())*0.25*-z,a=Math.random()*6.283;_iv.set(Math.cos(a)*r,Math.sin(a)*r-0.3,z).applyMatrix4(camera.matrixWorld);INS_W[j]=_iv.x;INS_W[j+1]=_iv.y;INS_W[j+2]=_iv.z;}
-    INS.pos[j]=INS_W[j];INS.pos[j+1]=INS_W[j+1];INS.pos[j+2]=INS_W[j+2];INS.sz[i]=0.07;INS.al[i]=0.3+0.7*Math.abs(Math.sin(t*(7+INS_P[i])+INS_P[i]*9));INS.col.set([1,0.95,0.8],j);}
+    INS.pos[j]=INS_W[j];INS.pos[j+1]=INS_W[j+1];INS.pos[j+2]=INS_W[j+2];INS.sz[i]=0.06;INS.al[i]=0.25+0.6*Math.abs(Math.sin(t*(7+INS_P[i])+INS_P[i]*9));INS.col.set([1,0.95,0.8],j);}
   INS.g.attributes.position.needsUpdate=true;INS.g.attributes.aAlpha.needsUpdate=true;INS.g.attributes.aSize.needsUpdate=true;INS.g.attributes.aCol.needsUpdate=true;
 }
 try{const q=new URLSearchParams(location.search);let a=({standard:0,herbst:1,winter:2})[q.get('jahreszeit')],b=({live:0,morgen:1,mittag:2,abend:3,daemmerung:4})[q.get('tageszeit')];
