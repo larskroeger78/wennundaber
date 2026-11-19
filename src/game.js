@@ -1920,9 +1920,9 @@ const keys={};
 let running=false,inputMode='keyboard',st;
 const trainer=new Trainer(),click=new ClickPad();let paused=false,gear=0,bleMsg='',lastMenu=null;   // gear: virtuelle Schaltung = Widerstand in %-Steigung (+/-)
 let gearUsed=false,toastT=0;
-const DIFFN={1:'Leicht',2:'Normal',3:'Hardcore',4:'Eskalation',5:'Marvin'};
-let diff=1;try{const v=+localStorage.getItem('miworu_diff');if(v>=1&&v<=5)diff=v;}catch(e){}   // Schwierigkeit: 1 Leicht (Steigungen zählen 40 %), 2 Normal
-const gearF=()=>(gear<0?Math.pow(1.26,gear):1+gear*0.05)*(diff===1?0.4:(diff===3?1.5:(diff===4?1.2:(diff===5?1.56:1))));   // Faktor auf die Steigung: Gang x Schwierigkeit
+const DIFFN={1:'Leicht',2:'Normal',3:'Hardcore',4:'Eskalation'};
+let diff=1;try{const v=+localStorage.getItem('miworu_diff');if(v>=1&&v<=4)diff=v;}catch(e){}   // Schwierigkeit: 1 Leicht (Steigungen zählen 40 %), 2 Normal
+const gearF=()=>(gear<0?Math.pow(1.26,gear):1+gear*0.05)*(diff===1?0.4:(diff===3?1.5:(diff===4?1.2:1)));   // Faktor auf die Steigung: Gang x Schwierigkeit
 function setDiff(d){diff=d;try{localStorage.setItem('miworu_diff',d);}catch(e){}gearHud.k=null;hintHud.k=null;toastEl.textContent='Schwierigkeit: '+DIFFN[d];toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1200);}
 const gearEl=document.getElementById('gear'),toastEl=document.getElementById('toast'),hintEl=document.getElementById('hint');
 function shift(d){
@@ -1934,7 +1934,7 @@ function shift(d){
 }
 function hintHud(){
   const key=diff+'|'+quality+'|'+WX+'|'+WXLIVE+'|'+WXLIVEOK+'|'+AUDIO.on+'|'+AUDIO.hub+'|'+NIGHT;if(hintHud.k===key)return;hintHud.k=key;
-  hintEl.innerHTML=[1,2,3,4,5].map(n=>'<button type="button" data-act="d'+n+'"'+(diff===n?' class="on"':'')+'><b>'+(n===5?'M':n)+'</b>'+DIFFN[n]+'</button>').join('')+'<button type="button" data-act="q"><b>Q</b>Grafik '+QN[quality]+'</button><button type="button" data-act="n"><b>N</b>Sound '+(AUDIO.on?'an':'aus')+'</button><button type="button" data-act="w"><b>W</b>Wetter '+WXL()+'</button><button type="button" data-act="f"><b>F</b>Freilauf '+(AUDIO.hub?AUDIO.hub:'aus')+'</button>'+(MW?'<button type="button" data-act="l"'+(NIGHT?' class="on"':'')+'><b>L</b>Nightride'+(NIGHT?' an':'')+'</button>':'');
+  hintEl.innerHTML=[1,2,3,4].map(n=>'<button type="button" data-act="d'+n+'"'+(diff===n?' class="on"':'')+'><b>'+n+'</b>'+DIFFN[n]+'</button>').join('')+'<button type="button" data-act="q"><b>Q</b>Grafik '+QN[quality]+'</button><button type="button" data-act="n"><b>N</b>Sound '+(AUDIO.on?'an':'aus')+'</button><button type="button" data-act="w"><b>W</b>Wetter '+WXL()+'</button><button type="button" data-act="f"><b>F</b>Freilauf '+(AUDIO.hub?AUDIO.hub:'aus')+'</button>'+(MW?'<button type="button" data-act="l"'+(NIGHT?' class="on"':'')+'><b>L</b>Nightride'+(NIGHT?' an':'')+'</button>':'');
 }
 function gearHud(){
   hintHud();
@@ -1979,7 +1979,6 @@ window.addEventListener('keydown',e=>{
   if(e.key==='2')setDiff(2);
   if(e.key==='3')setDiff(3);
   if(e.key==='4')setDiff(4);
-  if(e.key==='m'||e.key==='M')setDiff(5);
   if(e.key==='+'||e.key==='PageUp')shift(1);
   if(e.key==='-'||e.key==='PageDown')shift(-1);
 });
@@ -2012,7 +2011,7 @@ function update(dt){
   const tr=inputMode==='trainer'&&trainer.connected;
   if(tr)st.power+=(trainer.power-st.power)*Math.min(1,dt*6);else st.power+=((up?PMAX:0)-st.power)*Math.min(1,dt*2.5);
   const gf=gearF();   // Gang x Schwierigkeit: Normal: leichtester Gang x0,25, schwerster x1,3; Leicht: alles x0,4
-  const eg=Math.max(0,(GR[i]>0?GR[i]*gf+Math.max(0,gear)*0.15:Math.max(0,gear)*0.15*(GR[i]>-2?1:0))+(GR[i]>-2?(diff===3?0.8:diff===4?0.5:diff===5?0.65:0):0));   // Abfahrten neutral; Hardcore/Eskalation auch auf flachen Stuecken mit etwas Grundlast
+  const eg=Math.max(0,(GR[i]>0?GR[i]*gf+Math.max(0,gear)*0.15:Math.max(0,gear)*0.15*(GR[i]>-2?1:0))+(GR[i]>-2?(diff===3?0.8:diff===4?0.5:0):0));   // Abfahrten neutral; Hardcore/Eskalation auch auf flachen Stuecken mit etwas Grundlast
   if(tr)trainer.setGrade(eg,(dirt?0.012:SURF[i]===1?0.009:0.005)*(diff===1?0.5:1));
   const climb=eg/100;            // Abfahrten neutral: zählen wie flach
   const v=st.v,vs=Math.max(v,0.55);   // kleine Mindestgeschwindigkeit: auch steile Rampen lassen sich aus dem Stand anfahren
@@ -2158,7 +2157,7 @@ function showHelp(){
     '<div class="hscroll">'+
     sec('Das Spiel',['Du fährst echte Mountainbike-Strecken aus der Lenkersicht. Dein Tempo entsteht nur durch dein Treten, auch bergab: Abfahrten sind neutral. Lenken und Ausweichen laufen automatisch.','Mit einem Smart-Trainer (Bluetooth) trittst du einfach los, ohne Trainer geht es mit der Tastatur.'])+
     sec('Fahren',['<b>↑</b> treten · <b>↓</b> bremsen','<b>+</b> / <b>−</b> (oder Bild↑ / Bild↓): Gang schwerer / leichter. Zwift Click: <b>+</b> kurz = schwerer, gedrückt halten oder andere Taste = leichter.','<b>R</b> Neustart · <b>Esc</b> Pause und Menü · <b>V</b> Vollbild (Esc beendet es, auf dem Tablet das ✕ oben links)','Ins <b>Höhenprofil</b> oben klicken oder ziehen: an diese Stelle der Strecke springen.'])+
-    sec('Schwierigkeit',['<b>1</b> Leicht: 1,6-fache Wirkung deiner Watt, Steigungen nur zu 40 %','<b>2</b> Normal','<b>3</b> Hardcore: Steigungen zu 150 %, 0,85-fache Watt','<b>4</b> Eskalation: 20 % härter als realistisch','<b>M</b> Marvin: noch einmal 30 % härter','Die Stufen sind auch oben rechts antippbar.'])+
+    sec('Schwierigkeit',['<b>1</b> Leicht: 1,6-fache Wirkung deiner Watt, Steigungen nur zu 40 %','<b>2</b> Normal','<b>3</b> Hardcore: Steigungen zu 150 %, 0,85-fache Watt','<b>4</b> Eskalation: 20 % härter als realistisch','Die Stufen sind auch oben rechts antippbar.'])+
     sec('Anzeige und Sound ein- und ausschalten',['<b>Q</b> Grafik: Niedrig, Mittel, Hoch (bei ruckelndem Bild eine Stufe tiefer)','<b>W</b> Wetter: aus, Regen und weitere Stufen','<b>L</b> Nightride: Nachtfahrt an oder aus (nur auf den festen Strecken)','<b>N</b> Sound: alle Geräusche an oder aus','<b>F</b> Freilauf: schaltet durch aus, 16, 32, 56 und 72 Zähne. Weniger Zähne klingen gröber und klickernder, 72 ist das feine Surren. Bei hohem Tempo wird der Freilauf von Wind und Reifenabrollen überdeckt, ganz weg ist er nur auf „aus“.'])+
     sec('Nachtfahrt und Tiere',['Im Nightride fährst du mit Stirnlampe, Mond und Sternen. Nur dort und nur im dunklen Wald tauchen ab und zu Tiere auf: Wildschweine in einer Rotte mit Frischlingen, Hirsche und Rehe.','Du siehst sie nur schemenhaft am Wegrand, ihre Augen reflektieren das Licht deiner Lampe. Vor dem Weggehen rufen sie leise. Kommst du näher als 10 Meter, rennen sie weg und verschwinden in der Dunkelheit.','Ausschalten: <b>L</b> beendet den Nightride, und damit sind auch die Tiere weg. Ihre Rufe sind Teil von <b>N</b> (Sound).'])+
     sec('Strecken und Liftfahrten',['MIWORU bleibt kostenlos. Weitere Strecken schaltest du mit einer kleinen Spende ab 1 € oder einem Community-Code frei.','Auf der Strecke in Sölden bringen dich Bergbahnen nach oben: Ein Hinweis zeigt Höhenmeter und Fahrzeit, die Liftzeit zählt nicht zu deiner Fahrzeit.'])+
@@ -2235,7 +2234,7 @@ function menu(title,sub){
     '<div class="help" style="font-size:11px;opacity:.6">© OpenStreetMap-Mitwirkende · © Geobasis NRW · Datenquelle: Land Tirol - data.tirol.gv.at (CC BY 4.0) · <a href="/rechtliches.html" target="_blank" rel="noopener" style="color:inherit">Rechtliches</a></div>'+
     '</div></div>';
   const go=id=>{const q='?route=gpx_'+id;const same=location.search===q;location.href=location.pathname+q+'#go';if(same)location.reload();};
-  document.getElementById('dif').onclick=()=>{setDiff(diff%5+1);menu(title,sub);};
+  document.getElementById('dif').onclick=()=>{setDiff(diff%4+1);menu(title,sub);};
   document.getElementById('qual').onclick=()=>{cycleQ();menu(title,sub);};
   document.getElementById('snd').onclick=()=>{AUDIO.toggle();menu(title,sub);};
   document.getElementById('wxb').onclick=()=>{cycleWX();menu(title,sub);};
@@ -2260,7 +2259,7 @@ function menu(title,sub){
 // Pause + Hauptmenue (Esc oder Menue-Knopf oben rechts, z. B. fuer iPad ohne Tastatur)
 function pauseGame(){if(!running)return;running=false;paused=true;trainer.setGrade(0,0.005,true);offEl.style.display='none';menu('Weiterfahren','Pause · '+(st.pos/1000).toFixed(2)+' km · '+fmtT(st.t));}
 const menuBtn=document.getElementById('menuBtn');menuBtn.onclick=pauseGame;
-hintEl.onclick=e=>{const b=e.target.closest('[data-act]');if(!b)return;const a=b.getAttribute('data-act');if(a==='d1')setDiff(1);else if(a==='d2')setDiff(2);else if(a==='d3')setDiff(3);else if(a==='d4')setDiff(4);else if(a==='d5')setDiff(5);else if(a==='q')cycleQ();else if(a==='n'){AUDIO.toggle();toastEl.textContent='Sound: '+(AUDIO.on?'an':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}else if(a==='w')cycleWX();else if(a==='l')toggleNight();else if(a==='f'){const h=AUDIO.cycleHub();hintHud.k=null;toastEl.textContent='Freilauf: '+(h?h+' Zähne':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1200);}};
+hintEl.onclick=e=>{const b=e.target.closest('[data-act]');if(!b)return;const a=b.getAttribute('data-act');if(a==='d1')setDiff(1);else if(a==='d2')setDiff(2);else if(a==='d3')setDiff(3);else if(a==='d4')setDiff(4);else if(a==='q')cycleQ();else if(a==='n'){AUDIO.toggle();toastEl.textContent='Sound: '+(AUDIO.on?'an':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}else if(a==='w')cycleWX();else if(a==='l')toggleNight();else if(a==='f'){const h=AUDIO.cycleHub();hintHud.k=null;toastEl.textContent='Freilauf: '+(h?h+' Zähne':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1200);}};
 function resume(){if(GRP_CODE&&!GRP.peer)grpJoin();menuBtn.style.display='';paused=false;running=true;ov.style.display='none';hudBox.style.display='block';}
 const PK='miworu_prog2_'+RKEY;let SAVED=null;   // prog2: alte Fortschritte gehoerten zu anderen Strecken
 try{const o=JSON.parse(localStorage.getItem(PK)||'null');if(o&&o.pos>50&&Date.now()-o.ts<864e5)SAVED=o;}catch(e){}
