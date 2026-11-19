@@ -2196,6 +2196,17 @@ function showHelp(){
   '</div></div>';
   document.getElementById('hback').onclick=()=>{helpOpen=false;if(lastMenu)menu(lastMenu[0],lastMenu[1]);};
 }
+function showThanks(code,next){   // nach der Spende: Dank und Freischaltcode zum Notieren (fuer weitere Geraete: unter Community-Code eingeben)
+  const c=typeof code==='string'?code:'';
+  ov.innerHTML='<div class="intro"><div class="panel unlock"><div class="by">by Wenn &amp; Aber Bike Crew</div><h1>Vielen Dank!</h1>'+
+    '<div class="help">Deine Spende ist angekommen, alle weiteren Strecken sind jetzt freigeschaltet. Das hilft mir sehr, das Projekt weiterzuentwickeln.</div>'+
+    (c?'<div class="ucode"><div class="uh">Dein Freischaltcode</div><div class="urow"><input id="tcode" type="text" readonly value="'+c+'" aria-label="Freischaltcode"><button id="tcp" class="sec">Kopieren</button></div></div>'+
+    '<div class="help">Bitte notieren: Auf einem anderen Gerät oder nach dem Löschen der Browserdaten gibst du ihn im Spendenfenster bei „Community-Code" ein, dann sind die Strecken wieder frei.</div>':'')+
+    '<div class="btns"><button id="tgo" class="main">Los geht\'s</button></div></div></div>';
+  const ti=document.getElementById('tcode');if(ti){ti.onclick=()=>ti.select();ti.onkeydown=ti.onkeyup=ti.onkeypress=e=>e.stopPropagation();}
+  const cp=document.getElementById('tcp');if(cp)cp.onclick=()=>{try{navigator.clipboard.writeText(c);cp.textContent='Kopiert';}catch(e){ti.select();}};
+  document.getElementById('tgo').onclick=next;
+}
 function showUnlock(want){   // Spendenfenster: Betrag ab 1 EUR, kurze Geschichte zum Projekt, PayPal. Eine Spende schaltet alle weiteren Strecken frei (Pruefung auf dem Server)
   helpOpen=true;ov.style.display='flex';menuBtn.style.display='none';
   const wname=want&&ROUTES[want]?ROUTES[want].label:'';
@@ -2225,7 +2236,7 @@ function showUnlock(want){   // Spendenfenster: Betrag ab 1 EUR, kurze Geschicht
       const pp=await loadPayPal(cfg.clientId);msg('');
       pp.Buttons({style:{layout:'vertical',shape:'rect',label:'donate'},
         createOrder:()=>payCreate(a.toFixed(2)),
-        onApprove:async d=>{msg('Spende wird bestätigt …');try{await payCapture(d.orderID);msg('Vielen Dank für deine Spende! Alle Strecken sind freigeschaltet.');setTimeout(done,1200);}catch(e){msg('Zahlung konnte nicht bestätigt werden: '+(e&&e.message||e)+' Bitte melde dich mit der PayPal-Transaktionsnummer.');}},
+        onApprove:async d=>{msg('Spende wird bestätigt …');try{const cd=await payCapture(d.orderID);showThanks(cd,done);}catch(e){msg('Zahlung konnte nicht bestätigt werden: '+(e&&e.message||e)+' Bitte melde dich mit der PayPal-Transaktionsnummer.');}},
         onCancel:()=>{msg('Abgebrochen.');buy.disabled=false;ai.disabled=false;},
         onError:e=>{msg('PayPal-Fehler: '+(e&&e.message||e));buy.disabled=false;ai.disabled=false;}
       }).render('#upp');

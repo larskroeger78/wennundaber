@@ -58,6 +58,6 @@ export function loadPayPal(clientId) {
 export const payCreate = async (amount) => { const { data } = await post('/api/paypal-create', { amount }); if (!data.id) throw new Error(data.error || 'Bestellung fehlgeschlagen'); return data.id; };
 export async function payCapture(orderID) {
   const { data } = await post('/api/paypal-capture', { orderID });
-  if (data && data.ok && data.token) { setToken(data.token); return true; }
+  if (data && data.ok && data.token) { setToken(data.token); return data.code || true; }
   throw new Error((data && data.error) || 'Zahlung nicht bestätigt');
 }

@@ -26,6 +26,15 @@ export function verify(token) {
   } catch (e) { return null; }
 }
 
+// Kurzer Freischaltcode zum Notieren: Bestell-ID + 6 Zeichen Pruefsumme (zustandslos, nur mit UNLOCK_SECRET gueltig)
+const B32 = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const mac6 = (id) => { const h = crypto.createHmac('sha256', secret()).update('code:' + id).digest(); let o = ''; for (let i = 0; i < 6; i++) o += B32[h[i] % B32.length]; return o; };
+export function makeCode(orderID) { const id = String(orderID).toUpperCase().replace(/[^A-Z0-9]/g, ''); return id + '-' + mac6(id); }
+export function checkCode(code) {
+  const m = String(code || '').trim().toUpperCase().match(/^([A-Z0-9]{10,30})-([A-Z0-9]{6})$/); if (!m) return false;
+  const a = Buffer.from(m[2]), b = Buffer.from(mac6(m[1])); return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
 export function json(res, code, obj) {
   res.statusCode = code;
   res.setHeader('Content-Type', 'application/json');
