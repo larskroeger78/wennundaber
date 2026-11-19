@@ -3,7 +3,7 @@
 export const AUDIO = (() => {
   let ctx = null, master = null, noise = null, on = true, vol = 0.8, ok = false;
   const N = {};              // Dauer-Klaenge: Name -> {g: GainNode, f: BiquadFilter}
-  let rough = 0, tyreBuf = null, hubBuf = null, splashBuf = null, deerBuf = null, boarBuf = null, wildT = 50 + Math.random() * 60, uhuT = 20 + Math.random() * 40, specT = 25 + Math.random() * 50, birdT = 3, clickAcc = 0, stoneAcc = 0, rainAcc = 0, lastSurf = 0, brakeG = null;
+  let rough = 0, tyreBuf = null, hubBuf = null, splashBuf = null, deerBuf = null, boarBuf = null, wildT = 50 + Math.random() * 60, uhuT = 20 + Math.random() * 40, kitzT = 40 + Math.random() * 80, specT = 25 + Math.random() * 50, birdT = 3, clickAcc = 0, stoneAcc = 0, rainAcc = 0, lastSurf = 0, brakeG = null;
   let hubN = 72; const HUBS = [0, 16, 32, 56, 72];   // Freilauf: aus oder Zaehnezahl der Sperrklinken-Zahnscheibe (weniger Zaehne = gröber, klickernder)
   try { const v = localStorage.getItem('miworu_snd'); if (v === '0') on = false; const h = +localStorage.getItem('miworu_hub'); if (HUBS.indexOf(h) >= 0 && localStorage.getItem('miworu_hub') !== null) hubN = h; } catch (e) {}
 
@@ -74,6 +74,12 @@ export const AUDIO = (() => {
         burst(tt, 0.03, 'bandpass', 1300 + Math.random() * 300, 2.2, 0.16 * a, d);
         const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(620, tt); o.frequency.exponentialRampToValueAtTime(380, tt + 0.03);
         const g = ctx.createGain(); g.gain.setValueAtTime(0.1 * a, tt); g.gain.exponentialRampToValueAtTime(0.0005, tt + 0.035); o.connect(g); g.connect(d); o.start(tt); o.stop(tt + 0.05); } }
+  }
+  function kitz(t) {   // Rehkitz ruft nach der Mutter: duenne, klagende Fieptoene (steigend-fallend), drei bis fuenf Rufe, werden leiser
+    const p = (Math.random() < 0.5 ? -1 : 1) * (0.35 + Math.random() * 0.55), d = pan(t, p, 0.5), n = 3 + (Math.random() * 3 | 0), f = 4800 + Math.random() * 900;
+    for (let i = 0; i < n; i++) { const tt = t + i * (0.95 + Math.random() * 0.35), a = 0.12 * (1 - i * 0.14), fi = f * (1 + (Math.random() - 0.5) * 0.06);
+      voice(tt, d, fi * 0.9, fi * 1.12, 0.2, 'sine', 5200, 3, a); voice(tt + 0.19, d, fi * 1.12, fi * 0.8, 0.3, 'sine', 5000, 3, a * 0.9);
+      voice(tt, d, fi * 1.8, fi * 2.1, 0.2, 'sine', 9000, 3, a * 0.12); }
   }
   function wildlife(t) {
     const k = Math.random(), p = (Math.random() < 0.5 ? -1 : 1) * (0.35 + Math.random() * 0.5);
@@ -231,6 +237,8 @@ export const AUDIO = (() => {
     if (uhuT <= 0) { uhuT = 60 + Math.random() * 100; uhu(t + 0.1); }
     specT -= dt * (!s.night && s.forest > 0.35 && s.day > 0.3 && s.rain < 0.5 ? 1 : 0);
     if (specT <= 0) { specT = 70 + Math.random() * 110; specht(t + 0.1); }
+    kitzT -= dt * (s.forest > 0.35 && s.day > 0.25 && s.rain < 0.6 ? 1 : 0);
+    if (kitzT <= 0) { kitzT = 90 + Math.random() * 130; kitz(t + 0.1); }
     if (birdT <= 0) { birdT = 5 + Math.random() * 10; if (s.forest > 0.35) bird(t + Math.random() * 0.3); }
   }
   // Einmalige Ereignisse
