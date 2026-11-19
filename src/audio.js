@@ -227,7 +227,7 @@ export const AUDIO = (() => {
     wildT -= dt * (s.forest > 0.35 && s.day > 0.25 && s.rain < 0.6 ? 1 : 0);
     if (wildT <= 0) { wildT = 70 + Math.random() * 110; wildlife(t + 0.1); }
     // Nachts: ab und zu ein Uhu; tagsüber im Wald: ferner Specht
-    uhuT -= dt * (s.night && s.forest > 0.2 ? 1 : 0);
+    uhuT -= dt * ((s.night || s.day < 0.35) && s.forest > 0.2 ? 1 : 0);
     if (uhuT <= 0) { uhuT = 60 + Math.random() * 100; uhu(t + 0.1); }
     specT -= dt * (!s.night && s.forest > 0.35 && s.day > 0.3 && s.rain < 0.5 ? 1 : 0);
     if (specT <= 0) { specT = 70 + Math.random() * 110; specht(t + 0.1); }
