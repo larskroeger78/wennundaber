@@ -23,7 +23,6 @@ import HEM from './routes/hemer.json';
 import HAG from './routes/hagen.json';
 import DOR from './routes/dortmund.json';
 import ALP from './routes/alpen.json';
-import { parseGpx, listRoutes, loadRoute, saveRoute, renameRoute, deleteRoute } from './gpx.js';
 import { LOCKED, hasPass, checkPass, redeem, payConfig, loadPayPal, payCreate, payCapture } from './unlock.js';
 const SURF_FILES=import.meta.glob('./routes/*.surf.json');   // Streckendaten werden pro Strecke nachgeladen (nicht mehr alle im Startpaket)
 // Strecke: Standard ist die Tour vom 5.10.2022 (komoot-GPX); ?route=mittwoch bzw. ?route=halde nur zum Entwickeln
@@ -31,10 +30,7 @@ const ROUTES={mittwoch:{data:MITT1,label:'Mittwochsrunde',surf:'mittwochsrunde',
 let RKEY=new URLSearchParams(location.search).get('route');
 let PAYWALL=null;   // gewuenschte, noch gesperrte Strecke: es startet MIWORU und das Freischalt-Fenster oeffnet sich
 if(LOCKED.indexOf(RKEY)>=0&&!(await checkPass())){PAYWALL=RKEY;RKEY=null;}
-const GPX_ID=RKEY&&RKEY.indexOf('gpx_')===0?RKEY.slice(4):null,CUSTOM=GPX_ID?loadRoute(GPX_ID):null;   // vom Nutzer hochgeladene GPX-Strecke (nur im Browser gespeichert)
-if(CUSTOM)ROUTES[RKEY]={data:CUSTOM,label:CUSTOM.name||'Eigene Strecke',surf:'__eigene',btn:CUSTOM.name,custom:true,nhn0:CUSTOM.nhn0||0,place:'Eigene GPX-Strecke'};
-// Doppelte aufraeumen: eigene GPX-Strecken mit dem Namen einer festen Strecke (Hagen, Iserlohn, Wuppertal, MIWORU) loeschen
-try{listRoutes().forEach(e=>{const nm=String(e.name||'').trim().toLowerCase();if(e.id!==GPX_ID&&['hagen','iserlohn','wuppertal','miworu','hemer','buellberg','dortmund','wupfeld','hagmoor','isehorst','hemstein','bölkamp','dorbach','wulfsberg','hasselkamp','isenhorst','hellmark','böckelstein','dornbach'].indexOf(nm)>=0)deleteRoute(e.id);});}catch(e){}
+const GPX_ID=null,CUSTOM=null;   // eigene GPX-Strecken gibt es nicht mehr
 const RT=RKEY==='halde'?null:(ROUTES[RKEY]||ROUTES.tour2);   // Standard: die Tour vom 5.10.2022; andere Strecken nur noch per URL (?route=halde|mittwoch) für Entwicklung
 const ROUTE=!!RT,MITT=RT?RT.data:MITT1;
 const MW=!!RT&&!RT.custom&&!!RT.dem;   // feste Strecken mit Geländedaten: Feinschliff (Unterwuchs, Wegzustand, Fassaden, Autos, Nightride, Nachbearbeitung)
@@ -2179,9 +2175,6 @@ function mineHtml(){   // Streckenliste: feste Strecken + eigene GPX-Strecken (Z
   const cur=GPX_ID?'gpx_'+GPX_ID:(!ROUTE?'halde':(ROUTES[RKEY]&&!ROUTES[RKEY].custom?RKEY:'tour2'));
   const base=[['tour2','MIWORU'],['wuppertal','Wupfeld'],['hagen','Hagmoor'],['iserlohn','Isehorst'],['hemer','Hemstein'],['buellberg','Bölkamp'],['dortmund','Dorbach'],['alpen','Sölden']];
   let h='<div class="mine"><div class="mh">Strecken</div>'+(hasPass()?'':'<div class="mr" style="grid-column:1/-1"><span class="mn">Weitere Strecken<small>mit einer kleinen Spende ab 1 € · oder Community-Code</small></span><button class="main" data-unlock="">Spenden</button></div>')+base.map(b=>'<div class="mr'+(b[0]===cur?' cur':'')+'"><span class="mn">'+b[1]+'</span>'+(b[0]===cur?'<span class="act">aktiv</span>':(LOCKED.indexOf(b[0])>=0&&!hasPass()?'<button class="sec" data-unlock="'+b[0]+'">🔒 Spenden</button>':'<button class="sec" data-route="'+b[0]+'">Fahren</button>'))+'</div>').join('');
-  const L=listRoutes();
-  if(L.length)h+='<div class="mh" style="margin-top:10px">Meine Strecken (GPX)</div>'+L.map(e=>'<div class="mr'+(e.id===GPX_ID?' cur':'')+'"><span class="mn">'+esc(e.name)+'<small>'+String(e.km).replace('.',',')+' km</small></span>'
-    +(e.id===GPX_ID?'<span class="act">aktiv</span>':'<button class="sec" data-gpx-go="'+e.id+'">Fahren</button>')+'<button class="sec" data-gpx-ren="'+e.id+'" title="Umbenennen">✎</button><button class="sec" data-gpx-del="'+e.id+'" title="Löschen">🗑</button></div>').join('');
   return h+'</div>';
 }
 let helpOpen=false;
@@ -2269,7 +2262,6 @@ function menu(title,sub){
       '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?(IOS?'iPad: Seite in der App Bluefy öffnen (Safari kann kein Bluetooth).':'Bluetooth nur in Chrome/Edge (nicht Safari).'):'D100 oder KICKR einschalten, dann „Trainer koppeln“.')+(bleMsg?'<br>'+bleMsg:'')+''+(click.connected?'<br>'+click.name+' verbunden'+'<br>Click: kurz drücken = schwerer · gedrückt halten = leichter':'')+'</div>'+
     '<div class="help" style="font-size:11px;opacity:.6">© OpenStreetMap-Mitwirkende · © Geobasis NRW · Datenquelle: Land Tirol - data.tirol.gv.at (CC BY 4.0) · <a href="/rechtliches.html" target="_blank" rel="noopener" style="color:inherit">Rechtliches</a></div>'+
     '</div></div>';
-  const go=id=>{const q='?route=gpx_'+id;const same=location.search===q;location.href=location.pathname+q+'#go';if(same)location.reload();};
   document.getElementById('dif').onclick=()=>{setDiff(diff%4+1);menu(title,sub);};
   document.getElementById('qual').onclick=()=>{cycleQ();menu(title,sub);};
   document.getElementById('snd').onclick=()=>{AUDIO.toggle();menu(title,sub);};
@@ -2277,11 +2269,6 @@ function menu(title,sub){
   document.getElementById('nghb').onclick=()=>{toggleNight();menu(title,sub);};
   document.getElementById('hubb').onclick=()=>{AUDIO.cycleHub();menu(title,sub);};
   document.getElementById('grpb').onclick=()=>{const c=window.prompt('Gruppencode für die gemeinsame Fahrt (alle Freunde geben denselben Code ein, leer = aus):',GRP_CODE);if(c===null)return;GRP_CODE=c.trim().toLowerCase().replace(/[^a-z0-9äöüß]+/g,'').slice(0,24);try{localStorage.setItem('miworu_group',GRP_CODE);}catch(_){}grpJoin();menu(title,sub);};
-  document.querySelectorAll('[data-gpx-go]').forEach(b=>b.onclick=()=>go(b.getAttribute('data-gpx-go')));
-  document.querySelectorAll('[data-gpx-ren]').forEach(b=>b.onclick=()=>{const id=b.getAttribute('data-gpx-ren'),e=listRoutes().find(x=>x.id===id),nm=window.prompt('Neuer Name:',e?e.name:'');if(nm&&nm.trim()){renameRoute(id,nm);menu(title,sub);}});
-  document.querySelectorAll('[data-gpx-del]').forEach(b=>b.onclick=()=>{const id=b.getAttribute('data-gpx-del'),e=listRoutes().find(x=>x.id===id);
-    if(!window.confirm('Strecke „'+(e?e.name:'')+'“ wirklich löschen?'))return;
-    deleteRoute(id);if(GPX_ID===id){location.href=location.pathname+'#go';location.reload();}else menu(title,sub);});
   document.getElementById('mode').onclick=()=>{inputMode=inputMode==='keyboard'?'off':'keyboard';menu(title,sub);};
   document.querySelectorAll('[data-unlock]').forEach(b=>b.onclick=()=>showUnlock(b.getAttribute('data-unlock')||null));
   document.querySelectorAll('[data-route]').forEach(b=>b.onclick=()=>{const r=b.getAttribute('data-route');location.href=location.pathname+(r?'?route='+r:'')+'#go';});
