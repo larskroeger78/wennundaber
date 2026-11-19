@@ -449,7 +449,7 @@ function applyQ(){
 applyQ();
 function cycleQ(){quality=quality%3+1;try{localStorage.setItem('miworu_q',quality);}catch(_){}applyQ();fxSetup();toastEl.textContent='Grafik: '+QN[quality];toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}
 // Nachbearbeitung (nur Stufe "Hoch"): leichtes Bloom, Filmton, Vignette. ?fx=0 schaltet aus, ?fx=1 erzwingt.
-function fxWanted(){let f=null;try{f=new URLSearchParams(location.search).get('fx');}catch(e){}if(f==='0')return false;if(f==='1')return true;return quality===3&&MW;}
+function fxWanted(){let f=null;try{f=new URLSearchParams(location.search).get('fx');}catch(e){}if(f==='0')return false;if(f==='1')return true;return quality===3&&(MW||BK);}
 function fxSetup(){
   if(!fxWanted()){FXon=false;return;}
   if(!composer){
@@ -461,13 +461,13 @@ function fxSetup(){
       fragmentShader:`uniform sampler2D tDiffuse;uniform float exposure,vig,spd,ray;uniform vec2 sunUV;uniform vec3 rayCol;varying vec2 vUv;
         vec3 RRT(vec3 v){vec3 a=v*(v+0.0245786)-0.000090537;vec3 b=v*(0.983729*v+0.4329510)+0.238081;return a/b;}
         void main(){vec3 c=texture2D(tDiffuse,vUv).rgb;
-          if(spd>0.01){vec2 d2=vUv-0.5;vec3 ab=c;for(int k=1;k<=5;k++)ab+=texture2D(tDiffuse,vUv-d2*spd*0.045*float(k)).rgb;c=ab/6.0;}
-          if(ray>0.001){vec2 dv=sunUV-vUv;vec3 ac=vec3(0.0);float w=1.0;for(int i=0;i<14;i++){vec2 q=vUv+dv*(float(i)+0.5)/14.0*0.9;vec3 sm=texture2D(tDiffuse,q).rgb;float L=dot(sm,vec3(0.33,0.5,0.17));ac+=vec3(smoothstep(0.62,1.0,L))*w;w*=0.93;}c+=rayCol*ac*ray*(1.0-clamp(length(dv),0.0,1.0)*0.5)*0.11;}
+          if(spd>0.05){vec2 d2=vUv-0.5;vec3 ab=c;for(int k=1;k<=2;k++)ab+=texture2D(tDiffuse,vUv-d2*spd*0.04*float(k)).rgb;c=ab/3.0;}
+          if(ray>0.001){vec2 dv=sunUV-vUv;vec3 ac=vec3(0.0);float w=1.0;for(int i=0;i<10;i++){vec2 q=vUv+dv*(float(i)+0.5)/10.0*0.9;vec3 sm=texture2D(tDiffuse,q).rgb;float L=dot(sm,vec3(0.33,0.5,0.17));ac+=vec3(smoothstep(0.62,1.0,L))*w;w*=0.9;}c+=rayCol*ac*ray*(1.0-clamp(length(dv),0.0,1.0)*0.5)*0.15;}
           c*=exposure*1.03/0.6;
           c=mat3(vec3(0.59719,0.07600,0.02840),vec3(0.35458,0.90834,0.13383),vec3(0.04823,0.01566,0.83777))*c;c=RRT(c);
           c=mat3(vec3(1.60475,-0.10208,-0.00327),vec3(-0.53108,1.10813,-0.07276),vec3(-0.07367,-0.00605,1.07602))*c;c=clamp(c,0.0,1.0);
           float l=dot(c,vec3(0.2126,0.7152,0.0722));c=mix(vec3(l),c,1.06);c=pow(c,vec3(0.9))+0.01;   // leichte Saettigung und Kontrast
-          vec2 d=vUv-0.5;c*=1.0-(vig+spd*0.5)*dot(d,d)*2.2;
+          vec2 d=vUv-0.5;c*=1.0-(vig+spd*0.3)*dot(d,d)*2.2;
           c=mix(pow(clamp(c,0.0,1.0),vec3(0.41666))*1.055-0.055,c*12.92,vec3(lessThanEqual(c,vec3(0.0031308))));
           gl_FragColor=vec4(c,1.0);}`});
     composer.addPass(FXP);composer.setPixelRatio(renderer.getPixelRatio());composer.setSize(w,h);
@@ -2417,7 +2417,7 @@ function updateFx(dt,now){
     DUST.sz[i]=0.25+u*0.9;DUST.al[i]=0.4*Math.pow(1-u,1.4);}
   DUST.p.visible=any;if(any){DUST.g.attributes.position.needsUpdate=true;DUST.g.attributes.aSize.needsUpdate=true;DUST.g.attributes.aAlpha.needsUpdate=true;}
   // Tempo: Randunschaerfe und Vignette, Sonnenstrahlen (nur Stufe Hoch)
-  SPD+=((run?sstep(9,19,st.v):0)-SPD)*Math.min(1,dt*2.5);
+  SPD+=((run?sstep(12,22,st.v):0)-SPD)*Math.min(1,dt*2.5);
   if(FXon&&FXP){const U=FXP.uniforms;U.spd.value=SPD;
     camera.getWorldDirection(_gd);const fc=_gd.dot(SUN);let ray=0;
     if(BK&&fc>0.12&&!NIGHT&&WX!==2){_gs.copy(c).addScaledVector(SUN,1000).project(camera);U.sunUV.value.set(_gs.x*0.5+0.5,_gs.y*0.5+0.5);
