@@ -3,7 +3,7 @@
 export const AUDIO = (() => {
   let ctx = null, master = null, noise = null, on = true, vol = 0.8, ok = false;
   const N = {};              // Dauer-Klaenge: Name -> {g: GainNode, f: BiquadFilter}
-  let rough = 0, tyreBuf = null, hubBuf = null, splashBuf = null, deerBuf = null, boarBuf = null, wildT = 50 + Math.random() * 60, birdT = 3, clickAcc = 0, stoneAcc = 0, rainAcc = 0, lastSurf = 0, brakeG = null;
+  let rough = 0, tyreBuf = null, hubBuf = null, splashBuf = null, deerBuf = null, boarBuf = null, wildT = 50 + Math.random() * 60, uhuT = 20 + Math.random() * 40, specT = 25 + Math.random() * 50, birdT = 3, clickAcc = 0, stoneAcc = 0, rainAcc = 0, lastSurf = 0, brakeG = null;
   let hubN = 72; const HUBS = [0, 16, 32, 56, 72];   // Freilauf: aus oder Zaehnezahl der Sperrklinken-Zahnscheibe (weniger Zaehne = gröber, klickernder)
   try { const v = localStorage.getItem('miworu_snd'); if (v === '0') on = false; const h = +localStorage.getItem('miworu_hub'); if (HUBS.indexOf(h) >= 0 && localStorage.getItem('miworu_hub') !== null) hubN = h; } catch (e) {}
 
@@ -55,6 +55,25 @@ export const AUDIO = (() => {
     const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = form; bp.Q.value = q;
     const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + dur * 0.12); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(bp); bp.connect(g); g.connect(dst); o.start(t); o.stop(t + dur + 0.03);
+  }
+  function uhu(t) {   // Uhu in der Ferne: tiefes, weiches "huu - huuu", manchmal zweimal
+    const p = (Math.random() < 0.5 ? -1 : 1) * (0.4 + Math.random() * 0.5), d = pan(t, p, 0.55), f = 300 + Math.random() * 50, n = Math.random() < 0.5 ? 2 : 1;
+    for (let i = 0; i < n; i++) { const tt = t + i * 5.5;
+      chirp0(tt, d, f * 1.04, f * 0.97, 0.3, 0.2); chirp0(tt + 0.62, d, f * 1.02, f * 0.9, 0.85, 0.24);
+      chirp0(tt, d, f * 2.08, f * 1.9, 0.3, 0.04); chirp0(tt + 0.62, d, f * 2.04, f * 1.8, 0.85, 0.05); }
+  }
+  function chirp0(t, dst, f0, f1, dur, gain) {   // weicher Sinuston mit langsamem Ein- und Ausklingen, auf beliebigen Ausgang
+    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(f0, t); o.frequency.linearRampToValueAtTime(f1, t + dur);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(gain, t + dur * 0.3); g.gain.linearRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(dst); o.start(t); o.stop(t + dur + 0.03);
+  }
+  function specht(t) {   // Buntspecht trommelt weit entfernt: 1 bis 2 Wirbel aus schnellen, trockenen Schlaegen
+    const p = (Math.random() < 0.5 ? -1 : 1) * (0.4 + Math.random() * 0.5), d = pan(t, p, 0.4), n = Math.random() < 0.4 ? 2 : 1;
+    for (let r = 0; r < n; r++) { const t0 = t + r * (2 + Math.random() * 1.5), hits = 14 + (Math.random() * 6 | 0), dt = 0.034 + Math.random() * 0.006;
+      for (let i = 0; i < hits; i++) { const tt = t0 + i * dt, a = 0.9 - 0.25 * (i / hits);
+        burst(tt, 0.03, 'bandpass', 1300 + Math.random() * 300, 2.2, 0.16 * a, d);
+        const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(620, tt); o.frequency.exponentialRampToValueAtTime(380, tt + 0.03);
+        const g = ctx.createGain(); g.gain.setValueAtTime(0.1 * a, tt); g.gain.exponentialRampToValueAtTime(0.0005, tt + 0.035); o.connect(g); g.connect(d); o.start(tt); o.stop(tt + 0.05); } }
   }
   function wildlife(t) {
     const k = Math.random(), p = (Math.random() < 0.5 ? -1 : 1) * (0.35 + Math.random() * 0.5);
@@ -207,6 +226,11 @@ export const AUDIO = (() => {
     // Wild: ab und zu Wildschwein-Grunzen, Rehbock-Schrecken oder Kitz-Fiepen (selten, nur im Wald, am Tag und Abend)
     wildT -= dt * (s.forest > 0.35 && s.day > 0.25 && s.rain < 0.6 ? 1 : 0);
     if (wildT <= 0) { wildT = 70 + Math.random() * 110; wildlife(t + 0.1); }
+    // Nachts: ab und zu ein Uhu; tagsüber im Wald: ferner Specht
+    uhuT -= dt * (s.night && s.forest > 0.2 ? 1 : 0);
+    if (uhuT <= 0) { uhuT = 60 + Math.random() * 100; uhu(t + 0.1); }
+    specT -= dt * (!s.night && s.forest > 0.35 && s.day > 0.3 && s.rain < 0.5 ? 1 : 0);
+    if (specT <= 0) { specT = 70 + Math.random() * 110; specht(t + 0.1); }
     if (birdT <= 0) { birdT = 5 + Math.random() * 10; if (s.forest > 0.35) bird(t + Math.random() * 0.3); }
   }
   // Einmalige Ereignisse
