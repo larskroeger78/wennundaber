@@ -1,8 +1,6 @@
 # Wenn und Aber Bike Crew – The Aber Version
 
 Enduro-Browserspiel für den Rollentrainer (Van Rysel D100, Anbindung folgt) mit Tastaturmodus zum Testen.
-Erste Strecke: Halde Großes Holz in Bergkamen – asphaltierter Uphill, Zwischenplateau mit blauem Leuchtmarker,
-Gipfelplateau mit Leuchtstab, Abfahrt über den Trail „Highway“.
 
 ## Starten
 
