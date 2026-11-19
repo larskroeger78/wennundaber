@@ -217,9 +217,9 @@ export const AUDIO = (() => {
       const lvl = N.wind.g.gain.value + N.asph.g.gain.value + N.road.g.gain.value + N.tyre.g.gain.value + (N.tyreS ? N.tyreS.g.gain.value * 0.9 : 0) + (surf !== 0 ? 0.06 * Math.min(1, v / 10) : 0), mask = 1 - 0.62 * Math.min(1, lvl / 0.28);   // je mehr Wind und Abrollgeraeusch, desto staerker wird der Freilauf ueberdeckt (nie ganz weg)
       if (hubBuf && N.hubS) {   // Aufnahme: 16 Zaehne bei ca. 8 m/s; Abspielgeschwindigkeit = Zaehne/16 x Tempo/8
         N.hubS.src.playbackRate.setTargetAtTime(Math.max(0.12, Math.min(6, (hubN / 16) * (v / 8))), t, 0.04);
-        set(N.hubS, 0.7 * mask * coast * (0.5 + 0.5 * Math.min(1, v / 9)), dt, coast ? 14 : 22); set(N.hub, 0, dt, 30);
+        set(N.hubS, 0.49 * mask * coast * (0.5 + 0.5 * Math.min(1, v / 9)), dt, coast ? 14 : 22); set(N.hub, 0, dt, 30);
       } else {
-      set(N.hub, 0.32 * mask * coast * (0.05 + 0.07 * Math.min(1, v / 9)) * (1 + 0.5 * (1 - k)), dt, coast ? 14 : 22);
+      set(N.hub, 0.224 * mask * coast * (0.05 + 0.07 * Math.min(1, v / 9)) * (1 + 0.5 * (1 - k)), dt, coast ? 14 : 22);
       if (coast && f < 75) { clickAcc += dt * f; let n = clickAcc | 0; clickAcc -= n; n = Math.min(n, 4); while (n--) burst(t + Math.random() * dt, 0.012, 'bandpass', 2400 + 1600 * k, 4, (0.03 + 0.03 * (1 - k)) * 0.6 * mask); } }}
     // Bremse: hohes Quietschen bei Tempo
     set(brakeG, s.brake && v > 1.5 ? 0.025 * Math.min(1, v / 8) : 0, dt, 10);
