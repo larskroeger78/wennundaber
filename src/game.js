@@ -2241,6 +2241,34 @@ function showHelp(){
   '</div></div>';
   document.getElementById('hback').onclick=()=>{helpOpen=false;if(lastMenu)menu(lastMenu[0],lastMenu[1]);};
 }
+function showReport(){   // Problem melden: technische Daten werden automatisch angehaengt, Meldung geht ueber /api/report in eine Tabelle
+  helpOpen=true;ov.style.display='flex';
+  const rl=(ROUTES[RKEY]||ROUTES.tour2).label;
+  ov.innerHTML='<div class="intro"><div class="panel unlock"><div class="by">by Wenn &amp; Aber Bike Crew</div><h1>Problem melden</h1>'+
+    '<div class="help">Du hast einen technischen Fehler gefunden? Beschreibe kurz, was passiert ist. Strecke, Streckenposition, Gerät, Grafikstufe und Trainerstatus werden automatisch mitgesendet.</div>'+
+    '<div class="ucode"><div class="uh">Art des Problems</div><select id="rcat" class="rsel"><option>Trainer/Bluetooth</option><option>Grafik/Ruckeln</option><option>Strecke/Gelände</option><option>Sound</option><option selected>Sonstiges</option></select></div>'+
+    '<div class="ucode"><div class="uh">Nachricht</div><textarea id="rmsg" class="rsel" rows="5" maxlength="2000" placeholder="Was ist passiert? Wo? Was hast du vorher gemacht?"></textarea></div>'+
+    '<div class="ucode"><div class="uh">E-Mail für Rückfragen (freiwillig)</div><input id="rmail" type="text" class="rsel" inputmode="email" autocomplete="off" maxlength="120"></div>'+
+    '<input id="rhp" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;opacity:0">'+
+    '<div class="help" style="font-size:12px;opacity:.7">Die Angaben werden nur zur Fehlerbehebung gespeichert, die E-Mail nur für Rückfragen. Mehr unter <a href="/rechtliches.html#datenschutz" target="_blank" rel="noopener" style="color:inherit">Datenschutz</a>.</div>'+
+    '<div class="help" id="rst2"></div>'+
+    '<div class="btns"><button id="rsend" class="main">Senden</button><button id="rback" class="sec">← Zurück</button></div></div></div>';
+  ['rmsg','rmail','rhp','rcat'].forEach(id=>{const e=document.getElementById(id);e.onkeydown=e.onkeyup=e.onkeypress=ev=>ev.stopPropagation();});
+  document.getElementById('rback').onclick=()=>{helpOpen=false;if(lastMenu)menu(lastMenu[0],lastMenu[1]);};
+  const sb=document.getElementById('rsend'),stt=document.getElementById('rst2');
+  sb.onclick=async()=>{
+    const msg=document.getElementById('rmsg').value.trim();
+    if(msg.length<10){stt.textContent='Bitte beschreibe das Problem etwas genauer.';return;}
+    sb.disabled=true;stt.textContent='Wird gesendet …';
+    const meta={route:rl,pos:(st.pos/1000).toFixed(2).replace('.',',')+' km',device:(IOS?'iPad/iPhone':'Desktop')+' · '+(BLE_OK?'Web Bluetooth':'ohne Bluetooth')+' · '+navigator.userAgent.slice(0,110),gfx:QN[quality],trainer:trainer.connected?trainer.name:'nicht verbunden'};
+    try{
+      const r=await fetch('/api/report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cat:document.getElementById('rcat').value,msg,contact:document.getElementById('rmail').value.trim(),hp:document.getElementById('rhp').value,meta})});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(d.error||'Senden fehlgeschlagen.');
+      stt.textContent='Danke! Deine Meldung ist angekommen.';document.getElementById('rmsg').value='';setTimeout(()=>{helpOpen=false;if(lastMenu)menu(lastMenu[0],lastMenu[1]);},1600);
+    }catch(e){stt.textContent=(e&&e.message)||'Senden fehlgeschlagen.';sb.disabled=false;}
+  };
+}
 function showThanks(code,next){   // nach der Spende: Dank und Freischaltcode zum Notieren (fuer weitere Geraete: unter Community-Code eingeben)
   const c=typeof code==='string'?code:'';
   ov.innerHTML='<div class="intro"><div class="panel unlock"><div class="by">by Wenn &amp; Aber Bike Crew</div><h1>Vielen Dank!</h1>'+
@@ -2314,7 +2342,7 @@ function menu(title,sub){
       (sub?'<div class="res">'+sub+'</div>':'')+
       '<div class="route">'+(ROUTE?RT.label:TRACK_NAME)+'</div>'+
       '<div class="stats"><div><b>'+km+'</b><i>km</i></div><div><b>'+HM+'</b><i>Höhenmeter</i></div></div>'+
-      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused||SAVED?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="fsb" class="sec">'+(isFS()?'Vollbild beenden (V)':'Vollbild (V)')+'</button><button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(()=>{const n=click.devs.filter(x=>!x.lost).length;return n>=2?'Zwift Click: beide Hälften ✓':n===1&&click.connected?'Zwift Click ✓ · zweite Hälfte koppeln (stabiler)':(click.devs.length?'Zwift Click: getrennt – neu koppeln':'Zwift Click koppeln');})()+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button>'+'<button id="dif" class="sec">Schwierigkeit: '+DIFFN[diff]+'</button><button id="qual" class="sec">Grafik: '+QN[quality]+'</button><button id="snd" class="sec">Sound: '+(AUDIO.on?'an':'aus')+'</button><button id="wxb" class="sec">Wetter: '+WXL()+'</button><button id="nghb" class="sec" style="display:'+(MW?'':'none')+'">Nightride: '+(NIGHT?'an':'aus')+'</button><button id="hubb" class="sec">Freilauf: '+(AUDIO.hub?AUDIO.hub+' Zähne':'aus')+'</button><button id="grpb" class="sec">'+(GRP_CODE?'Gruppe: '+GRP_CODE:'Gruppenfahrt')+'</button><button id="hlp" class="sec">So fährst du</button></div>'+mineHtml()+
+      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused||SAVED?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="fsb" class="sec">'+(isFS()?'Vollbild beenden (V)':'Vollbild (V)')+'</button><button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(()=>{const n=click.devs.filter(x=>!x.lost).length;return n>=2?'Zwift Click: beide Hälften ✓':n===1&&click.connected?'Zwift Click ✓ · zweite Hälfte koppeln (stabiler)':(click.devs.length?'Zwift Click: getrennt – neu koppeln':'Zwift Click koppeln');})()+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button>'+'<button id="dif" class="sec">Schwierigkeit: '+DIFFN[diff]+'</button><button id="qual" class="sec">Grafik: '+QN[quality]+'</button><button id="snd" class="sec">Sound: '+(AUDIO.on?'an':'aus')+'</button><button id="wxb" class="sec">Wetter: '+WXL()+'</button><button id="nghb" class="sec" style="display:'+(MW?'':'none')+'">Nightride: '+(NIGHT?'an':'aus')+'</button><button id="hubb" class="sec">Freilauf: '+(AUDIO.hub?AUDIO.hub+' Zähne':'aus')+'</button><button id="grpb" class="sec">'+(GRP_CODE?'Gruppe: '+GRP_CODE:'Gruppenfahrt')+'</button><button id="hlp" class="sec">So fährst du</button><button id="rep" class="sec">Problem melden</button></div>'+mineHtml()+
       '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?(IOS?'iPad: Seite in der App Bluefy öffnen (Safari kann kein Bluetooth).':'Bluetooth nur in Chrome/Edge (nicht Safari).'):'D100 oder KICKR einschalten, dann „Trainer koppeln“.')+(bleMsg?'<br>'+bleMsg:'')+''+(click.connected?'<br>'+click.name+' verbunden'+'<br>Click: kurz drücken = schwerer · gedrückt halten = leichter':'')+'</div>'+
     '<div class="help" style="font-size:11px;opacity:.6">© 2026 Lars Kröger. Alle Rechte vorbehalten. Kopieren oder Weiterverwenden ohne Genehmigung untersagt.<br>© OpenStreetMap-Mitwirkende · © Geobasis NRW · Datenquelle: Land Tirol - data.tirol.gv.at (CC BY 4.0) · <a href="/rechtliches.html" target="_blank" rel="noopener" style="color:inherit">Rechtliches</a></div>'+
     '</div></div>';
@@ -2331,6 +2359,7 @@ function menu(title,sub){
   document.getElementById('fsb').onclick=()=>{toggleFS();setTimeout(()=>{const b=document.getElementById('fsb');if(b)b.textContent=isFS()?'Vollbild beenden (V)':'Vollbild (V)';},400);};
   document.getElementById('trn').onclick=async()=>{bleMsg='';if(bleGuard())return;try{await trainer.connect();}catch(e){bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Trainer: '+(e&&e.message||e);}menu(title,sub);};
   document.getElementById('hlp').onclick=showHelp;
+  document.getElementById('rep').onclick=showReport;
   document.getElementById('clk').onclick=async()=>{bleMsg='';if(bleGuard())return;try{await click.connect();}catch(e){click.dbg('Koppeln fehlgeschlagen: '+(e&&e.name||'')+' '+(e&&e.message||e));bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Click: '+(e&&e.message||e);}menu(title,sub);};
   document.getElementById('go').onclick=paused?resume:(SAVED?startSaved:start);
   const rst=document.getElementById('rst');if(rst)rst.onclick=start;
