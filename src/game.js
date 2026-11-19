@@ -1026,10 +1026,10 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
   }
   function addTree(x,z,scale){
     let H=(7+rnd()*7)*scale,cw=(3.6+rnd()*3.4)*scale,ch=H*(0.5+rnd()*0.18);
-    if(SPEC==='fir'){H=(15+rnd()*11)*scale;cw=(3.2+rnd()*2.0)*scale;ch=Math.max(H*0.3,Math.min(H*(0.84+rnd()*0.08),H-4.3));}   // Nadeln erst ab ca. 4 m Hoehe: man faehrt unter den Aesten durch
+    if(SPEC==='fir'){H=(15+rnd()*11)*scale;cw=(3.2+rnd()*2.0)*scale;ch=Math.max(H*0.25,Math.min(H*(0.84+rnd()*0.08),H-8.3));}   // Nadeln erst ab ca. 8 m Hoehe: man faehrt weit unter den Aesten durch
     else if(SPEC==='birch'){H=(9+rnd()*6)*scale;cw=(2.8+rnd()*2.2)*scale;ch=H*(0.5+rnd()*0.15);}
     if(SPEC==='fir'&&nearest(allHash,x,z)&&nD<10)cw*=0.7;
-    if(nearest(allHash,x,z)&&(ROUTE?SURF[nI]===2:nI>=iTrail-3)&&nD<8){H=Math.max(H,9+rnd()*3);ch=Math.min(ch,H-4.8);}
+    if(nearest(allHash,x,z)&&(ROUTE?SURF[nI]===2:nI>=iTrail-3)&&nD<8){H=Math.max(H,9+rnd()*3);ch=Math.min(ch,H-(SPEC==='fir'?8.8:4.8));}
     trees.push({x:x,y:gnd(x,z)-0.2,z:z,H:H,cw:cw,ch:ch,rad:(SPEC==='birch'?0.07+rnd()*0.07:SPEC==='fir'?0.16+rnd()*0.12:0.11+rnd()*0.14),rot:rnd()*6.283});
   }
   if(!ROUTE)for(let gx=-560;gx<=560;gx+=7)for(let gz=-560;gz<=560;gz+=7){
