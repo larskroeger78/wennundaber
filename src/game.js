@@ -376,7 +376,8 @@ renderer.outputEncoding=THREE.sRGBEncoding;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure=0.95;
 renderer.shadowMap.enabled=true;
-renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.shadowMap.autoUpdate=false;   // Schattenkarte beim Fahren nur jedes 2. Bild neu (sieht man nicht, spart viel)
+let shN=0;
 const scene=new THREE.Scene();
 const HORIZON=new THREE.Color(0.62,0.74,0.86);
 scene.background=HORIZON;
@@ -432,11 +433,12 @@ let WXLIVE=false,WXLIVEOK=false;   // Wetter: nur Aus oder Live (Open-Meteo zur 
 try{const q=new URLSearchParams(location.search).get('wetter');if(q!==null&&!isNaN(+q))WX=clamp(+q|0,0,2);else WXLIVE=localStorage.getItem('miworu_wxl')==='1';}catch(e){}
 // Qualitaetsstufen (Taste Q): Aufloesung, Schattenkarte
 const TILES=[];const TREE_FAR=[0,300,560,950];let GRS=null;   // Sichtweite fuer Baum-/Buschkacheln je Qualitaetsstufe (m)
+let DRS=1;   // dynamische Aufloesung: faellt bei zu niedriger Bildrate in kleinen Schritten, steigt wieder, wenn Luft ist
 const QN={1:'Niedrig',2:'Mittel',3:'Hoch'};let quality=2;try{quality=clamp(+localStorage.getItem('miworu_q')||2,1,3);}catch(e){}
 const QE=()=>quality>1?3:1;   // Mittel und Hoch teilen die Aufloesung/Sichtweite/Schatten der frueheren Stufe Hoch (lief auf dem iPad gut); Hoch fuegt nur die Nachbearbeitung hinzu
 function applyQ(){
   const dpr=window.devicePixelRatio||1;
-  renderer.setPixelRatio([0,Math.min(dpr,0.7),Math.min(dpr,1.25),Math.max(Math.min(dpr,2),1.5)][QE()]);   // Niedrig bewusst weich, Hoch mit Supersampling
+  renderer.setPixelRatio([0,Math.min(dpr,0.7),Math.min(dpr,1.25),Math.max(Math.min(dpr,2),1.5)][QE()]*DRS);   // Niedrig bewusst weich, Hoch mit Supersampling
   scene.fog.density=[0,0.0009,0.00055,0.0004][QE()]*[1,5,2.2][WX]*(NIGHT?1.35:1)*((RT&&RT.alp)?0.32:1);                                                        // Niedrig: naeher Dunst, spart Fernsicht
   sun.castShadow=quality>1&&!NIGHT;if(NT.lamp)NT.lamp.castShadow=NIGHT&&quality>1;if(GRS)GRS.visible=quality>1;                                                       // Niedrig: keine Schatten, kein Gras
   const sz=[0,1024,2048,4096][QE()];
@@ -2026,8 +2028,9 @@ const bleChange=()=>{if(trainer.connected)inputMode='trainer';else if(inputMode=
 trainer.onChange=bleChange;click.onChange=bleChange;   // nur noch Lenkeransicht (Cockpit)
 const CK_STAND=[1,3,0,900,30];const COCK=1;
 // Neuer Lenker: leichtes Filmkorn ueber dem Lenker und ein sich drehender Stollenreifen (Draufsicht), beides deckungsgleich mit dem Lenkerbild
-const CKT=document.createElement('div'),CKG=document.createElement('div'),CKM=document.createElement('div'),CKS=document.createElement('div'),CKD=document.createElement('div');
-[CKT,CKM,CKS,CKD,CKG].forEach(d=>{d.className='ckfx';d.style.display='none';document.getElementById('cockpit').after(d);});
+const CKT=document.createElement('div'),CKG=document.createElement('div'),CKM=document.createElement('div'),CKS=document.createElement('div'),CKD=document.createElement('div'),CKA=document.createElement('div'),CKH=document.createElement('div'),CKW=document.createElement('div');
+CKW.className='ckfx';CKW.id='ckwrap';CKW.style.display='none';document.getElementById('cockpit').after(CKW);
+[CKA,CKH,CKT,CKM,CKS,CKD,CKG].forEach(d=>{d.className='ckc';CKW.appendChild(d);});CKA.id='ckao';CKH.id='ckhaze';
 const FORK=document.createElement('img');FORK.id='cockfork';FORK.className='c2';FORK.src='/assets/ui/cockpit2.png';FORK.draggable=false;FORK.style.display='none';document.getElementById('cockpit').after(FORK);
 CKT.id='cktire';CKG.id='ckgrain';CKM.id='ckmud';CKS.id='cksheen';CKD.id='ckdapple';
 {const c=document.createElement('canvas');c.width=20;c.height=14;const g=c.getContext('2d');   // Stollenmuster: dunkle Klotzchen mit heller Kante
@@ -2059,8 +2062,7 @@ function updateCockFx(now,deg){
   CKDIRT+=(want-CKDIRT)*Math.min(1,dt*(want>CKDIRT?1.6:0.12))*(v>0.5?1:0.2);
   const k=Math.max(0.3,1-v/16);                 // bei hohem Tempo weichere, verwischte Stollen
   const bgp='0 '+(-(CKPH%14)*0.11).toFixed(3)+'vw';
-  CKT.style.transform=CKG.style.transform=CKM.style.transform=CKS.style.transform=CKD.style.transform=tf;
-  CKT.style.display=CKG.style.display=CKM.style.display=CKS.style.display=CKD.style.display='block';
+  CKW.style.transform=tf;CKW.style.display='block';
   CKT.style.backgroundPosition=bgp;CKT.style.opacity=k.toFixed(2);
   CKM.style.backgroundPosition='0 '+(-(CKPH%64)*0.11*0.5).toFixed(2)+'vw';CKM.style.opacity=Math.min(0.92,CKDIRT*1.35).toFixed(2);
   // Spiegelungen / Licht: Himmelsreflex wandert mit Lenkung und Blickrichtung zur Sonne, Blaetterdach wirft Flecken, Nacht und Nebel daempfen
@@ -2071,6 +2073,13 @@ function updateCockFx(now,deg){
   CKS.style.backgroundPosition=gx.toFixed(1)+'% 0';CKS.style.opacity=Math.min(0.85,glint).toFixed(2);
   CKD.style.backgroundPosition=((now*0.012*(0.4+v*0.35))%128).toFixed(1)+'px '+((now*0.006)%128).toFixed(1)+'px';
   CKD.style.opacity=(forest*day*0.55*(0.4+Math.min(1,v/5)*0.6)).toFixed(2);
+  // Einpassen ins Spielbild: Helligkeit/Saettigung/Waerme folgen Wald, Nebel, Regen, Tageszeit; Dunst in Nebelfarbe, Ambient-Abdunklung unten
+  {const fo=NIGHT?0:Math.min(1,CKENV.fd||0),bl=NIGHT?0.55:Math.max(0.6,1-0.2*fo-0.07*WXS.fog-0.06*WXS.rain-(1-day)*0.25),
+    sep=NIGHT?0:Math.max(0,Math.min(1,(0.45-SUN.y)/0.35))*day*0.3,sat=NIGHT?0.85:1-0.12*WXS.fog-0.1*fo,
+    fk='brightness('+bl.toFixed(2)+') saturate('+sat.toFixed(2)+') sepia('+sep.toFixed(2)+')';
+    if(fk!==CKENV.fk){CKENV.fk=fk;cockpitEl.style.filter=fk+' drop-shadow(0 6px 10px rgba(0,0,0,.35))';FORK.style.filter=fk;}
+    const hz=Math.max(0,Math.min(0.4,0.05+0.3*WXS.fog+0.1*(1-day))).toFixed(2);if(hz!==CKENV.hz){CKENV.hz=hz;CKH.style.opacity=hz;CKH.style.backgroundColor='#'+scene.fog.color.getHexString();}
+    const fxv=quality>1?'block':'none';if(fxv!==CKENV.fxv){CKENV.fxv=fxv;CKS.style.display=CKD.style.display=CKG.style.display=fxv;}}
   if(now-CKGT>70){CKGT=now;CKGI=(CKGI+1)%4;CKG.style.backgroundImage=GRAINS[CKGI];CKG.style.backgroundPosition=((Math.random()*128)|0)+'px '+((Math.random()*128)|0)+'px';}
 }
 function applyCockpit(){const el=document.getElementById('cockpit');el.src='/assets/ui/cockpit2.png';el.classList.add('c2');}
@@ -2110,6 +2119,11 @@ window.addEventListener('keydown',e=>{
   if(e.key==='-'||e.key==='PageDown')shift(-1);
 });
 window.addEventListener('keyup',e=>{keys[e.key]=false;});
+// Handy: kleiner Pfeil zum Vorwaertsfahren (gedrueckt halten = treten), sonst blendet die Oberflaeche alles Stoerende aus
+{const PH=window.matchMedia&&matchMedia('(pointer:coarse)').matches&&Math.min(screen.width,screen.height)<=520;
+ if(PH){document.body.classList.add('phone');const g=document.getElementById('goBtn');
+  const on=e=>{e.preventDefault();keys.ArrowUp=true;g.classList.add('on');try{g.setPointerCapture(e.pointerId);}catch(_){}},off=()=>{keys.ArrowUp=false;g.classList.remove('on');};
+  g.addEventListener('pointerdown',on);['pointerup','pointercancel','lostpointercapture'].forEach(ev=>g.addEventListener(ev,off));g.addEventListener('contextmenu',e=>e.preventDefault());}}
 window.addEventListener('blur',()=>{for(const k in keys)keys[k]=false;});
 
 const liftEl=document.createElement('div');liftEl.id='lift';document.body.appendChild(liftEl);
@@ -2244,7 +2258,9 @@ const profY=i=>58-((PY[i]-pMin)/Math.max(20,pMax-pMin))*50;   // Hoehenprofil an
   }
 })();
 let lastSec=-1;
+let hudT=0;
 function drawHud(){
+  const hn=performance.now();if(hn-hudT<90)return;hudT=hn;   // Anzeigen nur ~11x pro Sekunde neu zeichnen
   const i=Math.min(N-1,Math.floor(st.pos/SEG));
   if(SEC[i]!==lastSec){lastSec=SEC[i];secEl.innerHTML=SECN[lastSec]+'<small>'+PLACE+'</small>';}
   spdEl.firstChild.nodeValue=(st.v*3.6).toFixed(0);
@@ -2607,7 +2623,7 @@ function render(dt,now){
       const K=CK_STAND;
       {const fc=forkComp(Math.min(0.05,Math.max(0.001,(now-(CKENV.t||now))/1000)));CKENV.t=now;FORK.style.display='block';FORK.style.transform=cockpitEl.style.transform;cockpitEl.style.transform+=' translateY('+(fc*3.4).toFixed(2)+'%)';}
       cockpitEl.style.transform+=' scaleY('+K[0]+')';
-      cockpitEl.style.transformOrigin='50% '+K[4]+'%';CKT.style.transformOrigin=CKG.style.transformOrigin='50% '+K[4]+'%';
+      cockpitEl.style.transformOrigin='50% '+K[4]+'%';CKW.style.transformOrigin='50% '+K[4]+'%';
       camera.rotateX(-K[1]*Math.PI/180);
       updateCockFx(now,deg);}
   }
@@ -2629,6 +2645,7 @@ function render(dt,now){
   sun.shadow.camera.left=-90*sc;sun.shadow.camera.right=90*sc;sun.shadow.camera.top=90*sc;sun.shadow.camera.bottom=-90*sc;sun.shadow.camera.far=520*sc;sun.shadow.camera.updateProjectionMatrix();
   sun.position.copy(ctr).addScaledVector(SUN,220*sc);sun.target.position.copy(ctr);sun.target.updateMatrixWorld();
   if((tileN++%6)===0)updateTiles(camera.position);
+  renderer.shadowMap.needsUpdate=!(running&&!st.done)||((shN++)&1)===0;
   if(FXon&&composer){FXP.uniforms.exposure.value=renderer.toneMappingExposure;composer.render();}else renderer.render(scene,camera);
   if(running||st.done)drawHud();
 }
@@ -3286,10 +3303,12 @@ function updateGroup(dt){
     });
   }
 }
-let last=performance.now();
+let last=performance.now(),drsAcc=0,drsN=0;
+function drsTick(dt){if(!running||paused){drsAcc=drsN=0;return;}drsAcc+=dt;drsN++;if(drsAcc<2.5)return;const ft=drsAcc/drsN;drsAcc=drsN=0;
+  if(ft>0.029&&DRS>0.7){DRS=Math.max(0.7,+(DRS-0.1).toFixed(2));applyQ();}else if(ft<0.0185&&DRS<1){DRS=Math.min(1,+(DRS+0.05).toFixed(2));applyQ();}}
 function loop(now){
   const dt=clamp((now-last)/1000,0,0.05);last=now;
-  update(dt);render(dt,now);
+  update(dt);render(dt,now);drsTick(dt);
   requestAnimationFrame(loop);
 }
 window.__dbg={get LIFTS(){return LIFTS;},get WL(){return WL;},updateWildlife:updateWildlife,wlSpawnAt:wlSpawnAt,forestD:forestD,splash:splashDrops,PUDH:PUDH,AUDIO:AUDIO,renderer:renderer,scene:scene,SHK:SHK,BUMPS:BUMPS,gnd:gnd,HS:HS,PX:PX,PZ:PZ,HW:HW,KV:KV,ROUTE:ROUTE,SURF:SURF,cam:camera,joggers:joggers,groundY:groundY,TABS:TABS,tabH:tabH,get st(){return st;},set pos(v){st.pos=v;camInit=false;},N:N,TOTAL:TOTAL,iTrail:iTrail,SEC:SEC,PY:PY,GR:GR,forestD:forestD,lu:(k,x,z)=>LU?lu(LU[k],x,z):-1};
