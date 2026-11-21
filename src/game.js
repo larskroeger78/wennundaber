@@ -2605,7 +2605,7 @@ function render(dt,now){
     cockpitEl.style.transform='translate(-50%,'+(18.5+Math.abs(deg)*0.062-(SHK.y+airH()*0.6)*70-(SHK.buzz||0)*0.12).toFixed(2)+'%) rotate('+clamp(deg+SHK.r*25+SHK.w+Math.sin(st.crank)*0.7*Math.min(1,st.power/150),-22,22).toFixed(2)+'deg)';
     {   // Eindruck 'im Stehen, von oben aufs Rad schauen': Lenkerbild nach vorn gekippt, Blick etwas nach unten
       const K=CK_STAND;
-      {const fc=forkComp(Math.min(0.05,Math.max(0.001,(now-(CKENV.t||now))/1000)));CKENV.t=now;FORK.style.display='block';FORK.style.transform=cockpitEl.style.transform;cockpitEl.style.transform+=' translateY('+(fc*2.4).toFixed(2)+'%)';}
+      {const fc=forkComp(Math.min(0.05,Math.max(0.001,(now-(CKENV.t||now))/1000)));CKENV.t=now;FORK.style.display='block';FORK.style.transform=cockpitEl.style.transform;cockpitEl.style.transform+=' translateY('+(fc*3.4).toFixed(2)+'%)';}
       cockpitEl.style.transform+=' scaleY('+K[0]+')';
       cockpitEl.style.transformOrigin='50% '+K[4]+'%';CKT.style.transformOrigin=CKG.style.transformOrigin='50% '+K[4]+'%';
       camera.rotateX(-K[1]*Math.PI/180);

@@ -152,7 +152,7 @@ body.night #cockpit,body.night #cockfork{filter:brightness(.55) saturate(.85)}
 .unlock .rsel{width:100%;box-sizing:border-box;padding:9px 12px;font:16px system-ui,sans-serif;border-radius:8px;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.35);color:#fff}
 .unlock textarea.rsel{resize:vertical}
 #cockpit.c2,#cockfork.c2{width:118vw;bottom:-0.6vw;transform-origin:50% 30%}
-#cockfork{clip-path:inset(56% 0 0 0);filter:none}
+#cockfork{clip-path:inset(71% 0 0 0);filter:none}
 
 .ckfx{position:absolute;left:50%;bottom:-0.6vw;width:118vw;aspect-ratio:1500/364;max-width:none;pointer-events:none;transform-origin:50% 30%;will-change:transform}
 #cktire{-webkit-mask:url(/assets/ui/tire2-mask.png) 0 0/100% 100% no-repeat;mask:url(/assets/ui/tire2-mask.png) 0 0/100% 100% no-repeat;background-size:2.2vw 1.54vw;mix-blend-mode:multiply}
