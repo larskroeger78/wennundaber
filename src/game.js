@@ -2025,7 +2025,27 @@ let bleKey='';
 const bleChange=()=>{if(trainer.connected)inputMode='trainer';else if(inputMode==='trainer')inputMode='keyboard';const ck=click.connected+'|'+click.devs.length;if(bleKey.indexOf(ck)<0&&bleMsg.indexOf('Click')===0)bleMsg='';const k=trainer.connected+'|'+ck+'|'+bleMsg;if(k===bleKey)return;bleKey=k;if(ov.style.display!=='none'&&lastMenu&&!helpOpen)menu(lastMenu[0],lastMenu[1]);};
 trainer.onChange=bleChange;click.onChange=bleChange;   // nur noch Lenkeransicht (Cockpit)
 let STAND=0,COCK=0;try{COCK=localStorage.getItem('miworu_cockpit')==='2'?1:0;}catch(e){}
-function applyCockpit(){const el=document.getElementById('cockpit');el.src=COCK?'/assets/ui/cockpit2.png':'/assets/ui/cockpit.png';el.classList.toggle('c2',!!COCK);}
+// Neuer Lenker: leichtes Filmkorn ueber dem Lenker und ein sich drehender Stollenreifen (Draufsicht), beides deckungsgleich mit dem Lenkerbild
+const CKT=document.createElement('div'),CKG=document.createElement('div');
+[CKT,CKG].forEach(d=>{d.className='ckfx';d.style.display='none';document.getElementById('cockpit').after(d);});
+CKT.id='cktire';CKG.id='ckgrain';
+{const c=document.createElement('canvas');c.width=20;c.height=14;const g=c.getContext('2d');   // Stollenmuster: dunkle Klotzchen mit heller Kante
+  g.fillStyle='rgba(0,0,0,0.62)';g.fillRect(0,0,20,14);g.fillStyle='rgba(205,205,200,0.55)';
+  g.fillRect(1,1,8,5);g.fillRect(11,8,8,5);g.fillStyle='rgba(30,30,30,0.7)';g.fillRect(2,5,7,1.5);g.fillRect(12,12,7,1.5);
+  CKT.style.backgroundImage='url('+c.toDataURL()+')';}
+let GRAINS=[];{for(let k=0;k<4;k++){const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d'),d=g.createImageData(128,128);
+  for(let i=0;i<d.data.length;i+=4){const v=Math.random()*255|0;d.data[i]=d.data[i+1]=d.data[i+2]=v;d.data[i+3]=255;}g.putImageData(d,0,0);GRAINS.push('url('+c.toDataURL()+')');}}
+let CKPH=0,CKLT=0,CKGT=0,CKGI=0;
+function updateCockFx(now,deg){
+  const dt=Math.min(0.05,Math.max(0,(now-CKLT)/1000));CKLT=now;
+  const tf=cockpitEl.style.transform,v=Math.max(0,st.v||0);
+  CKPH=(CKPH+v*dt*34)%1000;   // Stollen laufen mit dem Tempo nach vorn (nach oben im Bild)
+  const k=Math.max(0.3,1-v/16);                 // bei hohem Tempo weichere, verwischte Stollen
+  CKT.style.transform=CKG.style.transform=tf;CKT.style.display=CKG.style.display='block';
+  CKT.style.backgroundPosition='0 '+(-(CKPH%14)*0.1078).toFixed(3)+'vw';CKT.style.opacity=k.toFixed(2);
+  if(now-CKGT>70){CKGT=now;CKGI=(CKGI+1)%4;CKG.style.backgroundImage=GRAINS[CKGI];CKG.style.backgroundPosition=((Math.random()*128)|0)+'px '+((Math.random()*128)|0)+'px';}
+}
+function applyCockpit(){const el=document.getElementById('cockpit');el.src=COCK?'/assets/ui/cockpit2.png':'/assets/ui/cockpit.png';el.classList.toggle('c2',!!COCK);if(!COCK)CKT.style.display=CKG.style.display='none';}
 function cycleCockpit(){COCK=COCK?0:1;try{localStorage.setItem('miworu_cockpit',COCK?'2':'1');}catch(e){}applyCockpit();toastMsg('Lenker: '+(COCK?'Neu (Aertime)':'Original'));}
 applyCockpit();
 const cockpitEl=document.getElementById('cockpit'),glowEl=document.getElementById('glow'),_cd=new THREE.Vector3(),_sv=new THREE.Vector3();
@@ -2557,15 +2577,8 @@ function render(dt,now){
     camera.rotateX((running?Math.atan(tabD(st.pos))*0.7:0)-BRK*0.03+SHK.y*0.9+(SHK.air?0.035*Math.cos(Math.PI*airU()):0));
     const deg=clamp(st.bar,-17,17);                     // Lenker dreht mit
     cockpitEl.style.transform='translate(-50%,'+(18.5+Math.abs(deg)*0.062-(SHK.y+airH()*0.6)*70-(SHK.buzz||0)*0.12).toFixed(2)+'%) rotate('+clamp(deg+SHK.r*25+SHK.w+Math.sin(st.crank)*0.7*Math.min(1,st.power/150),-22,22).toFixed(2)+'deg)';
-    if(COCK){   // neuer Lenker: bei hoher Leistung wie im Stehen fahren (Rad wiegt links/rechts, kippt nach vorn)
-      STAND+=((clamp((st.power-120)/160,0,1)*(running?1:0))-STAND)*0.05;
-      const sw=Math.sin(st.crank),pw=Math.min(1,st.power/200);
-      const rock=STAND*(sw*3.4)+(1-STAND)*0;               // Neigung um die Fahrtrichtung
-      const dx=STAND*sw*1.1,pit=-STAND*6;                  // Seitenschwung (vw) und Kippen nach vorn (Grad)
-      const baseY=18.5+Math.abs(deg)*0.062-(SHK.y+airH()*0.6)*70-(SHK.buzz||0)*0.12+STAND*3.2;
-      const rot=clamp(deg+SHK.r*25+SHK.w+Math.sin(st.crank)*0.7*pw+rock,-26,26);
-      cockpitEl.style.transform='translate(calc(-50% + '+dx.toFixed(2)+'vw),'+baseY.toFixed(2)+'%) perspective(1100px) rotateX('+pit.toFixed(2)+'deg) rotate('+rot.toFixed(2)+'deg)';
-    }
+    if(COCK)updateCockFx(now,deg);
+    else{CKT.style.display=CKG.style.display='none';}
   }
   sky.position.copy(camera.position);sky.material.uniforms.time.value=now*0.001;nightFrame();
   if(BK)applySun();
