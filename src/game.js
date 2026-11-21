@@ -2024,7 +2024,7 @@ click.onNote=t=>{toastEl.textContent=t;toastEl.classList.add('on');clearTimeout(
 let bleKey='';
 const bleChange=()=>{if(trainer.connected)inputMode='trainer';else if(inputMode==='trainer')inputMode='keyboard';const ck=click.connected+'|'+click.devs.length;if(bleKey.indexOf(ck)<0&&bleMsg.indexOf('Click')===0)bleMsg='';const k=trainer.connected+'|'+ck+'|'+bleMsg;if(k===bleKey)return;bleKey=k;if(ov.style.display!=='none'&&lastMenu&&!helpOpen)menu(lastMenu[0],lastMenu[1]);};
 trainer.onChange=bleChange;click.onChange=bleChange;   // nur noch Lenkeransicht (Cockpit)
-let STAND=0,COCK=0;try{COCK=localStorage.getItem('miworu_cockpit')==='2'?1:0;}catch(e){}
+const CK_STAND=[1.35,3.5,0,900,36];let COCK=0;try{COCK=localStorage.getItem('miworu_cockpit')==='2'?1:0;}catch(e){}
 // Neuer Lenker: leichtes Filmkorn ueber dem Lenker und ein sich drehender Stollenreifen (Draufsicht), beides deckungsgleich mit dem Lenkerbild
 const CKT=document.createElement('div'),CKG=document.createElement('div');
 [CKT,CKG].forEach(d=>{d.className='ckfx';d.style.display='none';document.getElementById('cockpit').after(d);});
@@ -2577,7 +2577,12 @@ function render(dt,now){
     camera.rotateX((running?Math.atan(tabD(st.pos))*0.7:0)-BRK*0.03+SHK.y*0.9+(SHK.air?0.035*Math.cos(Math.PI*airU()):0));
     const deg=clamp(st.bar,-17,17);                     // Lenker dreht mit
     cockpitEl.style.transform='translate(-50%,'+(18.5+Math.abs(deg)*0.062-(SHK.y+airH()*0.6)*70-(SHK.buzz||0)*0.12).toFixed(2)+'%) rotate('+clamp(deg+SHK.r*25+SHK.w+Math.sin(st.crank)*0.7*Math.min(1,st.power/150),-22,22).toFixed(2)+'deg)';
-    if(COCK)updateCockFx(now,deg);
+    if(COCK){   // Eindruck 'im Stehen, von oben aufs Rad schauen': Lenkerbild nach vorn gekippt, Blick etwas nach unten
+      const K=CK_STAND;
+      cockpitEl.style.transform+=' scaleY('+K[0]+')';
+      cockpitEl.style.transformOrigin='50% '+K[4]+'%';CKT.style.transformOrigin=CKG.style.transformOrigin='50% '+K[4]+'%';
+      camera.rotateX(-K[1]*Math.PI/180);
+      updateCockFx(now,deg);}
     else{CKT.style.display=CKG.style.display='none';}
   }
   sky.position.copy(camera.position);sky.material.uniforms.time.value=now*0.001;nightFrame();
