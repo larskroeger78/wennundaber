@@ -151,3 +151,4 @@ body.night #cockpit{filter:brightness(.55) saturate(.85)}
 
 .unlock .rsel{width:100%;box-sizing:border-box;padding:9px 12px;font:16px system-ui,sans-serif;border-radius:8px;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.35);color:#fff}
 .unlock textarea.rsel{resize:vertical}
+#cockpit.c2{width:124vw;bottom:1.2vw;transform-origin:50% 36%}
