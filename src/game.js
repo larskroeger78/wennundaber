@@ -2024,7 +2024,7 @@ click.onNote=t=>{toastEl.textContent=t;toastEl.classList.add('on');clearTimeout(
 let bleKey='';
 const bleChange=()=>{if(trainer.connected)inputMode='trainer';else if(inputMode==='trainer')inputMode='keyboard';const ck=click.connected+'|'+click.devs.length;if(bleKey.indexOf(ck)<0&&bleMsg.indexOf('Click')===0)bleMsg='';const k=trainer.connected+'|'+ck+'|'+bleMsg;if(k===bleKey)return;bleKey=k;if(ov.style.display!=='none'&&lastMenu&&!helpOpen)menu(lastMenu[0],lastMenu[1]);};
 trainer.onChange=bleChange;click.onChange=bleChange;   // nur noch Lenkeransicht (Cockpit)
-let COCK=0;try{COCK=localStorage.getItem('miworu_cockpit')==='2'?1:0;}catch(e){}
+let STAND=0,COCK=0;try{COCK=localStorage.getItem('miworu_cockpit')==='2'?1:0;}catch(e){}
 function applyCockpit(){const el=document.getElementById('cockpit');el.src=COCK?'/assets/ui/cockpit2.png':'/assets/ui/cockpit.png';el.classList.toggle('c2',!!COCK);}
 function cycleCockpit(){COCK=COCK?0:1;try{localStorage.setItem('miworu_cockpit',COCK?'2':'1');}catch(e){}applyCockpit();toastMsg('Lenker: '+(COCK?'Neu (Aertime)':'Original'));}
 applyCockpit();
@@ -2557,6 +2557,15 @@ function render(dt,now){
     camera.rotateX((running?Math.atan(tabD(st.pos))*0.7:0)-BRK*0.03+SHK.y*0.9+(SHK.air?0.035*Math.cos(Math.PI*airU()):0));
     const deg=clamp(st.bar,-17,17);                     // Lenker dreht mit
     cockpitEl.style.transform='translate(-50%,'+(18.5+Math.abs(deg)*0.062-(SHK.y+airH()*0.6)*70-(SHK.buzz||0)*0.12).toFixed(2)+'%) rotate('+clamp(deg+SHK.r*25+SHK.w+Math.sin(st.crank)*0.7*Math.min(1,st.power/150),-22,22).toFixed(2)+'deg)';
+    if(COCK){   // neuer Lenker: bei hoher Leistung wie im Stehen fahren (Rad wiegt links/rechts, kippt nach vorn)
+      STAND+=((clamp((st.power-120)/160,0,1)*(running?1:0))-STAND)*0.05;
+      const sw=Math.sin(st.crank),pw=Math.min(1,st.power/200);
+      const rock=STAND*(sw*3.4)+(1-STAND)*0;               // Neigung um die Fahrtrichtung
+      const dx=STAND*sw*1.1,pit=-STAND*6;                  // Seitenschwung (vw) und Kippen nach vorn (Grad)
+      const baseY=18.5+Math.abs(deg)*0.062-(SHK.y+airH()*0.6)*70-(SHK.buzz||0)*0.12+STAND*3.2;
+      const rot=clamp(deg+SHK.r*25+SHK.w+Math.sin(st.crank)*0.7*pw+rock,-26,26);
+      cockpitEl.style.transform='translate(calc(-50% + '+dx.toFixed(2)+'vw),'+baseY.toFixed(2)+'%) perspective(1100px) rotateX('+pit.toFixed(2)+'deg) rotate('+rot.toFixed(2)+'deg)';
+    }
   }
   sky.position.copy(camera.position);sky.material.uniforms.time.value=now*0.001;nightFrame();
   if(BK)applySun();
