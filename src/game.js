@@ -2123,7 +2123,9 @@ window.addEventListener('keyup',e=>{keys[e.key]=false;});
 {const PH=window.matchMedia&&matchMedia('(pointer:coarse)').matches&&Math.min(screen.width,screen.height)<=520;
  if(PH){document.body.classList.add('phone');const g=document.getElementById('goBtn');
   const on=e=>{e.preventDefault();keys.ArrowUp=true;g.classList.add('on');try{g.setPointerCapture(e.pointerId);}catch(_){}},off=()=>{keys.ArrowUp=false;g.classList.remove('on');};
-  g.addEventListener('pointerdown',on);['pointerup','pointercancel','lostpointercapture'].forEach(ev=>g.addEventListener(ev,off));g.addEventListener('contextmenu',e=>e.preventDefault());}}
+  g.addEventListener('pointerdown',on);['pointerup','pointercancel','lostpointercapture'].forEach(ev=>g.addEventListener(ev,off));g.addEventListener('contextmenu',e=>e.preventDefault());
+  const b=document.getElementById('brkBtn'),bon=e=>{e.preventDefault();keys.ArrowDown=true;b.classList.add('on');try{b.setPointerCapture(e.pointerId);}catch(_){}},boff=()=>{keys.ArrowDown=false;b.classList.remove('on');};
+  b.addEventListener('pointerdown',bon);['pointerup','pointercancel','lostpointercapture'].forEach(ev=>b.addEventListener(ev,boff));b.addEventListener('contextmenu',e=>e.preventDefault());}}
 window.addEventListener('blur',()=>{for(const k in keys)keys[k]=false;});
 
 const liftEl=document.createElement('div');liftEl.id='lift';document.body.appendChild(liftEl);
