@@ -2008,7 +2008,7 @@ function shift(d){
 }
 function hintHud(){
   const key=diff+'|'+quality+'|'+WX+'|'+WXLIVE+'|'+WXLIVEOK+'|'+AUDIO.on+'|'+AUDIO.hub+'|'+NIGHT;if(hintHud.k===key)return;hintHud.k=key;
-  hintEl.innerHTML=[1,2,3,4].map(n=>'<button type="button" data-act="d'+n+'"'+(diff===n?' class="on"':'')+'><b>'+n+'</b>'+DIFFN[n]+'</button>').join('')+'<button type="button" data-act="q"><b>Q</b>Grafik '+QN[quality]+'</button><button type="button" data-act="n"><b>N</b>Sound '+(AUDIO.on?'an':'aus')+'</button><button type="button" data-act="w"><b>W</b>Wetter '+WXL()+'</button><button type="button" data-act="v"><b>V</b>Vollbild</button><button type="button" data-act="c"><b>C</b>Lenker</button><button type="button" data-act="f"><b>F</b>Freilauf '+(AUDIO.hub?AUDIO.hub:'aus')+'</button>'+(MW?'<button type="button" data-act="l"'+(NIGHT?' class="on"':'')+'><b>L</b>Nightride'+(NIGHT?' an':'')+'</button>':'');
+  hintEl.innerHTML=[1,2,3,4].map(n=>'<button type="button" data-act="d'+n+'"'+(diff===n?' class="on"':'')+'><b>'+n+'</b>'+DIFFN[n]+'</button>').join('')+'<button type="button" data-act="q"><b>Q</b>Grafik '+QN[quality]+'</button><button type="button" data-act="n"><b>N</b>Sound '+(AUDIO.on?'an':'aus')+'</button><button type="button" data-act="w"><b>W</b>Wetter '+WXL()+'</button><button type="button" data-act="v"><b>V</b>Vollbild</button><button type="button" data-act="f"><b>F</b>Freilauf '+(AUDIO.hub?AUDIO.hub:'aus')+'</button>'+(MW?'<button type="button" data-act="l"'+(NIGHT?' class="on"':'')+'><b>L</b>Nightride'+(NIGHT?' an':'')+'</button>':'');
 }
 function gearHud(){
   hintHud();
@@ -2024,29 +2024,53 @@ click.onNote=t=>{toastEl.textContent=t;toastEl.classList.add('on');clearTimeout(
 let bleKey='';
 const bleChange=()=>{if(trainer.connected)inputMode='trainer';else if(inputMode==='trainer')inputMode='keyboard';const ck=click.connected+'|'+click.devs.length;if(bleKey.indexOf(ck)<0&&bleMsg.indexOf('Click')===0)bleMsg='';const k=trainer.connected+'|'+ck+'|'+bleMsg;if(k===bleKey)return;bleKey=k;if(ov.style.display!=='none'&&lastMenu&&!helpOpen)menu(lastMenu[0],lastMenu[1]);};
 trainer.onChange=bleChange;click.onChange=bleChange;   // nur noch Lenkeransicht (Cockpit)
-const CK_STAND=[1,3,0,900,30];let COCK=0;try{COCK=localStorage.getItem('miworu_cockpit')==='2'?1:0;}catch(e){}
+const CK_STAND=[1,3,0,900,30];const COCK=1;
 // Neuer Lenker: leichtes Filmkorn ueber dem Lenker und ein sich drehender Stollenreifen (Draufsicht), beides deckungsgleich mit dem Lenkerbild
-const CKT=document.createElement('div'),CKG=document.createElement('div');
-[CKT,CKG].forEach(d=>{d.className='ckfx';d.style.display='none';document.getElementById('cockpit').after(d);});
-CKT.id='cktire';CKG.id='ckgrain';
+const CKT=document.createElement('div'),CKG=document.createElement('div'),CKM=document.createElement('div'),CKS=document.createElement('div'),CKD=document.createElement('div');
+[CKT,CKM,CKS,CKD,CKG].forEach(d=>{d.className='ckfx';d.style.display='none';document.getElementById('cockpit').after(d);});
+CKT.id='cktire';CKG.id='ckgrain';CKM.id='ckmud';CKS.id='cksheen';CKD.id='ckdapple';
 {const c=document.createElement('canvas');c.width=20;c.height=14;const g=c.getContext('2d');   // Stollenmuster: dunkle Klotzchen mit heller Kante
   g.fillStyle='rgba(0,0,0,0.62)';g.fillRect(0,0,20,14);g.fillStyle='rgba(205,205,200,0.55)';
   g.fillRect(1,1,8,5);g.fillRect(11,8,8,5);g.fillStyle='rgba(30,30,30,0.7)';g.fillRect(2,5,7,1.5);g.fillRect(12,12,7,1.5);
   CKT.style.backgroundImage='url('+c.toDataURL()+')';}
+{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');   // Schlammspritzer fuer den Reifen
+  for(let k=0;k<46;k++){const x=Math.random()*64,y=Math.random()*64,r=1.5+Math.random()*5;g.fillStyle='rgba('+(52+Math.random()*28|0)+','+(36+Math.random()*20|0)+','+(20+Math.random()*12|0)+','+(0.55+Math.random()*0.45).toFixed(2)+')';g.beginPath();g.ellipse(x,y,r,r*(0.6+Math.random()*0.8),Math.random()*3,0,6.3);g.fill();}
+  CKM.style.backgroundImage='url('+c.toDataURL()+')';}
+{const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,128,128);   // Licht-und-Schatten-Flecken (Blaetterdach)
+  for(let k=0;k<26;k++){const x=Math.random()*128,y=Math.random()*128,r=6+Math.random()*16;const gr=g.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,'rgba(0,0,0,0.85)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(x-r,y-r,2*r,2*r);}
+  CKD.style.backgroundImage='url('+c.toDataURL()+')';}
+let CKDIRT=0;
 let GRAINS=[];{for(let k=0;k<4;k++){const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d'),d=g.createImageData(128,128);
   for(let i=0;i<d.data.length;i+=4){const v=Math.random()*255|0;d.data[i]=d.data[i+1]=d.data[i+2]=v;d.data[i+3]=255;}g.putImageData(d,0,0);GRAINS.push('url('+c.toDataURL()+')');}}
 let CKPH=0,CKLT=0,CKGT=0,CKGI=0;
+const CKENV={fd:0,surf:0,pud:false,spike:0};
 function updateCockFx(now,deg){
   const dt=Math.min(0.05,Math.max(0,(now-CKLT)/1000));CKLT=now;
   const tf=cockpitEl.style.transform,v=Math.max(0,st.v||0);
   CKPH=(CKPH+v*dt*34)%1000;   // Stollen laufen mit dem Tempo nach vorn (nach oben im Bild)
+  // Dreck am Reifen: Pfuetze = Spritzer, Trail/Schotter und Regen = langsam mehr, Asphalt = trocknet/wird abgeschleudert
+  const tgt=CKENV.surf===2?0.55:CKENV.surf===1?0.25:0;
+  if(CKENV.pud&&v>1)CKENV.spike=Math.min(1,CKENV.spike+dt*1.8*Math.min(1,v/6));
+  CKENV.spike=Math.max(0,CKENV.spike-dt*0.16);
+  const want=Math.max(Math.min(1,tgt+WXS.rain*0.2*(CKENV.surf?1:0.5)),CKENV.spike);
+  CKDIRT+=(want-CKDIRT)*Math.min(1,dt*(want>CKDIRT?1.6:0.12))*(v>0.5?1:0.2);
   const k=Math.max(0.3,1-v/16);                 // bei hohem Tempo weichere, verwischte Stollen
-  CKT.style.transform=CKG.style.transform=tf;CKT.style.display=CKG.style.display='block';
-  CKT.style.backgroundPosition='0 '+(-(CKPH%14)*0.11).toFixed(3)+'vw';CKT.style.opacity=k.toFixed(2);
+  const bgp='0 '+(-(CKPH%14)*0.11).toFixed(3)+'vw';
+  CKT.style.transform=CKG.style.transform=CKM.style.transform=CKS.style.transform=CKD.style.transform=tf;
+  CKT.style.display=CKG.style.display=CKM.style.display=CKS.style.display=CKD.style.display='block';
+  CKT.style.backgroundPosition=bgp;CKT.style.opacity=k.toFixed(2);
+  CKM.style.backgroundPosition='0 '+(-(CKPH%64)*0.11*0.5).toFixed(2)+'vw';CKM.style.opacity=Math.min(0.92,CKDIRT*1.35).toFixed(2);
+  // Spiegelungen / Licht: Himmelsreflex wandert mit Lenkung und Blickrichtung zur Sonne, Blaetterdach wirft Flecken, Nacht und Nebel daempfen
+  camera.getWorldDirection(_sv);
+  const sf=Math.max(0,_sv.x*SUN.x+_sv.z*SUN.z)/Math.max(0.001,Math.hypot(SUN.x,SUN.z)),day=WXS.day==null?1:WXS.day;
+  const clear=(1-WXS.fog*0.6)*(1-WXS.rain*0.5),forest=Math.min(1,CKENV.fd||0);
+  const gx=50+deg*2.2+Math.sin(now*0.0003)*6,glint=day*clear*(0.18+0.5*sf*sf)*(1-forest*0.55)+WXS.rain*0.14;
+  CKS.style.backgroundPosition=gx.toFixed(1)+'% 0';CKS.style.opacity=Math.min(0.85,glint).toFixed(2);
+  CKD.style.backgroundPosition=((now*0.012*(0.4+v*0.35))%128).toFixed(1)+'px '+((now*0.006)%128).toFixed(1)+'px';
+  CKD.style.opacity=(forest*day*0.55*(0.4+Math.min(1,v/5)*0.6)).toFixed(2);
   if(now-CKGT>70){CKGT=now;CKGI=(CKGI+1)%4;CKG.style.backgroundImage=GRAINS[CKGI];CKG.style.backgroundPosition=((Math.random()*128)|0)+'px '+((Math.random()*128)|0)+'px';}
 }
-function applyCockpit(){const el=document.getElementById('cockpit');el.src=COCK?'/assets/ui/cockpit2.png':'/assets/ui/cockpit.png';el.classList.toggle('c2',!!COCK);if(!COCK)CKT.style.display=CKG.style.display='none';}
-function cycleCockpit(){COCK=COCK?0:1;try{localStorage.setItem('miworu_cockpit',COCK?'2':'1');}catch(e){}applyCockpit();toastMsg('Lenker: '+(COCK?'Neu (Aertime)':'Original'));}
+function applyCockpit(){const el=document.getElementById('cockpit');el.src='/assets/ui/cockpit2.png';el.classList.add('c2');}
 applyCockpit();
 const cockpitEl=document.getElementById('cockpit'),glowEl=document.getElementById('glow'),_cd=new THREE.Vector3(),_sv=new THREE.Vector3();
 function reset(){SHK.y=SHK.vy=SHK.r=SHK.vr=0;SHK.i=0;SHK.fi=0;SHK.w=SHK.wv=0;SHK.air=null;st={pos:0,v:0,x:0.4,power:0,t:0,crank:0.6,wheel:0,lean:0,bar:0,pitch:0,done:false};resetJoggers();vanWait=12;VANS&&VANS.forEach(v=>{if(!v.parked){v.active=false;v.g.visible=false;}});}
@@ -2068,7 +2092,6 @@ window.addEventListener('keydown',e=>{
   if(e.key==='r'||e.key==='R')start();
   if(e.key==='Escape')pauseGame();
   if(e.key==='v'||e.key==='V')toggleFS();
-  if(e.key==='c'||e.key==='C')cycleCockpit();
   if(e.key==='q'||e.key==='Q')cycleQ();
   if(e.key==='n'||e.key==='N'){AUDIO.toggle();toastEl.textContent='Sound: '+(AUDIO.on?'an':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}
   if(e.key==='w'||e.key==='W')cycleWX();
@@ -2147,7 +2170,7 @@ function update(dt){
     if(hit&&!update.inPud&&st.v>1.5){splashDrops(st.v);AUDIO.splash(st.v);}update.inPud=hit;
   }
   if(AUDIO.on&&AUDIO.suspended&&st.t>3&&!update.sndT){update.sndT=1;toastEl.textContent='Sound aktivieren: einmal klicken oder eine Taste drücken';toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),4000);}
-  {const fd=forestD(PX[i],PZ[i]);AUDIO.update(dt,{running:true,v:st.v,surf:SHK.air?-1:SURF[i],pedal:st.power>20?1:0,brake:!!down,forest:fd,rain:WXS.rain,day:WXS.day,night:NIGHT,pud:!!update.inPud});}
+  {const fd=forestD(PX[i],PZ[i]);CKENV.fd=fd;CKENV.surf=SURF[i];CKENV.pud=!!update.inPud;AUDIO.update(dt,{running:true,v:st.v,surf:SHK.air?-1:SURF[i],pedal:st.power>20?1:0,brake:!!down,forest:fd,rain:WXS.rain,day:WXS.day,night:NIGHT,pud:!!update.inPud});}
   updateJoggers(dt);updateWildlife(dt);updateVans(dt);updateGroup(dt);
   const steer=(right?1:0)-(left?1:0);
   // Automatische Lenkung (Rollentrainer wie D100 oder KICKR können nicht lenken): Lenker und Neigung folgen dem
@@ -2255,7 +2278,7 @@ function showHelp(){
     '<div class="hscroll">'+
     sec('Das Spiel',['Du fährst echte Mountainbike-Strecken aus der Lenkersicht. Dein Tempo entsteht nur durch dein Treten, auch bergab: Abfahrten sind neutral. Lenken und Ausweichen laufen automatisch.','Mit einem Smart-Trainer (Bluetooth) trittst du einfach los, ohne Trainer geht es mit der Tastatur.'])+
     sec('Trainer und Zwift-Geräte koppeln',['Für Zwift Cog und Zwift Click müssen <b>beide</b> gekoppelt sein, sonst funktioniert das Schalten nicht. Beide im Menü unter Bluetooth verbinden (Click vorher in den blauen Koppelmodus bringen).','<b>iPad / iPhone:</b> Safari kann kein Bluetooth. Dafür brauchst du einmalig die kostenlose Zusatz-App <b>Bluefy</b>: 1. Bluefy im App Store installieren. 2. MIWORU-Adresse in Safari kopieren. 3. Bluefy öffnen, Adresse in die Adresszeile einfügen. 4. Im Spiel Trainer, Cog und Click koppeln. Das Spiel immer in Bluefy starten, nicht in Safari.'])+
-    sec('Fahren',['<b>↑</b> treten · <b>↓</b> bremsen','<b>+</b> / <b>−</b> (oder Bild↑ / Bild↓): Gang schwerer / leichter. Zwift Click: <b>+</b> kurz = schwerer, gedrückt halten oder andere Taste = leichter.','<b>R</b> Neustart · <b>Esc</b> Pause und Menü · <b>C</b> Lenker wechseln · <b>V</b> Vollbild (Esc beendet es, auf dem Tablet das ✕ oben links)','Ins <b>Höhenprofil</b> oben klicken oder ziehen: an diese Stelle der Strecke springen.'])+
+    sec('Fahren',['<b>↑</b> treten · <b>↓</b> bremsen','<b>+</b> / <b>−</b> (oder Bild↑ / Bild↓): Gang schwerer / leichter. Zwift Click: <b>+</b> kurz = schwerer, gedrückt halten oder andere Taste = leichter.','<b>R</b> Neustart · <b>Esc</b> Pause und Menü · <b>V</b> Vollbild (Esc beendet es, auf dem Tablet das ✕ oben links)','Ins <b>Höhenprofil</b> oben klicken oder ziehen: an diese Stelle der Strecke springen.'])+
     sec('Schwierigkeit',['<b>1</b> Leicht: 1,6-fache Wirkung deiner Watt, Steigungen nur zu 40 %','<b>2</b> Normal','<b>3</b> Hardcore: Steigungen zu 150 %, 0,85-fache Watt','<b>4</b> Eskalation: 20 % härter als realistisch','Die Stufen sind auch oben rechts antippbar.'])+
     sec('Anzeige und Sound ein- und ausschalten',['<b>Q</b> Grafik: Niedrig, Mittel, Hoch (bei ruckelndem Bild eine Stufe tiefer)','<b>V</b> Vollbild an/aus (Esc beendet; auf dem Tablet das ✕ oben links)','<b>T</b> Tageszeit: Live, Morgen, Mittag, Abend, Dämmerung (Nebel in den Senken, Sonnenstrahlen)','<b>J</b> Jahreszeit: Standard, Herbst (Laubfarben, fallendes Laub), Winter (Schnee, kahle Bäume)','Auf Stufe Hoch: Sonnenstrahlen, Randunschärfe bei hohem Tempo, bei Nightride sichtbarer Lichtkegel mit Insekten','<b>W</b> Wetter: aus, Regen und weitere Stufen','<b>L</b> Nightride: Nachtfahrt an oder aus (nur auf den festen Strecken)','<b>N</b> Sound: alle Geräusche an oder aus','<b>F</b> Freilauf: schaltet durch aus, 16, 32, 56 und 72 Zähne. Weniger Zähne klingen gröber und klickernder, 72 ist das feine Surren. Bei hohem Tempo wird der Freilauf von Wind und Reifenabrollen überdeckt, ganz weg ist er nur auf „aus“.'])+
     sec('Nachtfahrt und Tiere',['Im Nightride fährst du mit Stirnlampe, Mond und Sternen. Nur dort und nur im dunklen Wald tauchen ab und zu Tiere auf: Wildschweine in einer Rotte mit Frischlingen, Hirsche und Rehe.','Du siehst sie nur schemenhaft am Wegrand, ihre Augen reflektieren das Licht deiner Lampe. Vor dem Weggehen rufen sie leise. Kommst du näher als 10 Meter, rennen sie weg und verschwinden in der Dunkelheit.','Ausschalten: <b>L</b> beendet den Nightride, und damit sind auch die Tiere weg. Ihre Rufe sind Teil von <b>N</b> (Sound).'])+
@@ -2392,7 +2415,7 @@ function menu(title,sub){
 // Pause + Hauptmenue (Esc oder Menue-Knopf oben rechts, z. B. fuer iPad ohne Tastatur)
 function pauseGame(){if(!running)return;running=false;paused=true;trainer.setGrade(0,0.005,true);offEl.style.display='none';menu('Weiterfahren','Pause · '+(st.pos/1000).toFixed(2)+' km · '+fmtT(st.t));}
 const menuBtn=document.getElementById('menuBtn');menuBtn.onclick=pauseGame;
-hintEl.onclick=e=>{const b=e.target.closest('[data-act]');if(!b)return;const a=b.getAttribute('data-act');if(a==='d1')setDiff(1);else if(a==='d2')setDiff(2);else if(a==='d3')setDiff(3);else if(a==='d4')setDiff(4);else if(a==='v')toggleFS();else if(a==='c')cycleCockpit();else if(a==='q')cycleQ();else if(a==='n'){AUDIO.toggle();toastEl.textContent='Sound: '+(AUDIO.on?'an':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}else if(a==='w')cycleWX();else if(a==='l')toggleNight();else if(a==='f'){const h=AUDIO.cycleHub();hintHud.k=null;toastEl.textContent='Freilauf: '+(h?h+' Zähne':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1200);}};
+hintEl.onclick=e=>{const b=e.target.closest('[data-act]');if(!b)return;const a=b.getAttribute('data-act');if(a==='d1')setDiff(1);else if(a==='d2')setDiff(2);else if(a==='d3')setDiff(3);else if(a==='d4')setDiff(4);else if(a==='v')toggleFS();else if(a==='q')cycleQ();else if(a==='n'){AUDIO.toggle();toastEl.textContent='Sound: '+(AUDIO.on?'an':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}else if(a==='w')cycleWX();else if(a==='l')toggleNight();else if(a==='f'){const h=AUDIO.cycleHub();hintHud.k=null;toastEl.textContent='Freilauf: '+(h?h+' Zähne':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1200);}};
 function resume(){if(GRP_CODE&&!GRP.peer)grpJoin();menuBtn.style.display='';paused=false;running=true;ov.style.display='none';hudBox.style.display='block';}
 const PK='miworu_prog2_'+RKEY;let SAVED=null;   // prog2: alte Fortschritte gehoerten zu anderen Strecken
 try{const o=JSON.parse(localStorage.getItem(PK)||'null');if(o&&o.pos>50&&Date.now()-o.ts<864e5)SAVED=o;}catch(e){}
@@ -2577,13 +2600,12 @@ function render(dt,now){
     camera.rotateX((running?Math.atan(tabD(st.pos))*0.7:0)-BRK*0.03+SHK.y*0.9+(SHK.air?0.035*Math.cos(Math.PI*airU()):0));
     const deg=clamp(st.bar,-17,17);                     // Lenker dreht mit
     cockpitEl.style.transform='translate(-50%,'+(18.5+Math.abs(deg)*0.062-(SHK.y+airH()*0.6)*70-(SHK.buzz||0)*0.12).toFixed(2)+'%) rotate('+clamp(deg+SHK.r*25+SHK.w+Math.sin(st.crank)*0.7*Math.min(1,st.power/150),-22,22).toFixed(2)+'deg)';
-    if(COCK){   // Eindruck 'im Stehen, von oben aufs Rad schauen': Lenkerbild nach vorn gekippt, Blick etwas nach unten
+    {   // Eindruck 'im Stehen, von oben aufs Rad schauen': Lenkerbild nach vorn gekippt, Blick etwas nach unten
       const K=CK_STAND;
       cockpitEl.style.transform+=' scaleY('+K[0]+')';
       cockpitEl.style.transformOrigin='50% '+K[4]+'%';CKT.style.transformOrigin=CKG.style.transformOrigin='50% '+K[4]+'%';
       camera.rotateX(-K[1]*Math.PI/180);
       updateCockFx(now,deg);}
-    else{CKT.style.display=CKG.style.display='none';}
   }
   sky.position.copy(camera.position);sky.material.uniforms.time.value=now*0.001;nightFrame();
   if(BK)applySun();

@@ -153,6 +153,9 @@ body.night #cockpit{filter:brightness(.55) saturate(.85)}
 .unlock textarea.rsel{resize:vertical}
 #cockpit.c2{width:118vw;bottom:-0.6vw;transform-origin:50% 30%}
 
-.ckfx{position:absolute;left:50%;bottom:-0.6vw;width:118vw;aspect-ratio:1500/414;max-width:none;pointer-events:none;transform-origin:50% 30%;will-change:transform}
+.ckfx{position:absolute;left:50%;bottom:-0.6vw;width:118vw;aspect-ratio:1500/364;max-width:none;pointer-events:none;transform-origin:50% 30%;will-change:transform}
 #cktire{-webkit-mask:url(/assets/ui/tire2-mask.png) 0 0/100% 100% no-repeat;mask:url(/assets/ui/tire2-mask.png) 0 0/100% 100% no-repeat;background-size:2.2vw 1.54vw;mix-blend-mode:multiply}
+#ckmud{-webkit-mask:url(/assets/ui/tire2-mask.png) 0 0/100% 100% no-repeat;mask:url(/assets/ui/tire2-mask.png) 0 0/100% 100% no-repeat;background-size:5vw 5vw;opacity:0}
+#cksheen{-webkit-mask:url(/assets/ui/cockpit2.png) 0 0/100% 100% no-repeat;mask:url(/assets/ui/cockpit2.png) 0 0/100% 100% no-repeat;background:linear-gradient(100deg,transparent 0,rgba(255,255,255,0) 38%,rgba(235,245,255,.95) 49%,rgba(255,255,255,0) 60%,transparent 100%) 0 0/60% 100% no-repeat,linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,0) 55%);mix-blend-mode:soft-light;opacity:0}
+#ckdapple{-webkit-mask:url(/assets/ui/cockpit2.png) 0 0/100% 100% no-repeat;mask:url(/assets/ui/cockpit2.png) 0 0/100% 100% no-repeat;background-size:30vw 30vw;mix-blend-mode:multiply;opacity:0}
 #ckgrain{-webkit-mask:url(/assets/ui/cockpit2.png) 0 0/100% 100% no-repeat;mask:url(/assets/ui/cockpit2.png) 0 0/100% 100% no-repeat;background-size:128px 128px;mix-blend-mode:overlay;opacity:.16}
