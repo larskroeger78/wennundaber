@@ -2024,7 +2024,7 @@ click.onNote=t=>{toastEl.textContent=t;toastEl.classList.add('on');clearTimeout(
 let bleKey='';
 const bleChange=()=>{if(trainer.connected)inputMode='trainer';else if(inputMode==='trainer')inputMode='keyboard';const ck=click.connected+'|'+click.devs.length;if(bleKey.indexOf(ck)<0&&bleMsg.indexOf('Click')===0)bleMsg='';const k=trainer.connected+'|'+ck+'|'+bleMsg;if(k===bleKey)return;bleKey=k;if(ov.style.display!=='none'&&lastMenu&&!helpOpen)menu(lastMenu[0],lastMenu[1]);};
 trainer.onChange=bleChange;click.onChange=bleChange;   // nur noch Lenkeransicht (Cockpit)
-const CK_STAND=[1.35,3.5,0,900,36];let COCK=0;try{COCK=localStorage.getItem('miworu_cockpit')==='2'?1:0;}catch(e){}
+const CK_STAND=[1,3,0,900,30];let COCK=0;try{COCK=localStorage.getItem('miworu_cockpit')==='2'?1:0;}catch(e){}
 // Neuer Lenker: leichtes Filmkorn ueber dem Lenker und ein sich drehender Stollenreifen (Draufsicht), beides deckungsgleich mit dem Lenkerbild
 const CKT=document.createElement('div'),CKG=document.createElement('div');
 [CKT,CKG].forEach(d=>{d.className='ckfx';d.style.display='none';document.getElementById('cockpit').after(d);});
@@ -2042,7 +2042,7 @@ function updateCockFx(now,deg){
   CKPH=(CKPH+v*dt*34)%1000;   // Stollen laufen mit dem Tempo nach vorn (nach oben im Bild)
   const k=Math.max(0.3,1-v/16);                 // bei hohem Tempo weichere, verwischte Stollen
   CKT.style.transform=CKG.style.transform=tf;CKT.style.display=CKG.style.display='block';
-  CKT.style.backgroundPosition='0 '+(-(CKPH%14)*0.1078).toFixed(3)+'vw';CKT.style.opacity=k.toFixed(2);
+  CKT.style.backgroundPosition='0 '+(-(CKPH%14)*0.11).toFixed(3)+'vw';CKT.style.opacity=k.toFixed(2);
   if(now-CKGT>70){CKGT=now;CKGI=(CKGI+1)%4;CKG.style.backgroundImage=GRAINS[CKGI];CKG.style.backgroundPosition=((Math.random()*128)|0)+'px '+((Math.random()*128)|0)+'px';}
 }
 function applyCockpit(){const el=document.getElementById('cockpit');el.src=COCK?'/assets/ui/cockpit2.png':'/assets/ui/cockpit.png';el.classList.toggle('c2',!!COCK);if(!COCK)CKT.style.display=CKG.style.display='none';}
