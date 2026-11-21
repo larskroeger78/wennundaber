@@ -2028,6 +2028,7 @@ const CK_STAND=[1,3,0,900,30];const COCK=1;
 // Neuer Lenker: leichtes Filmkorn ueber dem Lenker und ein sich drehender Stollenreifen (Draufsicht), beides deckungsgleich mit dem Lenkerbild
 const CKT=document.createElement('div'),CKG=document.createElement('div'),CKM=document.createElement('div'),CKS=document.createElement('div'),CKD=document.createElement('div');
 [CKT,CKM,CKS,CKD,CKG].forEach(d=>{d.className='ckfx';d.style.display='none';document.getElementById('cockpit').after(d);});
+const FORK=document.createElement('img');FORK.id='cockfork';FORK.className='c2';FORK.src='/assets/ui/cockpit2.png';FORK.draggable=false;FORK.style.display='none';document.getElementById('cockpit').after(FORK);
 CKT.id='cktire';CKG.id='ckgrain';CKM.id='ckmud';CKS.id='cksheen';CKD.id='ckdapple';
 {const c=document.createElement('canvas');c.width=20;c.height=14;const g=c.getContext('2d');   // Stollenmuster: dunkle Klotzchen mit heller Kante
   g.fillStyle='rgba(0,0,0,0.62)';g.fillRect(0,0,20,14);g.fillStyle='rgba(205,205,200,0.55)';
@@ -2043,7 +2044,9 @@ let CKDIRT=0;
 let GRAINS=[];{for(let k=0;k<4;k++){const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d'),d=g.createImageData(128,128);
   for(let i=0;i<d.data.length;i+=4){const v=Math.random()*255|0;d.data[i]=d.data[i+1]=d.data[i+2]=v;d.data[i+3]=255;}g.putImageData(d,0,0);GRAINS.push('url('+c.toDataURL()+')');}}
 let CKPH=0,CKLT=0,CKGT=0,CKGI=0;
-const CKENV={fd:0,surf:0,pud:false,spike:0};
+const CKENV={fd:0,surf:0,pud:false,spike:0,fx:0,fv:0,pvy:0};
+// Federgabel: Stoesse (Impuls aus dem Cockpit-Ruckeln) und Bremsen druecken die Gabel zusammen, Lenker taucht ueber der Gabel ab
+function forkComp(dt){const d=SHK.vy-CKENV.pvy;CKENV.pvy=SHK.vy;if(Math.abs(d)>0.02)CKENV.fv+=Math.min(1.2,Math.abs(d))*16;CKENV.fv+=(-300*CKENV.fx-11*CKENV.fv)*dt;CKENV.fx+=CKENV.fv*dt;CKENV.fx=Math.max(-0.15,Math.min(1.1,CKENV.fx));return Math.max(0,CKENV.fx+(BRK||0)*0.35);}
 function updateCockFx(now,deg){
   const dt=Math.min(0.05,Math.max(0,(now-CKLT)/1000));CKLT=now;
   const tf=cockpitEl.style.transform,v=Math.max(0,st.v||0);
@@ -2578,7 +2581,7 @@ function render(dt,now){
   poseLegs(st.crank);
   const fp=running||st.done;
   bike.visible=!fp;
-  cockpitEl.style.display=fp?'block':'none';document.body.classList.toggle('fpv',fp);
+  cockpitEl.style.display=fp?'block':'none';if(!fp)FORK.style.display='none';document.body.classList.toggle('fpv',fp);
   if(fp){
     const ey=by+1.3,k=1-Math.exp(-dt*9);
     camera.position.set(bx+Math.sin(smp.h)*0.05+rx*Math.sin(st.crank)*0.011*Math.min(1,st.power/150),ey+Math.sin(st.wheel*0.9)*0.004*Math.min(1,st.v/4)+Math.abs(Math.sin(st.crank))*0.006*Math.min(1,st.power/150)-BRK*0.025+(running?(SHK.y+airH())*0.9+(SHK.buzz||0)*0.0035:0),bz+Math.cos(smp.h)*0.05);
@@ -2602,6 +2605,7 @@ function render(dt,now){
     cockpitEl.style.transform='translate(-50%,'+(18.5+Math.abs(deg)*0.062-(SHK.y+airH()*0.6)*70-(SHK.buzz||0)*0.12).toFixed(2)+'%) rotate('+clamp(deg+SHK.r*25+SHK.w+Math.sin(st.crank)*0.7*Math.min(1,st.power/150),-22,22).toFixed(2)+'deg)';
     {   // Eindruck 'im Stehen, von oben aufs Rad schauen': Lenkerbild nach vorn gekippt, Blick etwas nach unten
       const K=CK_STAND;
+      {const fc=forkComp(Math.min(0.05,Math.max(0.001,(now-(CKENV.t||now))/1000)));CKENV.t=now;FORK.style.display='block';FORK.style.transform=cockpitEl.style.transform;cockpitEl.style.transform+=' translateY('+(fc*2.4).toFixed(2)+'%)';}
       cockpitEl.style.transform+=' scaleY('+K[0]+')';
       cockpitEl.style.transformOrigin='50% '+K[4]+'%';CKT.style.transformOrigin=CKG.style.transformOrigin='50% '+K[4]+'%';
       camera.rotateX(-K[1]*Math.PI/180);

@@ -23,7 +23,7 @@ button.sec{background:rgba(255,255,255,.16);color:#fff}
 button:disabled{background:rgba(255,255,255,.08);color:#888;cursor:not-allowed}
 .help{font-size:15px;opacity:.85;line-height:1.5}
 
-#cockpit{position:absolute;left:50%;bottom:-19.2vw;width:176vw;max-width:none;pointer-events:none;user-select:none;transform-origin:50% 19.1%;will-change:transform;filter:drop-shadow(0 6px 10px rgba(0,0,0,.35))}
+#cockpit,#cockfork{position:absolute;left:50%;bottom:-19.2vw;width:176vw;max-width:none;pointer-events:none;user-select:none;transform-origin:50% 19.1%;will-change:transform;filter:drop-shadow(0 6px 10px rgba(0,0,0,.35))}
 body.fpv #prof{bottom:auto;top:58px}
 
 /* Startscreen MIWORU */
@@ -108,7 +108,7 @@ body.fpv #prof{bottom:auto;top:58px}
 #bootbar{width:min(320px,70vw);height:4px;background:rgba(255,255,255,.15);border-radius:2px;overflow:hidden}
 #bootbar i{display:block;height:100%;width:0;background:#f5a623;transition:width .4s}
 
-body.night #cockpit{filter:brightness(.55) saturate(.85)}
+body.night #cockpit,body.night #cockfork{filter:brightness(.55) saturate(.85)}
 
 /* Freischalten */
 .panel.unlock{max-width:560px}
@@ -151,7 +151,8 @@ body.night #cockpit{filter:brightness(.55) saturate(.85)}
 
 .unlock .rsel{width:100%;box-sizing:border-box;padding:9px 12px;font:16px system-ui,sans-serif;border-radius:8px;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.35);color:#fff}
 .unlock textarea.rsel{resize:vertical}
-#cockpit.c2{width:118vw;bottom:-0.6vw;transform-origin:50% 30%}
+#cockpit.c2,#cockfork.c2{width:118vw;bottom:-0.6vw;transform-origin:50% 30%}
+#cockfork{clip-path:inset(56% 0 0 0);filter:none}
 
 .ckfx{position:absolute;left:50%;bottom:-0.6vw;width:118vw;aspect-ratio:1500/364;max-width:none;pointer-events:none;transform-origin:50% 30%;will-change:transform}
 #cktire{-webkit-mask:url(/assets/ui/tire2-mask.png) 0 0/100% 100% no-repeat;mask:url(/assets/ui/tire2-mask.png) 0 0/100% 100% no-repeat;background-size:2.2vw 1.54vw;mix-blend-mode:multiply}
