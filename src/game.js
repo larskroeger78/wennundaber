@@ -2049,7 +2049,7 @@ let GRAINS=[];{for(let k=0;k<4;k++){const c=document.createElement('canvas');c.w
 let CKPH=0,CKLT=0,CKGT=0,CKGI=0;
 const CKENV={fd:0,surf:0,pud:false,spike:0,fx:0,fv:0,pvy:0};
 // Federgabel: Stoesse (Impuls aus dem Cockpit-Ruckeln) und Bremsen druecken die Gabel zusammen, Lenker taucht ueber der Gabel ab
-function forkComp(dt){const d=SHK.vy-CKENV.pvy;CKENV.pvy=SHK.vy;if(Math.abs(d)>0.02)CKENV.fv+=Math.min(1.2,Math.abs(d))*16;CKENV.fv+=(-300*CKENV.fx-11*CKENV.fv)*dt;CKENV.fx+=CKENV.fv*dt;CKENV.fx=Math.max(-0.15,Math.min(1.1,CKENV.fx));return Math.max(0,CKENV.fx+(BRK||0)*0.35);}
+function forkComp(dt){const d=SHK.vy-CKENV.pvy;CKENV.pvy=SHK.vy;if(Math.abs(d)>0.02)CKENV.fv+=Math.min(1.5,Math.abs(d))*30;CKENV.fv+=(-300*CKENV.fx-11*CKENV.fv)*dt;CKENV.fx+=CKENV.fv*dt;CKENV.fx=Math.max(-0.2,Math.min(1.4,CKENV.fx));return Math.max(0,CKENV.fx+(BRK||0)*0.6);}
 function updateCockFx(now,deg){
   const dt=Math.min(0.05,Math.max(0,(now-CKLT)/1000));CKLT=now;
   const tf=cockpitEl.style.transform,v=Math.max(0,st.v||0);
@@ -2616,7 +2616,7 @@ function render(dt,now){
     cockpitEl.style.transform='translate(-50%,'+(18.5+Math.abs(deg)*0.062-(SHK.y+airH()*0.6)*70-(SHK.buzz||0)*0.12).toFixed(2)+'%) rotate('+clamp(deg+SHK.r*25+SHK.w+Math.sin(st.crank)*0.7*Math.min(1,st.power/150),-22,22).toFixed(2)+'deg)';
     {   // Eindruck 'im Stehen, von oben aufs Rad schauen': Lenkerbild nach vorn gekippt, Blick etwas nach unten
       const K=CK_STAND;
-      {const fc=forkComp(Math.min(0.05,Math.max(0.001,(now-(CKENV.t||now))/1000)));CKENV.t=now;FORK.style.display='block';FORK.style.transform=cockpitEl.style.transform;cockpitEl.style.transform+=' translateY('+(fc*3.4).toFixed(2)+'%)';}
+      {const fc=forkComp(Math.min(0.05,Math.max(0.001,(now-(CKENV.t||now))/1000)));CKENV.t=now;FORK.style.display='block';FORK.style.transform=cockpitEl.style.transform;cockpitEl.style.transform+=' translateY('+(fc*7).toFixed(2)+'%)';}
       cockpitEl.style.transform+=' scaleY('+K[0]+')';
       cockpitEl.style.transformOrigin='50% '+K[4]+'%';CKW.style.transformOrigin='50% '+K[4]+'%';
       camera.rotateX(-K[1]*Math.PI/180);
