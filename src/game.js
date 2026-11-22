@@ -2030,7 +2030,7 @@ const CK_STAND=[1,3,0,900,30];const COCK=1;
 // Neuer Lenker: leichtes Filmkorn ueber dem Lenker und ein sich drehender Stollenreifen (Draufsicht), beides deckungsgleich mit dem Lenkerbild
 const CKT=document.createElement('div'),CKG=document.createElement('div'),CKM=document.createElement('div'),CKS=document.createElement('div'),CKD=document.createElement('div'),CKW=document.createElement('div');
 CKW.className='ckfx';CKW.id='ckwrap';CKW.style.display='none';document.getElementById('cockpit').after(CKW);
-[CKT,CKM,CKS,CKD,CKG].forEach(d=>{d.className='ckc';CKW.appendChild(d);});
+[CKT,CKM,CKS,CKG].forEach(d=>{d.className='ckc';CKW.appendChild(d);});
 const FORK=document.createElement('img');FORK.id='cockfork';FORK.className='c2';FORK.src='/assets/ui/cockpit2.png';FORK.draggable=false;FORK.style.display='none';document.getElementById('cockpit').after(FORK);
 CKT.id='cktire';CKG.id='ckgrain';CKM.id='ckmud';CKS.id='cksheen';CKD.id='ckdapple';
 {const c=document.createElement('canvas');c.width=20;c.height=14;const g=c.getContext('2d');   // Stollenmuster: dunkle Klotzchen mit heller Kante
@@ -2071,10 +2071,8 @@ function updateCockFx(now,deg){
   const clear=(1-WXS.fog*0.6)*(1-WXS.rain*0.5),forest=Math.min(1,CKENV.fd||0);
   const gx=50+deg*2.2+Math.sin(now*0.0003)*6,glint=day*clear*(0.18+0.5*sf*sf)*(1-forest*0.55)+WXS.rain*0.14;
   CKS.style.backgroundPosition=gx.toFixed(1)+'% 0';CKS.style.opacity=Math.min(0.85,glint).toFixed(2);
-  CKD.style.backgroundPosition=((now*0.012*(0.4+v*0.35))%128).toFixed(1)+'px '+((now*0.006)%128).toFixed(1)+'px';
-  CKD.style.opacity=(forest*day*0.55*(0.4+Math.min(1,v/5)*0.6)).toFixed(2);
   {
-    const fxv=quality>1?'block':'none';if(fxv!==CKENV.fxv){CKENV.fxv=fxv;CKS.style.display=CKD.style.display=CKG.style.display=fxv;}}
+    const fxv=quality>1?'block':'none';if(fxv!==CKENV.fxv){CKENV.fxv=fxv;CKS.style.display=CKG.style.display=fxv;}}
   if(now-CKGT>70){CKGT=now;CKGI=(CKGI+1)%4;CKG.style.backgroundImage=GRAINS[CKGI];CKG.style.backgroundPosition=((Math.random()*128)|0)+'px '+((Math.random()*128)|0)+'px';}
 }
 function applyCockpit(){const el=document.getElementById('cockpit');el.src='/assets/ui/cockpit2.png';el.classList.add('c2');}
