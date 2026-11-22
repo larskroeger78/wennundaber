@@ -2028,9 +2028,9 @@ const bleChange=()=>{if(trainer.connected)inputMode='trainer';else if(inputMode=
 trainer.onChange=bleChange;click.onChange=bleChange;   // nur noch Lenkeransicht (Cockpit)
 const CK_STAND=[1,3,0,900,30];const COCK=1;
 // Neuer Lenker: leichtes Filmkorn ueber dem Lenker und ein sich drehender Stollenreifen (Draufsicht), beides deckungsgleich mit dem Lenkerbild
-const CKT=document.createElement('div'),CKG=document.createElement('div'),CKM=document.createElement('div'),CKS=document.createElement('div'),CKD=document.createElement('div'),CKA=document.createElement('div'),CKH=document.createElement('div'),CKW=document.createElement('div');
+const CKT=document.createElement('div'),CKG=document.createElement('div'),CKM=document.createElement('div'),CKS=document.createElement('div'),CKD=document.createElement('div'),CKW=document.createElement('div');
 CKW.className='ckfx';CKW.id='ckwrap';CKW.style.display='none';document.getElementById('cockpit').after(CKW);
-[CKA,CKH,CKT,CKM,CKS,CKD,CKG].forEach(d=>{d.className='ckc';CKW.appendChild(d);});CKA.id='ckao';CKH.id='ckhaze';
+[CKT,CKM,CKS,CKD,CKG].forEach(d=>{d.className='ckc';CKW.appendChild(d);});
 const FORK=document.createElement('img');FORK.id='cockfork';FORK.className='c2';FORK.src='/assets/ui/cockpit2.png';FORK.draggable=false;FORK.style.display='none';document.getElementById('cockpit').after(FORK);
 CKT.id='cktire';CKG.id='ckgrain';CKM.id='ckmud';CKS.id='cksheen';CKD.id='ckdapple';
 {const c=document.createElement('canvas');c.width=20;c.height=14;const g=c.getContext('2d');   // Stollenmuster: dunkle Klotzchen mit heller Kante
@@ -2073,12 +2073,7 @@ function updateCockFx(now,deg){
   CKS.style.backgroundPosition=gx.toFixed(1)+'% 0';CKS.style.opacity=Math.min(0.85,glint).toFixed(2);
   CKD.style.backgroundPosition=((now*0.012*(0.4+v*0.35))%128).toFixed(1)+'px '+((now*0.006)%128).toFixed(1)+'px';
   CKD.style.opacity=(forest*day*0.55*(0.4+Math.min(1,v/5)*0.6)).toFixed(2);
-  // Einpassen ins Spielbild: Helligkeit/Saettigung/Waerme folgen Wald, Nebel, Regen, Tageszeit; Dunst in Nebelfarbe, Ambient-Abdunklung unten
-  {const fo=NIGHT?0:Math.min(1,CKENV.fd||0),bl=NIGHT?0.55:Math.max(0.6,1-0.2*fo-0.07*WXS.fog-0.06*WXS.rain-(1-day)*0.25),
-    sep=NIGHT?0:Math.max(0,Math.min(1,(0.45-SUN.y)/0.35))*day*0.3,sat=NIGHT?0.85:1-0.12*WXS.fog-0.1*fo,
-    fk='brightness('+bl.toFixed(2)+') saturate('+sat.toFixed(2)+') sepia('+sep.toFixed(2)+')';
-    if(fk!==CKENV.fk){CKENV.fk=fk;cockpitEl.style.filter=fk+' drop-shadow(0 6px 10px rgba(0,0,0,.35))';FORK.style.filter=fk;}
-    const hz=Math.max(0,Math.min(0.4,0.05+0.3*WXS.fog+0.1*(1-day))).toFixed(2);if(hz!==CKENV.hz){CKENV.hz=hz;CKH.style.opacity=hz;CKH.style.backgroundColor='#'+scene.fog.color.getHexString();}
+  {
     const fxv=quality>1?'block':'none';if(fxv!==CKENV.fxv){CKENV.fxv=fxv;CKS.style.display=CKD.style.display=CKG.style.display=fxv;}}
   if(now-CKGT>70){CKGT=now;CKGI=(CKGI+1)%4;CKG.style.backgroundImage=GRAINS[CKGI];CKG.style.backgroundPosition=((Math.random()*128)|0)+'px '+((Math.random()*128)|0)+'px';}
 }

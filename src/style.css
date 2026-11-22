@@ -163,8 +163,6 @@ body.night #cockpit,body.night #cockfork{filter:brightness(.55) saturate(.85)}
 
 /* Lenker-Effektebenen in einem Container (eine Transform pro Bild statt sieben) */
 .ckc{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none}
-#ckao{-webkit-mask:url(/assets/ui/cockpit2.png) 0 0/100% 100% no-repeat;mask:url(/assets/ui/cockpit2.png) 0 0/100% 100% no-repeat;background:linear-gradient(180deg,rgba(0,0,0,0) 38%,rgba(0,0,0,.42) 100%);mix-blend-mode:multiply}
-#ckhaze{-webkit-mask:url(/assets/ui/cockpit2.png) 0 0/100% 100% no-repeat;mask:url(/assets/ui/cockpit2.png) 0 0/100% 100% no-repeat;opacity:0}
 /* Handy: nur Tempo, Menue und ein Vorwaertspfeil */
 #goBtn,#brkBtn{display:none}
 body.phone #hint,body.phone #prof,body.phone #mini,body.phone #gear,body.phone #grp,body.phone #sec,body.phone #off,body.phone #sub{display:none!important}
