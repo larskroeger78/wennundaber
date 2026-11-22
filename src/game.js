@@ -2280,7 +2280,7 @@ function mineHtml(){   // Streckenliste: feste Strecken + eigene GPX-Strecken (Z
   const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const cur=GPX_ID?'gpx_'+GPX_ID:(!ROUTE?'halde':(ROUTES[RKEY]&&!ROUTES[RKEY].custom?RKEY:'tour2'));
   const base=[['tour2','MIWORU'],['wuppertal2','Whopperthal'],['hagen','Hagmoor'],['iserlohn','Isehorst'],['hemer','Hemstein'],['buellberg','Bölkamp'],['dortmund','Dorbach'],['alpen','Sölden']];
-  let h='<div class="mine"><div class="mh">Strecken</div>'+(hasPass()?'':'<div class="mr" style="grid-column:1/-1"><span class="mn">Weitere Strecken<small>mit einer kleinen Spende ab 1 € · oder Community-Code</small></span><button class="main" data-unlock="">Spenden</button></div>')+base.map(b=>'<div class="mr'+(b[0]===cur?' cur':'')+'"><span class="mn">'+b[1]+'</span>'+(b[0]===cur?'<span class="act">aktiv</span>':(LOCKED.indexOf(b[0])>=0&&!hasPass()?'<button class="sec" data-unlock="'+b[0]+'">🔒 Spenden</button>':'<button class="sec" data-route="'+b[0]+'">Fahren</button>'))+'</div>').join('');
+  let h='<div class="mine"><div class="mh">Strecken</div>'+(hasPass()?'':'<div class="mr" style="grid-column:1/-1"><span class="mn">Weitere Strecken<small>mit einem kleinen Support ab 1 € · oder Community-Code</small></span><button class="main" data-unlock="">Supporten</button></div>')+base.map(b=>'<div class="mr'+(b[0]===cur?' cur':'')+'"><span class="mn">'+b[1]+'</span>'+(b[0]===cur?'<span class="act">aktiv</span>':(LOCKED.indexOf(b[0])>=0&&!hasPass()?'<button class="sec" data-unlock="'+b[0]+'">🔒 Supporten</button>':'<button class="sec" data-route="'+b[0]+'">Fahren</button>'))+'</div>').join('');
   return h+'</div>';
 }
 let helpOpen=false;
@@ -2296,7 +2296,7 @@ function showHelp(){
     sec('Schwierigkeit',['<b>1</b> Leicht: 1,6-fache Wirkung deiner Watt, Steigungen nur zu 40 %','<b>2</b> Normal','<b>3</b> Hardcore: Steigungen zu 150 %, 0,85-fache Watt','<b>4</b> Eskalation: 20 % härter als realistisch','Die Stufen sind auch oben rechts antippbar.'])+
     sec('Anzeige und Sound ein- und ausschalten',['<b>Q</b> Grafik: Niedrig, Mittel, Hoch (bei ruckelndem Bild eine Stufe tiefer)','<b>V</b> Vollbild an/aus (Esc beendet; auf dem Tablet das ✕ oben links)','<b>T</b> Tageszeit: Live, Morgen, Mittag, Abend, Dämmerung (Nebel in den Senken, Sonnenstrahlen)','<b>J</b> Jahreszeit: Standard, Herbst (Laubfarben, fallendes Laub), Winter (Schnee, kahle Bäume)','Auf Stufe Hoch: Sonnenstrahlen, Randunschärfe bei hohem Tempo, bei Nightride sichtbarer Lichtkegel mit Insekten','<b>W</b> Wetter: aus, Regen und weitere Stufen','<b>L</b> Nightride: Nachtfahrt an oder aus (nur auf den festen Strecken)','<b>N</b> Sound: alle Geräusche an oder aus','<b>F</b> Freilauf: schaltet durch aus, 16, 32, 56 und 72 Zähne. Weniger Zähne klingen gröber und klickernder, 72 ist das feine Surren. Bei hohem Tempo wird der Freilauf von Wind und Reifenabrollen überdeckt, ganz weg ist er nur auf „aus“.'])+
     sec('Nachtfahrt und Tiere',['Im Nightride fährst du mit Stirnlampe, Mond und Sternen. Nur dort und nur im dunklen Wald tauchen ab und zu Tiere auf: Wildschweine in einer Rotte mit Frischlingen, Hirsche und Rehe.','Du siehst sie nur schemenhaft am Wegrand, ihre Augen reflektieren das Licht deiner Lampe. Vor dem Weggehen rufen sie leise. Kommst du näher als 10 Meter, rennen sie weg und verschwinden in der Dunkelheit.','Ausschalten: <b>L</b> beendet den Nightride, und damit sind auch die Tiere weg. Ihre Rufe sind Teil von <b>N</b> (Sound).'])+
-    sec('Strecken und Liftfahrten',['MIWORU bleibt kostenlos. Weitere Strecken schaltest du mit einer kleinen Spende ab 1 € oder einem Community-Code frei.','Auf der Strecke in Sölden bringen dich Bergbahnen nach oben: Ein Hinweis zeigt Höhenmeter und Fahrzeit, die Liftzeit zählt nicht zu deiner Fahrzeit.'])+
+    sec('Strecken und Liftfahrten',['MIWORU bleibt kostenlos. Weitere Strecken schaltest du mit einem kleinen Support ab 1 € oder einem Community-Code frei.','Auf der Strecke in Sölden bringen dich Bergbahnen nach oben: Ein Hinweis zeigt Höhenmeter und Fahrzeit, die Liftzeit zählt nicht zu deiner Fahrzeit.'])+
     sec('Gruppenfahrt',['Im Menü einen Gruppencode eingeben (alle Freunde denselben, dieselbe Strecke wählen). Mitfahrer erscheinen als farbige Punkte, in Minikarte und Höhenprofil immer.'])+
     '</div>'+
     '<div class="btns"><button id="hback" class="main">← Zurück</button></div>'+
@@ -2331,24 +2331,24 @@ function showReport(){   // Problem melden: technische Daten werden automatisch 
     }catch(e){stt.textContent=(e&&e.message)||'Senden fehlgeschlagen.';sb.disabled=false;}
   };
 }
-function showThanks(code,next){   // nach der Spende: Dank und Freischaltcode zum Notieren (fuer weitere Geraete: unter Community-Code eingeben)
+function showThanks(code,next){   // nach dem Support: Dank und Freischaltcode zum Notieren (fuer weitere Geraete: unter Community-Code eingeben)
   const c=typeof code==='string'?code:'';
   ov.innerHTML='<div class="intro"><div class="panel unlock"><div class="by">by Wenn &amp; Aber Bike Crew</div><h1>Vielen Dank!</h1>'+
-    '<div class="help">Deine Spende ist angekommen, alle weiteren Strecken sind jetzt freigeschaltet. Das hilft mir sehr, das Projekt weiterzuentwickeln.</div>'+
+    '<div class="help">Dein Support ist angekommen, alle weiteren Strecken sind jetzt freigeschaltet. Das hilft mir sehr, das Projekt weiterzuentwickeln.</div>'+
     (c?'<div class="ucode"><div class="uh">Dein Freischaltcode</div><div class="urow"><input id="tcode" type="text" readonly value="'+c+'" aria-label="Freischaltcode"><button id="tcp" class="sec">Kopieren</button></div></div>'+
-    '<div class="help">Bitte notieren: Auf einem anderen Gerät oder nach dem Löschen der Browserdaten gibst du ihn im Spendenfenster bei „Community-Code" ein, dann sind die Strecken wieder frei.</div>':'')+
+    '<div class="help">Bitte notieren: Auf einem anderen Gerät oder nach dem Löschen der Browserdaten gibst du ihn im Support-Fenster bei „Community-Code" ein, dann sind die Strecken wieder frei.</div>':'')+
     '<div class="btns"><button id="tgo" class="main">Los geht\'s</button></div></div></div>';
   const ti=document.getElementById('tcode');if(ti){ti.onclick=()=>ti.select();ti.onkeydown=ti.onkeyup=ti.onkeypress=e=>e.stopPropagation();}
   const cp=document.getElementById('tcp');if(cp)cp.onclick=()=>{try{navigator.clipboard.writeText(c);cp.textContent='Kopiert';}catch(e){ti.select();}};
   document.getElementById('tgo').onclick=next;
 }
-function showUnlock(want){   // Spendenfenster: Betrag ab 1 EUR, kurze Geschichte zum Projekt, PayPal. Eine Spende schaltet alle weiteren Strecken frei (Pruefung auf dem Server)
+function showUnlock(want){   // Support-Fenster: Betrag ab 1 EUR, kurze Geschichte zum Projekt, PayPal. Ein Support schaltet alle weiteren Strecken frei (Pruefung auf dem Server)
   helpOpen=true;ov.style.display='flex';menuBtn.style.display='none';
   const wname=want&&ROUTES[want]?ROUTES[want].label:'';
   ov.innerHTML='<div class="intro"><div class="panel unlock">'+
-    '<div class="by">by Wenn &amp; Aber Bike Crew</div><h1>Spenden &amp; weitere Strecken</h1>'+
-    '<div class="help">'+(wname?'<b>'+wname+'</b> gehört zu den weiteren Strecken. ':'')+'MIWORU bleibt kostenlos. Wer weitere Strecken fahren möchte, kann mir gern eine kleine Spende hinterlassen: <b>ab 1 €</b>, den Betrag bestimmst du selbst. Damit sind Wupfeld, Hagmoor, Isehorst, Hemstein, Bölkamp, Dorbach und Sölden in diesem Browser freigeschaltet.</div>'+
-    '<div class="ucode"><div class="uh">Betrag</div><div class="urow"><input id="uamt" type="text" inputmode="decimal" autocomplete="off" value="5" aria-label="Spendenbetrag in Euro"><span class="ueur">€</span><button id="ubuy" class="main">Spenden</button></div><div id="upp"></div></div>'+
+    '<div class="by">by Wenn &amp; Aber Bike Crew</div><h1>Support &amp; weitere Strecken</h1>'+
+    '<div class="help">'+(wname?'<b>'+wname+'</b> gehört zu den weiteren Strecken. ':'')+'MIWORU bleibt kostenlos. Wer weitere Strecken fahren möchte, kann mich gern mit einem kleinen Betrag supporten: <b>ab 1 €</b>, den Betrag bestimmst du selbst. Damit sind Whopperthal, Hagmoor, Isehorst, Hemstein, Bölkamp, Dorbach und Sölden in diesem Browser freigeschaltet.</div>'+
+    '<div class="ucode"><div class="uh">Betrag</div><div class="urow"><input id="uamt" type="text" inputmode="decimal" autocomplete="off" value="5" aria-label="Betrag in Euro"><span class="ueur">€</span><button id="ubuy" class="main">Supporten</button></div><div id="upp"></div></div>'+
     '<div class="help" id="umsg"></div>'+
     '<div class="ucode"><div class="uh">Community-Code</div><div class="urow"><input id="ucode" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Code eingeben"><button id="ucodeb" class="sec">Einlösen</button></div></div>'+
     '<div class="help ulinks"><a href="#" id="ustory">Warum gibt es das Projekt?</a> · <a href="/rechtliches.html#impressum" target="_blank" rel="noopener">Impressum</a> · <a href="/rechtliches.html#datenschutz" target="_blank" rel="noopener">Datenschutz</a></div>'+
@@ -2371,7 +2371,7 @@ function showUnlock(want){   // Spendenfenster: Betrag ab 1 EUR, kurze Geschicht
       const pp=await loadPayPal(cfg.clientId);msg('');
       pp.Buttons({style:{layout:'vertical',shape:'rect',label:'donate'},
         createOrder:()=>payCreate(a.toFixed(2)),
-        onApprove:async d=>{msg('Spende wird bestätigt …');try{const cd=await payCapture(d.orderID);showThanks(cd,done);}catch(e){msg('Zahlung konnte nicht bestätigt werden: '+(e&&e.message||e)+' Bitte melde dich mit der PayPal-Transaktionsnummer.');}},
+        onApprove:async d=>{msg('Zahlung wird bestätigt …');try{const cd=await payCapture(d.orderID);showThanks(cd,done);}catch(e){msg('Zahlung konnte nicht bestätigt werden: '+(e&&e.message||e)+' Bitte melde dich mit der PayPal-Transaktionsnummer.');}},
         onCancel:()=>{msg('Abgebrochen.');buy.disabled=false;ai.disabled=false;},
         onError:e=>{msg('PayPal-Fehler: '+(e&&e.message||e));buy.disabled=false;ai.disabled=false;}
       }).render('#upp');
@@ -2379,7 +2379,7 @@ function showUnlock(want){   // Spendenfenster: Betrag ab 1 EUR, kurze Geschicht
   };
   setTimeout(()=>{if(helpOpen&&document.getElementById('ustory')&&!sessionStorage.getItem('miworu_story_seen')){try{sessionStorage.setItem('miworu_story_seen','1');}catch(e){}showStory();}},350);   // kleines Fenster mit der Geschichte, einmal pro Sitzung
 }
-function showStory(){   // kleines Fenster ueber dem Spendenfenster: Foto und persoenlicher Text
+function showStory(){   // kleines Fenster ueber dem Support-Fenster: Foto und persoenlicher Text
   if(document.getElementById('story'))return;
   const d=document.createElement('div');d.id='story';
   d.innerHTML='<div class="sbox"><button class="sx" aria-label="Schließen">×</button>'+
@@ -2387,8 +2387,8 @@ function showStory(){   // kleines Fenster ueber dem Spendenfenster: Foto und pe
     '<h2>Moin, ich bin Lars</h2>'+
     '<p>Ich fahre sehr gern Mountainbike, und wir sind eine kleine Crew. Eigentlich wollen wir oft zusammen raus, aber das Wetter spielt selten mit, und zeitlich bekommen wir regelmäßige Touren auch nicht immer hin.</p>'+
     '<p>Rennrad fahren möchte ich nicht. Also habe ich überlegt, wie ich das ganze System aus Swift, Rouvy und Co. aufs Mountainbiken übertragen kann. Daraus ist dieses Projekt entstanden.</p>'+
-    '<p>Wer weitere Strecken fahren möchte, kann mir gern eine kleine Spende hinterlassen. Ich entwickle das Programm ständig weiter.</p>'+
-    '<button class="main sok">Zur Spende</button></div>';
+    '<p>Wer weitere Strecken fahren möchte, kann mich gern mit einem kleinen Betrag supporten. Ich entwickle das Programm ständig weiter.</p>'+
+    '<button class="main sok">Zum Support</button></div>';
   document.body.appendChild(d);
   const c=()=>d.remove();d.querySelector('.sx').onclick=c;d.querySelector('.sok').onclick=c;d.onclick=e=>{if(e.target===d)c();};
 }

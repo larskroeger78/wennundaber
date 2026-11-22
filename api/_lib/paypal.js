@@ -1,5 +1,5 @@
 // PayPal Orders v2 (Server-seitig). Zugangsdaten nur aus Umgebungsvariablen.
-export const MIN = 1, MAX = 500;   // Spende: frei waehlbar von 1 bis 500 Euro
+export const MIN = 1, MAX = 500;   // Support: frei waehlbar von 1 bis 500 Euro
 export const cleanAmount = (a) => { const n = Math.round(parseFloat(String(a).replace(',', '.')) * 100) / 100; if (!isFinite(n) || n < MIN || n > MAX) throw new Error('Betrag muss zwischen 1 und 500 Euro liegen'); return n.toFixed(2); };
 export const CURRENCY = 'EUR';
 
@@ -24,7 +24,7 @@ export async function createOrder(amount) {
     headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       intent: 'CAPTURE',
-      purchase_units: [{ description: 'MIWORU - Spende', amount: { currency_code: CURRENCY, value: val } }],
+      purchase_units: [{ description: 'MIWORU - Support', amount: { currency_code: CURRENCY, value: val } }],
     }),
   });
   const d = await r.json().catch(() => ({}));
