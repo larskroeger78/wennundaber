@@ -2056,7 +2056,7 @@ CKT.id='cktire';CKP.id='ckspray';CKG.id='ckgrain';CKM.id='ckmud';CKS.id='cksheen
   g.fillRect(1,1,8,5);g.fillRect(11,8,8,5);g.fillStyle='rgba(30,30,30,0.7)';g.fillRect(2,5,7,1.5);g.fillRect(12,12,7,1.5);
   CKT.style.backgroundImage='url('+c.toDataURL()+')';}
 {const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');   // Schlammspritzer fuer den Reifen
-  for(let k=0;k<46;k++){const x=Math.random()*64,y=Math.random()*64,r=1.5+Math.random()*5;g.fillStyle='rgba('+(60+Math.random()*20|0)+','+(50+Math.random()*18|0)+','+(38+Math.random()*12|0)+','+(0.55+Math.random()*0.45).toFixed(2)+')';g.beginPath();g.ellipse(x,y,r,r*(0.6+Math.random()*0.8),Math.random()*3,0,6.3);g.fill();}
+  for(let k=0;k<130;k++){const x=Math.random()*64,y=Math.random()*64,r=0.8+Math.random()*2.7;g.fillStyle='rgba('+(60+Math.random()*20|0)+','+(50+Math.random()*18|0)+','+(38+Math.random()*12|0)+','+(0.55+Math.random()*0.45).toFixed(2)+')';g.beginPath();g.ellipse(x,y,r,r*(0.6+Math.random()*0.8),Math.random()*3,0,6.3);g.fill();}
   CKM.style.backgroundImage='url('+c.toDataURL()+')';}
 {const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,128,128);   // Licht-und-Schatten-Flecken (Blaetterdach)
   for(let k=0;k<26;k++){const x=Math.random()*128,y=Math.random()*128,r=6+Math.random()*16;const gr=g.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,'rgba(0,0,0,0.85)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(x-r,y-r,2*r,2*r);}
@@ -2065,7 +2065,7 @@ CKT.id='cktire';CKP.id='ckspray';CKG.id='ckgrain';CKM.id='ckmud';CKS.id='cksheen
   for(let k=0;k<40;k++){const x=Math.random()*64,y=Math.random()*64,r=1+Math.random()*3.4;g.fillStyle='rgba(225,238,248,'+(0.45+Math.random()*0.45).toFixed(2)+')';g.beginPath();g.ellipse(x,y,r*0.8,r*(1.2+Math.random()*1.4),0,0,6.3);g.fill();}
   CKP.style.backgroundImage='url('+c.toDataURL()+')';}
 {const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d');   // Matschspritzer auf Lenker, Gabel und Vorbau
-  for(let k=0;k<75;k++){const x=Math.random()*128,y=Math.random()*128,r=1+Math.random()*5.5;g.fillStyle='rgba('+(58+Math.random()*18|0)+','+(50+Math.random()*16|0)+','+(38+Math.random()*12|0)+','+(0.6+Math.random()*0.4).toFixed(2)+')';g.beginPath();g.ellipse(x,y,r,r*(0.5+Math.random()*0.9),Math.random()*3,0,6.3);g.fill();
+  for(let k=0;k<280;k++){const x=Math.random()*128,y=Math.random()*128,r=0.6+Math.random()*2.6;g.fillStyle='rgba('+(58+Math.random()*18|0)+','+(50+Math.random()*16|0)+','+(38+Math.random()*12|0)+','+(0.6+Math.random()*0.4).toFixed(2)+')';g.beginPath();g.ellipse(x,y,r,r*(0.5+Math.random()*0.9),Math.random()*3,0,6.3);g.fill();
     if(Math.random()<0.35){for(let j=0;j<4;j++){g.beginPath();g.arc(x+(Math.random()-0.5)*14,y+(Math.random()-0.5)*14,0.6+Math.random()*1.3,0,6.3);g.fill();}}}
   CKB.style.backgroundImage='url('+c.toDataURL()+')';}
 let CKDIRT=0,CKSPR=0,CKBD=0,CKBM=0;
