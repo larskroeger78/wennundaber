@@ -2089,10 +2089,10 @@ function updateCockFx(now,deg){
   CKDIRT+=(want-CKDIRT)*Math.min(1,dt*(want>CKDIRT?1.6:0.12))*(v>0.5?1:0.2);
   CKSPR+=(((CKENV.pud&&v>1)?Math.min(1,v/7):0)-CKSPR)*Math.min(1,dt*(CKENV.pud?9:3.5));   // Spritzwasser nur waehrend der Pfuetze, klingt schnell ab
   CKP.style.opacity=Math.min(1,CKSPR*1.1).toFixed(2);CKP.style.backgroundPosition=((CKPH*0.37)%64).toFixed(1)+'px '+(-(CKPH*1.6)%64).toFixed(1)+'px';
-  CKBD=Math.min(1,CKBD+(CKENV.pud&&v>1?dt*0.45*Math.min(1,v/6):0)+(CKENV.surf>0&&v>1?dt*0.004:0));CKBM=Math.max(CKBM,CKBD);   // Matsch sammelt sich an
+  CKBD=Math.min(1,CKBD+(CKENV.mud&&v>1?dt*0.45*Math.min(1,v/6):0));CKBM=Math.max(CKBM,CKBD);   // Matsch sammelt sich an
   if(CKBD>CKBM*0.35)CKBD=Math.max(CKBM*0.35,CKBD-dt*((WX===2&&!CKENV.pud?0.02:0)+(CKENV.surf===0?0.004:0.0008)+(WX===0?0.003:0)));   // Regen, Sonne und Asphalt waschen etwas ab, ganz sauber wird das Rad nicht mehr   // Rad wird in Pfuetzen dreckig, trocknet auf Asphalt langsam ab
   CKB.style.opacity=Math.min(1,CKBD*1.15).toFixed(2);
-  {const wt=WX===2?(WXFIX?0.75:1):0;CKWET+=(wt-CKWET)*Math.min(1,dt*(wt>CKWET?0.014:(WX===0?0.012:0.005)));CKH.style.opacity=CKWET.toFixed(3);}   // Regen: nach etwa einer Minute sichtbar nass, trocknet langsam
+  {const wt=WX===2?(WXFIX?0.75:1):0;if(CKENV.pud&&v>1)CKWET=Math.min(Math.max(wt,0.55),CKWET+dt*0.12*Math.min(1,v/6));CKWET+=(wt-CKWET)*Math.min(1,dt*(wt>CKWET?0.014:(WX===0?0.012:0.005)));CKH.style.opacity=CKWET.toFixed(3);}   // Regen: nach etwa einer Minute sichtbar nass, trocknet langsam
   const k=Math.max(0.3,1-v/16);                 // bei hohem Tempo weichere, verwischte Stollen
   const bgp='0 '+(-(CKPH%14)*0.11).toFixed(3)+'vw';
   CKW.style.transform=tf;CKW.style.display='block';
@@ -2216,11 +2216,11 @@ function update(dt){
   {   // Pfuetze erwischt? Tropfen aufs Bild (nur steigende Flanke, ab 1,5 m/s)
     sample(st.pos,smp);const bwx=smp.x-Math.cos(smp.h)*st.x,bwz=smp.z+Math.sin(smp.h)*st.x,gx=Math.floor(bwx/8),gz=Math.floor(bwz/8);let hit=false;
     for(let a=-1;a<=1&&!hit;a++)for(let b=-1;b<=1&&!hit;b++){const kk=(gx+a)+','+(gz+b),wk=window.__wp>0.3&&window.PUDW&&window.PUDW[kk],L=wk?(PUDH[kk]||[]).concat(wk):PUDH[kk];if(!L)continue;
-      for(let k=0;k<L.length;k++){const q=L[k],dx=bwx-q.x,dz=bwz-q.z,c=Math.cos(q.r),sn=Math.sin(q.r),lx=(dx*c-dz*sn)/(q.a*0.6),lz=(dx*sn+dz*c)/(q.b*0.6);if(lx*lx+lz*lz<1){hit=true;break;}}}
+      for(let k=0;k<L.length;k++){const q=L[k],dx=bwx-q.x,dz=bwz-q.z,c=Math.cos(q.r),sn=Math.sin(q.r),lx=(dx*c-dz*sn)/(q.a*0.6),lz=(dx*sn+dz*c)/(q.b*0.6);if(lx*lx+lz*lz<1){hit=true;update.muddy=q.w?!!q.m:true;break;}}}
     if(hit&&!update.inPud&&st.v>1.5){splashDrops(st.v);AUDIO.splash(st.v);}update.inPud=hit;
   }
   if(AUDIO.on&&AUDIO.suspended&&st.t>3&&!update.sndT){update.sndT=1;toastEl.textContent='Sound aktivieren: einmal klicken oder eine Taste drücken';toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),4000);}
-  {const fd=forestD(PX[i],PZ[i]);CKENV.fd=fd;CKENV.gr=GR[i];CKENV.surf=SURF[i];CKENV.pud=!!update.inPud;AUDIO.update(dt,{running:true,v:st.v,surf:SHK.air?-1:SURF[i],pedal:st.power>20?1:0,brake:!!down,forest:fd,rain:WXS.rain,day:WXS.day,night:NIGHT,pud:!!update.inPud});}
+  {const fd=forestD(PX[i],PZ[i]);CKENV.fd=fd;CKENV.gr=GR[i];CKENV.surf=SURF[i];CKENV.pud=!!update.inPud;CKENV.mud=!!(update.inPud&&update.muddy);AUDIO.update(dt,{running:true,v:st.v,surf:SHK.air?-1:SURF[i],pedal:st.power>20?1:0,brake:!!down,forest:fd,rain:WXS.rain,day:WXS.day,night:NIGHT,pud:!!update.inPud});}
   updateJoggers(dt);updateWildlife(dt);updateVans(dt);updateGroup(dt);
   const steer=(right?1:0)-(left?1:0);
   // Automatische Lenkung (Rollentrainer wie D100 oder KICKR können nicht lenken): Lenker und Neigung folgen dem
