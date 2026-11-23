@@ -234,7 +234,7 @@ if(ROUTE&&!CUS&&STR_RAW){   // echte Fahrbahnbreite aus den amtlichen Flaechen (
     let o0=null;for(let k=0;k<=8&&o0===null;k++){for(const sg of [1,-1]){const o=k*0.5*sg;if(inR(PX[i]+nx*o,PZ[i]+nz*o)){o0=o;break;}}}
     if(o0===null)continue;
     let r=o0,q=o0;while(r<o0+9&&inR(PX[i]+nx*(r+0.5),PZ[i]+nz*(r+0.5)))r+=0.5;while(q>o0-9&&inR(PX[i]+nx*(q-0.5),PZ[i]+nz*(q-0.5)))q-=0.5;
-    HW[i]=Math.max(1.5,Math.min(6,(r-q)/2));nm++;}
+    HW[i]=Math.max(1.5,Math.min(3,(r-q)/2));nm++;}
   window.__strMeasured=nm;
 }
 smoothArr(HW,10);smoothArr(FLAT,10);smoothArr(OUTR,10);
@@ -2752,7 +2752,7 @@ function updateTiles(cp){   // weit entfernte Kacheln nicht zeichnen, Schatten n
       let dist=0;
       for(let i=0;i+1<pts.length;i++){
         const a=pts[i],b=pts[i+1],A=nearI(a),B=nearI(b);
-        if(strIn){   // OSM-Strasse nur dort zeichnen, wo es amtlich auch eine Strassenflaeche gibt: keine schwebenden Fragmente im Gelaende
+        if(strIn&&/^(unclassified|service|track|path)$/.test(hw||'')){   // Nebenstrassen/Zufahrten nur dort zeichnen, wo es amtlich eine Strassenflaeche gibt, wo es amtlich auch eine Strassenflaeche gibt: keine schwebenden Fragmente im Gelaende
           const mx=(a[0]+b[0])/2,mz=(a[1]+b[1])/2,ex2=b[0]-a[0],ez2=b[1]-a[1],el=Math.hypot(ex2,ez2)||1,ox=-ez2/el*w*0.4,oz=ex2/el*w*0.4;
           if(!(strIn(mx,mz)||strIn(a[0],a[1])||strIn(b[0],b[1])||strIn(mx+ox,mz+oz)||strIn(mx-ox,mz-oz)))continue;}
         {   // parallel zur Strecke (dieselbe Strasse): auslassen; querende Strasse: bis an den Rand der Strecke durchziehen
@@ -2788,7 +2788,7 @@ function updateTiles(cp){   // weit entfernte Kacheln nicht zeichnen, Schatten n
         for(let i=0;i<q.length;i+=2){const kx=Math.round(q[i]/0.8),kz=Math.round(q[i+1]/0.8),k=kx*100003+kz;let o=J.get(k);if(!o)J.set(k,o={x:q[i],z:q[i+1],ws:new Set(),w:0,end:0,n:q.length/2,rb:e.rb});
           o.ws.add(wi);o.w=Math.max(o.w,e.w||5);if(i===0||i===q.length-2)o.end++;}});
       J.forEach(o=>{if(o.ws.size<3&&!(o.ws.size===2&&o.end>=2&&false))return;
-        if(strIn&&!strIn(o.x,o.z))return;
+        if(strIn&&!strIn(o.x,o.z)&&o.w<=4.5)return;
         const f=nearest(allHash,o.x,o.z),nd=f?nD:99;if(f&&nd<hrAt(nI)*0.9)return;   // nicht auf der Strecke selbst
         const r=o.w/2*1.12+0.2,M2=22,y=G(o.x,o.z)+0.125;
         for(let m=0;m<M2;m++){const a0=m/M2*6.2832,a1=(m+1)/M2*6.2832;[[o.x,o.z,y],[o.x+Math.cos(a0)*r,o.z+Math.sin(a0)*r,G(o.x+Math.cos(a0)*r,o.z+Math.sin(a0)*r)+0.125],[o.x+Math.cos(a1)*r,o.z+Math.sin(a1)*r,G(o.x+Math.cos(a1)*r,o.z+Math.sin(a1)*r)+0.125]].forEach(v=>{RP.push(v[0],v[2],v[1]);RC.push(0.11,0.115,0.12);});}});
