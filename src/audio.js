@@ -245,8 +245,8 @@ export const AUDIO = (() => {
     if (uhuT <= 0) { uhuT = 60 + Math.random() * 100; uhu(t + 0.1); }
     specT -= dt * ((s.night || s.day < 0.35) && s.forest > 0.2 && s.rain < 0.5 ? 1 : 0);
     if (specT <= 0) { specT = 70 + Math.random() * 110; specht(t + 0.1); }
-    kitzT -= dt * ((s.night || s.day < 0.35) && s.forest > 0.2 && s.rain < 0.6 ? 1 : 0);
-    if (kitzT <= 0) { kitzT = 90 + Math.random() * 130; kitz(t + 0.1); }
+    kitzT -= dt * ((s.night || s.day < 0.35) && s.forest > 0.08 && s.rain < 0.6 ? (window.__down ? 3 : 1) : 0);   // bergab oefter: etwa 2-3 Rufe pro Abfahrt
+    if (kitzT <= 0) { kitzT = window.__down ? 45 + Math.random() * 60 : 90 + Math.random() * 130; kitz(t + 0.1); }
     // Rehgeiss fiept in weiter Ferne: nur nachts bzw. in der Daemmerung im Wald, sehr selten, leise und dumpf (Entfernung)
     doeT -= dt * ((s.night || s.day < 0.35) && s.forest > 0.2 && s.rain < 0.6 ? 1 : 0);
     if (doeT <= 0) { doeT = 240 + Math.random() * 360; if (doeBuf) { const src = ctx.createBufferSource(); src.buffer = doeBuf; src.playbackRate.value = 0.96 + Math.random() * 0.08;
