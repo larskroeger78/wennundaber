@@ -2049,7 +2049,8 @@ let CKDIRT=0;
 let GRAINS=[];{for(let k=0;k<4;k++){const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d'),d=g.createImageData(128,128);
   for(let i=0;i<d.data.length;i+=4){const v=Math.random()*255|0;d.data[i]=d.data[i+1]=d.data[i+2]=v;d.data[i+3]=255;}g.putImageData(d,0,0);GRAINS.push('url('+c.toDataURL()+')');}}
 let CKPH=0,CKLT=0,CKGT=0,CKGI=0;
-const CKENV={fd:0,surf:0,pud:false,spike:0,fx:0,fv:0,pvy:0};
+let STD=0;   // Fahrer steht auf (0..1): bergab und schnell
+const CKENV={gr:0,fd:0,surf:0,pud:false,spike:0,fx:0,fv:0,pvy:0};
 // Federgabel: Stoesse (Impuls aus dem Cockpit-Ruckeln) und Bremsen druecken die Gabel zusammen, Lenker taucht ueber der Gabel ab
 function forkComp(dt){const d=SHK.vy-CKENV.pvy;CKENV.pvy=SHK.vy;if(Math.abs(d)>0.02)CKENV.fv+=Math.min(1.5,Math.abs(d))*30;CKENV.fv+=(-300*CKENV.fx-11*CKENV.fv)*dt;CKENV.fx+=CKENV.fv*dt;CKENV.fx=Math.max(-0.2,Math.min(1.4,CKENV.fx));return Math.max(0,CKENV.fx+(BRK||0)*0.6);}
 function updateCockFx(now,deg){
@@ -2184,7 +2185,7 @@ function update(dt){
     if(hit&&!update.inPud&&st.v>1.5){splashDrops(st.v);AUDIO.splash(st.v);}update.inPud=hit;
   }
   if(AUDIO.on&&AUDIO.suspended&&st.t>3&&!update.sndT){update.sndT=1;toastEl.textContent='Sound aktivieren: einmal klicken oder eine Taste drücken';toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),4000);}
-  {const fd=forestD(PX[i],PZ[i]);CKENV.fd=fd;CKENV.surf=SURF[i];CKENV.pud=!!update.inPud;AUDIO.update(dt,{running:true,v:st.v,surf:SHK.air?-1:SURF[i],pedal:st.power>20?1:0,brake:!!down,forest:fd,rain:WXS.rain,day:WXS.day,night:NIGHT,pud:!!update.inPud});}
+  {const fd=forestD(PX[i],PZ[i]);CKENV.fd=fd;CKENV.gr=GR[i];CKENV.surf=SURF[i];CKENV.pud=!!update.inPud;AUDIO.update(dt,{running:true,v:st.v,surf:SHK.air?-1:SURF[i],pedal:st.power>20?1:0,brake:!!down,forest:fd,rain:WXS.rain,day:WXS.day,night:NIGHT,pud:!!update.inPud});}
   updateJoggers(dt);updateWildlife(dt);updateVans(dt);updateGroup(dt);
   const steer=(right?1:0)-(left?1:0);
   // Automatische Lenkung (Rollentrainer wie D100 oder KICKR können nicht lenken): Lenker und Neigung folgen dem
@@ -2596,7 +2597,8 @@ function render(dt,now){
   bike.visible=!fp;
   cockpitEl.style.display=fp?'block':'none';if(!fp)FORK.style.display='none';document.body.classList.toggle('fpv',fp);
   if(fp){
-    const ey=by+1.3,k=1-Math.exp(-dt*9);
+    {const tg=clamp((-CKENV.gr-2)/5,0,1)*clamp(((running?st.v:0)-4)/4,0,1);STD+=(tg-STD)*(1-Math.exp(-dt*1.6));}
+    const ey=by+1.3+STD*0.22,k=1-Math.exp(-dt*9);
     camera.position.set(bx+Math.sin(smp.h)*0.05+rx*Math.sin(st.crank)*0.011*Math.min(1,st.power/150),ey+Math.sin(st.wheel*0.9)*0.004*Math.min(1,st.v/4)+Math.abs(Math.sin(st.crank))*0.006*Math.min(1,st.power/150)-BRK*0.025+(running?(SHK.y+airH())*0.9+(SHK.buzz||0)*0.0035:0),bz+Math.cos(smp.h)*0.05);
     {const cx0=camera.position.x,cz0=camera.position.z,gm=Math.max(gnd(cx0,cz0),gnd(cx0-Math.sin(smp.h)*0.8,cz0-Math.cos(smp.h)*0.8),gnd(cx0+Math.sin(smp.h)*1.2,cz0+Math.cos(smp.h)*1.2));if(camera.position.y<gm+0.95)camera.position.y=gm+0.95;}   // Kamera nie unter oder in das Gelaende (Absatzkanten, Steilstuecke)
     sample(st.pos+9,smp2);
@@ -2618,10 +2620,10 @@ function render(dt,now){
     cockpitEl.style.transform='translate(-50%,'+(18.5+Math.abs(deg)*0.062-(SHK.y+airH()*0.6)*70-(SHK.buzz||0)*0.12).toFixed(2)+'%) rotate('+clamp(deg+SHK.r*25+SHK.w+Math.sin(st.crank)*0.7*Math.min(1,st.power/150),-22,22).toFixed(2)+'deg)';
     {   // Eindruck 'im Stehen, von oben aufs Rad schauen': Lenkerbild nach vorn gekippt, Blick etwas nach unten
       const K=CK_STAND;
+      cockpitEl.style.transform+=' translateY('+(STD*5).toFixed(2)+'%) scaleY('+(K[0]*(1-0.12*STD)).toFixed(3)+')';
       {const fc=forkComp(Math.min(0.05,Math.max(0.001,(now-(CKENV.t||now))/1000)));CKENV.t=now;FORK.style.display='block';FORK.style.transform=cockpitEl.style.transform;cockpitEl.style.transform+=' translateY('+(fc*7).toFixed(2)+'%)';}
-      cockpitEl.style.transform+=' scaleY('+K[0]+')';
       cockpitEl.style.transformOrigin='50% '+K[4]+'%';CKW.style.transformOrigin='50% '+K[4]+'%';
-      camera.rotateX(-K[1]*Math.PI/180);
+      camera.rotateX(-(K[1]+STD*4)*Math.PI/180);
       updateCockFx(now,deg);}
   }
   sky.position.copy(camera.position);sky.material.uniforms.time.value=now*0.001;nightFrame();
