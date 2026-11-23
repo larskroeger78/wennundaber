@@ -1363,6 +1363,7 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
       DUM.position.y=p.y+0.095;DUM.scale.set(p.a,1,p.b);DUM.updateMatrix();wat.setMatrixAt(i,DUM.matrix);
     });
     mud.frustumCulled=wat.frustumCulled=false;mud.renderOrder=2;wat.renderOrder=3;scene.add(mud);scene.add(wat);
+    window.__dryM=[{m:mud,mt:mudM,o:mudM.opacity},{m:wat,mt:watM,o:watM.opacity}];   // die Grundpfuetzen gibt es nur bei feuchtem Wetter
     {   // Regenpfuetzen (Wasser) und Matschlachen: zwei weitere Instanzgruppen, werden per Wetter ein- und ausgeblendet
       const mkW=(list,mat,dy,sc)=>{const m=new THREE.InstancedMesh(pg2,mat,Math.max(1,list.length));m.count=list.length;
         list.forEach((p,i)=>{DUM.rotation.set(0,p.r,0);DUM.position.set(p.x,p.y+dy,p.z);DUM.scale.set(p.a*sc,1,p.b*sc);DUM.updateMatrix();m.setMatrixAt(i,DUM.matrix);});
@@ -2216,10 +2217,12 @@ function update(dt){
   {   // Regen: zusaetzliche Pfuetzen und Matschlachen (auch bergab) erscheinen langsam und trocknen wieder ab
     const wt=WX===2?(WXFIX?0.7:1):0,wp=(window.__wp||0)+(wt-(window.__wp||0))*Math.min(1,dt*0.15);window.__wp=wp;
     if(window.__wetM)for(const w of window.__wetM){w.m.visible=wp>0.03;w.mt.opacity=w.o*Math.min(1,wp*1.6);}
+    const df=Math.max(wp,WX===1?0.5:0);window.__df=(window.__df==null?df:window.__df)+(df-(window.__df==null?df:window.__df))*Math.min(1,dt*0.15);   // schoenes Wetter: keine Pfuetzen
+    if(window.__dryM)for(const w of window.__dryM){w.m.visible=window.__df>0.03;w.mt.opacity=w.o*Math.min(1,window.__df*1.6);}
   }
   {   // Pfuetze erwischt? Tropfen aufs Bild (nur steigende Flanke, ab 1,5 m/s)
     sample(st.pos,smp);const bwx=smp.x-Math.cos(smp.h)*st.x,bwz=smp.z+Math.sin(smp.h)*st.x,gx=Math.floor(bwx/8),gz=Math.floor(bwz/8);let hit=false;
-    for(let a=-1;a<=1&&!hit;a++)for(let b=-1;b<=1&&!hit;b++){const kk=(gx+a)+','+(gz+b),wk=window.__wp>0.3&&window.PUDW&&window.PUDW[kk],L=wk?(PUDH[kk]||[]).concat(wk):PUDH[kk];if(!L)continue;
+    for(let a=-1;a<=1&&!hit;a++)for(let b=-1;b<=1&&!hit;b++){const kk=(gx+a)+','+(gz+b),wk=window.__wp>0.3&&window.PUDW&&window.PUDW[kk],bs=window.__df>0.03,L=wk?(bs?(PUDH[kk]||[]).concat(wk):wk):(bs?PUDH[kk]:null);if(!L)continue;
       for(let k=0;k<L.length;k++){const q=L[k],dx=bwx-q.x,dz=bwz-q.z,c=Math.cos(q.r),sn=Math.sin(q.r),lx=(dx*c-dz*sn)/(q.a*0.6),lz=(dx*sn+dz*c)/(q.b*0.6);if(lx*lx+lz*lz<1){hit=true;update.muddy=q.w?!!q.m:true;break;}}}
     if(hit&&!update.inPud&&st.v>1.5){splashDrops(st.v);AUDIO.splash(st.v);}update.inPud=hit;
   }
