@@ -158,10 +158,11 @@ export const AUDIO = (() => {
         const am = ctx.createGain(); am.gain.value = 0.72; const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 3; lg.gain.value = 0.28; lfo.connect(lg); lg.connect(am.gain);
         const g = ctx.createGain(); g.gain.value = 0; o1.connect(lp); o2.connect(lp); lp.connect(am); am.connect(g); g.connect(master); o1.start(); o2.start(); lfo.start();
         N.tyre = { o1, o2, lfo, lp, g }; }
-      // E-Bike-Motor: tiefes, weiches Brummen (gefilterter Saegezahn plus Sinus eine Oktave tiefer), nur hoerbar solange der Motor schiebt
-      { const o = ctx.createOscillator(), o2 = ctx.createOscillator(); o.type = 'sawtooth'; o2.type = 'triangle'; o.frequency.value = 150; o2.frequency.value = 226;
-        const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 780; lp.Q.value = 1.0; const g2 = ctx.createGain(); g2.gain.value = 0.55;
-        const g = ctx.createGain(); g.gain.value = 0; o.connect(lp); o2.connect(g2); g2.connect(lp); lp.connect(g); g.connect(master); o.start(); o2.start();
+      // E-Bike-Motor: dumpfes, langsames Brummen (stark gefilterter Saegezahn + Dreieck, leichte Schwebung und langsames Pulsieren)
+      { const o = ctx.createOscillator(), o2 = ctx.createOscillator(); o.type = 'sawtooth'; o2.type = 'triangle'; o.frequency.value = 95; o2.frequency.value = 96;
+        const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 260; lp.Q.value = 0.7; const g2 = ctx.createGain(); g2.gain.value = 0.8;
+        const am = ctx.createGain(); am.gain.value = 0.8; const lf = ctx.createOscillator(), lg = ctx.createGain(); lf.frequency.value = 4.5; lg.gain.value = 0.2; lf.connect(lg); lg.connect(am.gain); lf.start();
+        const g = ctx.createGain(); g.gain.value = 0; o.connect(lp); o2.connect(g2); g2.connect(lp); lp.connect(am); am.connect(g); g.connect(master); o.start(); o2.start();
         N.motor = { o, o2, g }; }
       // Freilaufnabe (Hope Pro 4: 44 Einrastpunkte): Saegezahn-Pulszug mit Frequenz = Radumdrehungen x 44, hell gefiltert -> schnarrendes Surren
       { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 60;
@@ -190,7 +191,7 @@ export const AUDIO = (() => {
     const t = ctx.currentTime, v = s.running ? s.v : 0, sp = Math.min(1, v / 14);
     master.gain.value += ((on ? vol : 0) - master.gain.value) * Math.min(1, dt * 5);
     const surf = s.surf;
-    if (N.motor) { const mk = s.running ? (window.__motor || 0) : 0; N.motor.g.gain.setTargetAtTime(0.0238 * mk, t, 0.35); const f = 112 + 45 * sp; N.motor.o.frequency.setTargetAtTime(f, t, 0.3); N.motor.o2.frequency.setTargetAtTime(f * 1.5, t, 0.3); }
+    if (N.motor) { const mk = s.running ? (window.__motor || 0) : 0; N.motor.g.gain.setTargetAtTime(0.034 * mk, t, 0.4); const f = 92 + 30 * sp; N.motor.o.frequency.setTargetAtTime(f, t, 0.4); N.motor.o2.frequency.setTargetAtTime(f * 1.012, t, 0.4); }
     // Wind: quadratisch mit Tempo, heller bei hoher Geschwindigkeit
     // kein Grundrauschen: weder Wind in Baeumen noch Wasser; nur Fahrtwind, erst bei Tempo hoerbar
     set(N.wind, 0.09 * sp * sp * sp * (s.running ? 1 : 0), dt, 4); N.wind.f.frequency.value = 350 + 1500 * sp;
