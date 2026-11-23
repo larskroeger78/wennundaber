@@ -2094,7 +2094,7 @@ function updateCockFx(now,deg){
   CKDIRT+=(want-CKDIRT)*Math.min(1,dt*(want>CKDIRT?1.6:0.12))*(v>0.5?1:0.2);
   CKSPR+=(((CKENV.pud&&v>1)?Math.min(1,v/7):0)-CKSPR)*Math.min(1,dt*(CKENV.pud?9:3.5));   // Spritzwasser nur waehrend der Pfuetze, klingt schnell ab
   CKP.style.opacity=Math.min(1,CKSPR*1.1).toFixed(2);CKP.style.backgroundPosition=((CKPH*0.37)%64).toFixed(1)+'px '+(-(CKPH*1.6)%64).toFixed(1)+'px';
-  CKBD=Math.min(1,CKBD+(CKENV.mud&&v>1?dt*0.082*Math.min(1.7,v/5)*(CKENV.gr<-1?1+Math.min(2,-CKENV.gr/4):(CKBD<0.2?(CKENV.gr>2?0.3:0.55):0)):0));CKBM=Math.max(CKBM,CKBD);   // Matsch sammelt sich an
+  CKBD=Math.min(0.1+0.7*Math.min(1,st.pos/TOTAL),CKBD+(CKENV.mud&&v>1?dt*0.046*Math.min(1.7,v/5)*(CKENV.gr<-1?1+Math.min(2,-CKENV.gr/4):(CKBD<0.2?(CKENV.gr>2?0.3:0.55):0)):0));CKBM=Math.max(CKBM,CKBD);   // Matsch sammelt sich an
   // Matsch am Rad geht nie wieder weg: nur mehr, bis zum Maximum; gegen Ende der Tour kommt eine zweite, dichtere Spritzerschicht dazu
   CKB.style.opacity=Math.min(1,CKBD*1.15).toFixed(2);CKB2.style.opacity=Math.max(0,Math.min(0.9,(CKBD-0.55)*2.2)).toFixed(2);
   {const wt=WX===2?(WXFIX?0.75:1):0;if(CKENV.pud&&v>1)CKWET=Math.min(Math.max(wt,0.55),CKWET+dt*0.12*Math.min(1,v/6));CKWET+=(wt-CKWET)*Math.min(1,dt*(wt>CKWET?0.03:(WX===0?0.012:0.005)));CKH.style.opacity=CKWET.toFixed(3);}   // Regen: nach etwa einer Minute sichtbar nass, trocknet langsam
