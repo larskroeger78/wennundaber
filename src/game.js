@@ -3211,7 +3211,7 @@ function wlBuild(kind){
   return {kind:kind,g:root,body:body,head:head,legs:legs,eyes:eyes,mat:mat,boar:boar};
 }
 function wlPlace(kind,x,z,grp,delay){
-  const pl=WL.pool[kind]||(WL.pool[kind]=[]);let T=pl.find(q=>!q.on);if(!T){T=wlBuild(kind);if(kind==='boar'||kind==='piglet')T.mat.color.setHex(0x0b0907);pl.push(T);}
+  const pl=WL.pool[kind]||(WL.pool[kind]=[]);let T=pl.find(q=>!q.on);if(!T){T=wlBuild(kind);T.mat.color.setHex(kind==='boar'||kind==='piglet'?0x0b0907:0x120e0b);pl.push(T);}   // alle als dunkle Schemen im Lampenkegel
   T.on=true;T.called=false;T.panic=false;T.grp=grp;WL.list.push(T);T.x=x;T.z=z;T.t=-delay;T.ph='in';T.stand=grp.stand+(Math.random()-0.5);T.speed=0;T.blink=1.5+Math.random()*3;
   T.willCall=kind==='piglet'?false:true;T.callAt=Math.random()*0.9;
   T.yaw=Math.atan2(-(camera.position.z-z),camera.position.x-x)+(Math.random()-0.5)*1.1;
@@ -3229,12 +3229,13 @@ function wlSpawnGroup(kind,x,z){   // Wildschweine kommen in Rotten: 2-3 Bachen 
     for(let i=0;i<np;i++)wlPlace('piglet',x+(Math.random()-0.5)*4,z+(Math.random()-0.5)*4,grp,0.3+Math.random()*1.4);
   }else{
     wlPlace(kind,x,z,grp,0);
-    if(kind==='doe'&&Math.random()<0.4)wlPlace('doe',x+2+Math.random()*2,z+(Math.random()-0.5)*3,grp,0.5);
+    const nx=kind==='doe'?(Math.random()<0.45?1:0)+(Math.random()<0.22?1:0)+(Math.random()<0.1?1:0):(Math.random()<0.3?1:0);   // auch mal mehrere: Rehe bis zu 4, Hirsche manchmal zu zweit
+    for(let k=0;k<nx;k++)wlPlace(kind==='stag'&&k>0?'doe':kind,x+(2+Math.random()*3)*(k%2?-1:1),z+(Math.random()-0.5)*4,grp,0.5+k*0.4);
   }
   return grp;
 }
 function wlSpawnTry(){
-  const kinds=['boar','boar','boar','boar','boar','boar','stag','doe'];
+  const kinds=['boar','boar','boar','boar','boar','boar','boar','stag','stag','doe','doe'];   // Wildschweine ca. 30 % seltener, Hirsche und Rehe ca. 20 % haeufiger (zusammen mit dem laengeren Abstand unten)
   for(let t=0;t<24;t++){
     const kind=kinds[(Math.random()*kinds.length)|0],bo=kind==='boar';   // Wildschweine sind niedrig und dunkel: sie stehen naeher und mittiger im Lampenkegel, sonst sieht man sie nie
     const s=st.pos+(bo?26+Math.random()*22:35+Math.random()*40);if(s>TOTAL-60)break;
@@ -3289,7 +3290,7 @@ function wlUpdateOne(a,dt){
 function updateWildlife(dt){
   if(!MW||!NIGHT||(RT&&RT.alp)){while(WL.list.length)wlEnd(WL.list[0]);return;}   // Tiere auf allen Strecken ausser Soelden
   WL.list.slice().forEach(a=>wlUpdateOne(a,dt));
-  WL.wait-=dt;
+  WL.wait-=dt/1.21;
   if(WL.wait>0||st.v<2||st.lift)return;
   const ng=new Set(WL.list.map(q=>q.grp)).size;if(ng>=3){WL.wait=3;return;}
   if(wlSpawnTry())WL.wait=(ng<2&&Math.random()<0.45)?2+Math.random()*4:6+Math.random()*14;   // oefter: alle ~15-45 s, manchmal zwei kurz nacheinander
