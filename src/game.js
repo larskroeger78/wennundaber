@@ -2090,9 +2090,9 @@ function updateCockFx(now,deg){
   CKSPR+=(((CKENV.pud&&v>1)?Math.min(1,v/7):0)-CKSPR)*Math.min(1,dt*(CKENV.pud?9:3.5));   // Spritzwasser nur waehrend der Pfuetze, klingt schnell ab
   CKP.style.opacity=Math.min(1,CKSPR*1.1).toFixed(2);CKP.style.backgroundPosition=((CKPH*0.37)%64).toFixed(1)+'px '+(-(CKPH*1.6)%64).toFixed(1)+'px';
   CKBD=Math.min(1,CKBD+(CKENV.pud&&v>1?dt*0.45*Math.min(1,v/6):0)+(CKENV.surf>0&&v>1?dt*0.004:0));CKBM=Math.max(CKBM,CKBD);   // Matsch sammelt sich an
-  if(CKBD>CKBM*0.35)CKBD=Math.max(CKBM*0.35,CKBD-dt*((WX===2&&!CKENV.pud?0.02:0)+(CKENV.surf===0?0.004:0.0008)));   // Regen und Asphalt waschen etwas ab, ganz sauber wird das Rad nicht mehr   // Rad wird in Pfuetzen dreckig, trocknet auf Asphalt langsam ab
+  if(CKBD>CKBM*0.35)CKBD=Math.max(CKBM*0.35,CKBD-dt*((WX===2&&!CKENV.pud?0.02:0)+(CKENV.surf===0?0.004:0.0008)+(WX===0?0.003:0)));   // Regen, Sonne und Asphalt waschen etwas ab, ganz sauber wird das Rad nicht mehr   // Rad wird in Pfuetzen dreckig, trocknet auf Asphalt langsam ab
   CKB.style.opacity=Math.min(1,CKBD*1.15).toFixed(2);
-  {const wt=WX===2?(WXFIX?0.75:1):0;CKWET+=(wt-CKWET)*Math.min(1,dt*(wt>CKWET?0.014:0.006));CKH.style.opacity=CKWET.toFixed(3);}   // Regen: nach etwa einer Minute sichtbar nass, trocknet langsam
+  {const wt=WX===2?(WXFIX?0.75:1):0;CKWET+=(wt-CKWET)*Math.min(1,dt*(wt>CKWET?0.014:(WX===0?0.012:0.005)));CKH.style.opacity=CKWET.toFixed(3);}   // Regen: nach etwa einer Minute sichtbar nass, trocknet langsam
   const k=Math.max(0.3,1-v/16);                 // bei hohem Tempo weichere, verwischte Stollen
   const bgp='0 '+(-(CKPH%14)*0.11).toFixed(3)+'vw';
   CKW.style.transform=tf;CKW.style.display='block';
