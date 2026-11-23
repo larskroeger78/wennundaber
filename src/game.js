@@ -3372,3 +3372,6 @@ requestAnimationFrame(()=>{const b=document.getElementById('boot');if(b){b.class
 {let ct=0;const show=()=>{document.body.classList.remove('nocur');clearTimeout(ct);if(isFS())ct=setTimeout(()=>{if(isFS())document.body.classList.add('nocur');},2500);};
  ['mousemove','mousedown','wheel','touchstart'].forEach(ev=>document.addEventListener(ev,show,{passive:true}));
  ['fullscreenchange','webkitfullscreenchange'].forEach(ev=>document.addEventListener(ev,show));}
+
+// Nach dem Neuladen: zuletzt gekoppelten Trainer und Click automatisch wieder verbinden (ohne Auswahlfenster, wenn der Browser es erlaubt)
+setTimeout(()=>{trainer.reconnect();click.reconnect();},1500);

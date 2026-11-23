@@ -34,15 +34,37 @@ export function parsePower(dv, prev) {
   return r;
 }
 
+// Wartet kurz auf ein Funksignal des Geraets (noetig, damit ein gemerktes Geraet ohne Auswahlfenster verbunden werden kann)
+function waitAdv(dev, ms = 6000) {
+  return new Promise(res => {
+    if (!dev.watchAdvertisements) return res();
+    const done = () => { try { dev.removeEventListener('advertisementreceived', done); } catch (_) {} clearTimeout(t); res(); };
+    const t = setTimeout(done, ms);
+    dev.addEventListener('advertisementreceived', done);
+    dev.watchAdvertisements().catch(done);
+  });
+}
+
 // ---------- Trainer ----------
 export class Trainer {
   constructor() { this.connected = false; this.name = ''; this.power = 0; this.cadence = 0; this.speed = 0; this.ctrl = null; this.canControl = false; this.status = ''; this.onChange = () => {}; this._q = Promise.resolve(); this._lastSent = null; this._lastT = 0; this._crank = null; }
-  async connect() {
+  // Nach dem Neuladen: bereits erlaubten Trainer ohne Auswahlfenster wieder verbinden (nur Chrome/Edge mit getDevices)
+  async reconnect() {
+    try {
+      if (!BLE_OK || !navigator.bluetooth.getDevices || this.connected) return false;
+      const id = localStorage.getItem('miworu_trn_id'); if (!id) return false;
+      const dev = (await navigator.bluetooth.getDevices()).find(d => d.id === id); if (!dev) return false;
+      await waitAdv(dev);
+      await this.connect(dev); return this.connected;
+    } catch (e) { return false; }
+  }
+  async connect(devArg) {
     if (!BLE_OK) throw new Error('Dieser Browser unterstützt kein Web Bluetooth. Bitte Chrome oder Edge am Mac/PC benutzen (nicht Safari).');
-    const dev = await navigator.bluetooth.requestDevice({
+    const dev = devArg || await navigator.bluetooth.requestDevice({
       filters: [{ services: [U16(0x1826)] }, { services: [U16(0x1818)] }],
       optionalServices: [U16(0x1826), U16(0x1818)]
     });
+    try { localStorage.setItem('miworu_trn_id', dev.id); } catch (_) {}
     this.name = dev.name || 'Trainer';
     dev.addEventListener('gattserverdisconnected', () => { this.connected = false; this.canControl = false; this.power = 0; this.cadence = 0; this.status = 'Verbindung verloren'; this.onChange(); });
     const srv = await dev.gatt.connect();
@@ -109,7 +131,17 @@ export class ClickPad {
   dbg(m) { this.dlog.push(((Date.now() - this.t0) / 1000).toFixed(1).padStart(6) + ' s  ' + m); if (this.dlog.length > 80) this.dlog.shift(); }
   get connected() { return this.devs.some(x => !x.lost && x.dev.gatt && x.dev.gatt.connected) && Date.now() - this.rxT < 12000; }   // ohne Antwort/Paket seit 12 s gilt der Click als getrennt
   get name() { return this.devs.length > 1 ? this.devs.length + ' Click' : (this.devs[0] ? this.devs[0].name : ''); }
-  async connect() {
+  async reconnect() {   // Nach dem Neuladen: bereits erlaubte Click-Haelften ohne Auswahlfenster wieder verbinden
+    try {
+      if (!BLE_OK || !navigator.bluetooth.getDevices || this.devs.length) return false;
+      let ids = []; try { ids = JSON.parse(localStorage.getItem('miworu_clk_ids') || '[]'); } catch (_) {}
+      if (!ids.length) return false;
+      const all = await navigator.bluetooth.getDevices();
+      for (const id of ids.slice(0, 2)) { const dev = all.find(d => d.id === id); if (!dev) continue; try { await waitAdv(dev); await this.connect(dev); } catch (e) { this.dbg('Auto-Verbinden fehlgeschlagen: ' + (e && e.message || e)); } }
+      return this.connected;
+    } catch (e) { return false; }
+  }
+  async connect(devArg) {
     this.dbg('Koppeln gestartet');
     if (!BLE_OK) throw new Error('Kein Web Bluetooth in diesem Browser (Chrome/Edge verwenden).');
     // Click v2 besteht aus zwei Haelften: die linke ist der Anker, die rechte haengt per Funk daran und trennt allein nach ca. 1 Minute.
@@ -127,14 +159,16 @@ export class ClickPad {
     }
     const ADV = '0000fc82-0000-1000-8000-00805f9b34fb';          // Werbe-Kennung der Zwift-Controller
     const ZSV = '00000001-19ca-4651-86e5-fa29dcdd09d1';          // eigentlicher GATT-Dienst (Click / Play / Ride)
-    const dev = await navigator.bluetooth.requestDevice({ filters: [{ services: [ADV] }, { services: [ZSV] }, { namePrefix: 'Zwift' }], optionalServices: [ADV, ZSV] });
+    const dev = devArg || await navigator.bluetooth.requestDevice({ filters: [{ services: [ADV] }, { services: [ZSV] }, { namePrefix: 'Zwift' }], optionalServices: [ADV, ZSV] });
     if (this.devs.some(x => x.id === dev.id)) throw new Error('Dieser Click ist schon verbunden – bitte den anderen wählen.');
     const d = { id: dev.id, name: dev.name || 'Zwift Click', down: 0, role: 0, dev, lost: false };
     dev.addEventListener('gattserverdisconnected', () => { this.dbg('GETRENNT (gattserverdisconnected) · KA ok ' + this.kaOk + ' · letztes Paket vor ' + ((Date.now() - this.rxT) / 1000).toFixed(0) + ' s'); clearTimeout(d.ht); d.down = 0; this._lost(d); });
     this.dbg('Geraet gewaehlt: ' + d.name);
     await this._setup(d);
     this.dbg('verbunden, Dienste/Benachrichtigungen aktiv');
-    this.devs.push(d); this._reset(); this.onChange();
+    this.devs.push(d); this._reset();
+    try { localStorage.setItem('miworu_clk_ids', JSON.stringify(this.devs.map(x => x.id))); } catch (_) {}
+    this.onChange();
   }
   async _setup(d) {
     const ADV = '0000fc82-0000-1000-8000-00805f9b34fb', ZSV = '00000001-19ca-4651-86e5-fa29dcdd09d1';
