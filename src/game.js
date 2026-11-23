@@ -3331,3 +3331,8 @@ if(location.hash==='#go'&&!PAYWALL)start();
 if(PAYWALL)showUnlock(PAYWALL);
 requestAnimationFrame(loop);
 requestAnimationFrame(()=>{const b=document.getElementById('boot');if(b){b.classList.add('off');setTimeout(()=>b.remove(),700);}});
+
+// Vollbild: Mauszeiger verschwindet nach 2,5 s Ruhe und kommt bei jeder Mausbewegung oder jedem Klick wieder
+{let ct=0;const show=()=>{document.body.classList.remove('nocur');clearTimeout(ct);if(isFS())ct=setTimeout(()=>{if(isFS())document.body.classList.add('nocur');},2500);};
+ ['mousemove','mousedown','wheel','touchstart'].forEach(ev=>document.addEventListener(ev,show,{passive:true}));
+ ['fullscreenchange','webkitfullscreenchange'].forEach(ev=>document.addEventListener(ev,show));}
