@@ -2152,7 +2152,8 @@ window.addEventListener('keydown',e=>{
 window.addEventListener('keyup',e=>{keys[e.key]=false;});
 // Handy: kleiner Pfeil zum Vorwaertsfahren (gedrueckt halten = treten), sonst blendet die Oberflaeche alles Stoerende aus
 {const PH=window.matchMedia&&matchMedia('(pointer:coarse)').matches&&Math.min(screen.width,screen.height)<=520;
- if(PH){document.body.classList.add('phone');const g=document.getElementById('goBtn');
+ const TOUCH=window.matchMedia&&matchMedia('(pointer:coarse)').matches;   // Handy, iPad, Tablet: Gas- und Bremsknopf
+ if(TOUCH){if(PH)document.body.classList.add('phone');document.body.classList.add('touch');const g=document.getElementById('goBtn');
   const on=e=>{e.preventDefault();keys.ArrowUp=true;g.classList.add('on');try{g.setPointerCapture(e.pointerId);}catch(_){}},off=()=>{keys.ArrowUp=false;g.classList.remove('on');};
   g.addEventListener('pointerdown',on);['pointerup','pointercancel','lostpointercapture'].forEach(ev=>g.addEventListener(ev,off));g.addEventListener('contextmenu',e=>e.preventDefault());
   const b=document.getElementById('brkBtn'),bon=e=>{e.preventDefault();keys.ArrowDown=true;b.classList.add('on');try{b.setPointerCapture(e.pointerId);}catch(_){}},boff=()=>{keys.ArrowDown=false;b.classList.remove('on');};
