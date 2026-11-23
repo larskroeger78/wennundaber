@@ -2030,11 +2030,11 @@ const bleChange=()=>{if(trainer.connected)inputMode='trainer';else if(inputMode=
 trainer.onChange=bleChange;click.onChange=bleChange;   // nur noch Lenkeransicht (Cockpit)
 const CK_STAND=[1,3,0,900,30];const COCK=1;
 // Neuer Lenker: leichtes Filmkorn ueber dem Lenker und ein sich drehender Stollenreifen (Draufsicht), beides deckungsgleich mit dem Lenkerbild
-const CKT=document.createElement('div'),CKG=document.createElement('div'),CKM=document.createElement('div'),CKS=document.createElement('div'),CKD=document.createElement('div'),CKW=document.createElement('div');
+const CKT=document.createElement('div'),CKG=document.createElement('div'),CKM=document.createElement('div'),CKS=document.createElement('div'),CKD=document.createElement('div'),CKP=document.createElement('div'),CKW=document.createElement('div');
 CKW.className='ckfx';CKW.id='ckwrap';CKW.style.display='none';document.getElementById('cockpit').after(CKW);
-[CKT,CKM,CKS,CKG].forEach(d=>{d.className='ckc';CKW.appendChild(d);});
+[CKT,CKM,CKP,CKS,CKG].forEach(d=>{d.className='ckc';CKW.appendChild(d);});
 const FORK=document.createElement('img');FORK.id='cockfork';FORK.className='c2';FORK.src='/assets/ui/cockpit2.png';FORK.draggable=false;FORK.style.display='none';document.getElementById('cockpit').after(FORK);
-CKT.id='cktire';CKG.id='ckgrain';CKM.id='ckmud';CKS.id='cksheen';CKD.id='ckdapple';
+CKT.id='cktire';CKP.id='ckspray';CKG.id='ckgrain';CKM.id='ckmud';CKS.id='cksheen';CKD.id='ckdapple';
 {const c=document.createElement('canvas');c.width=20;c.height=14;const g=c.getContext('2d');   // Stollenmuster: dunkle Klotzchen mit heller Kante
   g.fillStyle='rgba(0,0,0,0.62)';g.fillRect(0,0,20,14);g.fillStyle='rgba(205,205,200,0.55)';
   g.fillRect(1,1,8,5);g.fillRect(11,8,8,5);g.fillStyle='rgba(30,30,30,0.7)';g.fillRect(2,5,7,1.5);g.fillRect(12,12,7,1.5);
@@ -2045,7 +2045,10 @@ CKT.id='cktire';CKG.id='ckgrain';CKM.id='ckmud';CKS.id='cksheen';CKD.id='ckdappl
 {const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,128,128);   // Licht-und-Schatten-Flecken (Blaetterdach)
   for(let k=0;k<26;k++){const x=Math.random()*128,y=Math.random()*128,r=6+Math.random()*16;const gr=g.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,'rgba(0,0,0,0.85)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(x-r,y-r,2*r,2*r);}
   CKD.style.backgroundImage='url('+c.toDataURL()+')';}
-let CKDIRT=0;
+{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');   // Wassertropfen, die vom Reifen spritzen
+  for(let k=0;k<22;k++){const x=Math.random()*64,y=Math.random()*64,r=0.8+Math.random()*2.6;g.fillStyle='rgba(225,238,248,'+(0.45+Math.random()*0.45).toFixed(2)+')';g.beginPath();g.ellipse(x,y,r*0.8,r*(1.2+Math.random()*1.4),0,0,6.3);g.fill();}
+  CKP.style.backgroundImage='url('+c.toDataURL()+')';}
+let CKDIRT=0,CKSPR=0;
 let GRAINS=[];{for(let k=0;k<4;k++){const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d'),d=g.createImageData(128,128);
   for(let i=0;i<d.data.length;i+=4){const v=Math.random()*255|0;d.data[i]=d.data[i+1]=d.data[i+2]=v;d.data[i+3]=255;}g.putImageData(d,0,0);GRAINS.push('url('+c.toDataURL()+')');}}
 let CKPH=0,CKLT=0,CKGT=0,CKGI=0;
@@ -2063,6 +2066,8 @@ function updateCockFx(now,deg){
   CKENV.spike=Math.max(0,CKENV.spike-dt*0.16);
   const want=Math.max(Math.min(1,tgt+WXS.rain*0.2*(CKENV.surf?1:0.5)),CKENV.spike);
   CKDIRT+=(want-CKDIRT)*Math.min(1,dt*(want>CKDIRT?1.6:0.12))*(v>0.5?1:0.2);
+  CKSPR+=(((CKENV.pud&&v>1)?Math.min(1,v/7):0)-CKSPR)*Math.min(1,dt*(CKENV.pud?9:3.5));   // Spritzwasser nur waehrend der Pfuetze, klingt schnell ab
+  CKP.style.opacity=(CKSPR*0.8).toFixed(2);CKP.style.backgroundPosition=((CKPH*0.37)%64).toFixed(1)+'px '+(-(CKPH*1.6)%64).toFixed(1)+'px';
   const k=Math.max(0.3,1-v/16);                 // bei hohem Tempo weichere, verwischte Stollen
   const bgp='0 '+(-(CKPH%14)*0.11).toFixed(3)+'vw';
   CKW.style.transform=tf;CKW.style.display='block';
@@ -2154,7 +2159,8 @@ function update(dt){
   if(tr)trainer.setGrade(eg,(dirt?0.012:SURF[i]===1?0.009:0.005)*(diff===1?0.5:1));
   const climb=eg/100;            // Abfahrten neutral: zählen wie flach
   const v=st.v,vs=Math.max(v,0.55);   // kleine Mindestgeschwindigkeit: auch steile Rampen lassen sich aus dem Stand anfahren
-  const fres=M*GRAV*((dirt?0.012:SURF[i]===1?0.009:0.005)+climb)+0.5*RHO*CDA*v*v+(down?BRAKE:0);
+  const dh=GR[i]<-2?Math.min(10,-GR[i]-2)/100*0.2*(GR[i]<-4?1:(-GR[i]-2)/2):0;   // Gefaelle hilft: bergab sind ~30 km/h mit normaler Trittleistung moeglich (Trainer-Widerstand bleibt neutral)
+  const fres=M*GRAV*((dirt?0.012:SURF[i]===1?0.009:0.005)+climb-dh*1.2)+0.5*RHO*CDA*v*v+(down?BRAKE:0);
   const pf=[1,1.6,1,0.85,0.83,0.64][diff]||1;   // Schwierigkeit wirkt auf jeder Strecke: Leicht 1,6x Wirkung der Watt, Normal 1,0x (realistisch), Hardcore 0,85x, Eskalation 0,83x (20 % haerter)
   st.v=Math.max(0,v+(Math.min(st.power*pf/vs,420)-fres)/M*dt);   // Zugkraft am Hinterrad gedeckelt (Traktion)
   if(st.v<0.3&&eg>7&&st.power>15&&st.t-(update.hintT||-9)>7){update.hintT=st.t;toastEl.textContent='Zu steil für diese Leistung · "−" = leichterer Gang';toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),2600);}
