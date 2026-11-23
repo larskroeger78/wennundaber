@@ -2018,7 +2018,7 @@ const DIFFN={1:'Leicht',2:'Normal',3:'Hardcore',4:'Eskalation'};
 let diff=1;try{const v=+localStorage.getItem('miworu_diff');if(v>=1&&v<=4)diff=v;}catch(e){}   // Schwierigkeit: 1 Leicht (Steigungen zählen 40 %), 2 Normal
 let EBIKE=false;try{EBIKE=localStorage.getItem('miworu_ebike')==='1';}catch(e){}   // E-Bike: Motor schiebt bis 26 km/h an (nur beim Treten, bergauf begrenzt), bergab darf man schneller sein
 document.body.classList.toggle('ebike',EBIKE);
-function toggleEbike(){EBIKE=!EBIKE;try{localStorage.setItem('miworu_ebike',EBIKE?'1':'0');}catch(e){}document.body.classList.toggle('ebike',EBIKE);toastEl.textContent='E-Bike: '+(EBIKE?'an (Motor bis 26 km/h)':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1400);}
+function toggleEbike(){EBIKE=!EBIKE;try{localStorage.setItem('miworu_ebike',EBIKE?'1':'0');}catch(e){}document.body.classList.toggle('ebike',EBIKE);if(window.__ensureEbHint)window.__ensureEbHint();toastEl.textContent='E-Bike: '+(EBIKE?'an (Motor bis 26 km/h)':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1400);}
 const gearF=()=>(gear<0?Math.pow(1.26,gear):1+gear*0.09)*(diff===1?0.4:(diff===3?1.5:(diff===4?1.2:1)));   // Faktor auf die Steigung: Gang x Schwierigkeit
 function setDiff(d){diff=d;try{localStorage.setItem('miworu_diff',d);}catch(e){}gearHud.k=null;hintHud.k=null;toastEl.textContent='Schwierigkeit: '+DIFFN[d];toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1200);}
 const gearEl=document.getElementById('gear'),toastEl=document.getElementById('toast'),hintEl=document.getElementById('hint');
@@ -3383,3 +3383,19 @@ requestAnimationFrame(()=>{const b=document.getElementById('boot');if(b){b.class
 
 // Nach dem Neuladen: zuletzt gekoppelten Trainer und Click automatisch wieder verbinden (ohne Auswahlfenster, wenn der Browser es erlaubt)
 setTimeout(()=>{trainer.reconnect();click.reconnect();},1500);
+
+// E-Bike-Schalter auch in der oberen Leiste (neben Nightride): Kopie des Nightride-Knopfes, wird nach jedem Neuaufbau der Leiste ergaenzt
+{const lab='E-Bike '+'';
+ const ensure=()=>{
+  const src=hintEl.querySelector('[data-act="l"]');if(!src)return;
+  let b=hintEl.querySelector('[data-act="e"]');
+  if(!b){b=src.cloneNode(true);b.setAttribute('data-act','e');src.after(b);}
+  const w=document.createTreeWalker(b,NodeFilter.SHOW_TEXT),tn=[];while(w.nextNode())if(w.currentNode.nodeValue.trim())tn.push(w.currentNode);
+  const t='E-Bike '+(EBIKE?'an':'aus');
+  if(tn.length>=2){if(tn[0].nodeValue!=='E')tn[0].nodeValue='E';if(tn[1].nodeValue!==t)tn[1].nodeValue=t;}
+  else if(tn.length===1){const v='E '+t;if(tn[0].nodeValue!==v)tn[0].nodeValue=v;}
+  b.classList.toggle('on',EBIKE);
+ };
+ new MutationObserver(ensure).observe(hintEl,{childList:true,subtree:true,characterData:true});
+ hintEl.addEventListener('click',e=>{if(e.target.closest('[data-act="e"]')){toggleEbike();ensure();}});
+ ensure();window.__ensureEbHint=ensure;}
