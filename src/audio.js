@@ -226,7 +226,7 @@ export const AUDIO = (() => {
     // Pfuetze: Spritzen, solange man drin ist
     set(N.pud, !splashBuf && s.pud && v > 1.2 ? 0.1 * Math.min(1, v / 7) : 0, dt, 12);   // synthetisches Spritzen nur als Ersatz, solange die Aufnahme fehlt
     // Regen
-    set(N.rain, 0.0126 * s.rain, dt, 1.5); set(N.rain2, 0.0113 * s.rain, dt, 1.5);   // Regen: 40 % leiser
+    set(N.rain, 0.00756 * s.rain, dt, 1.5); set(N.rain2, 0.00678 * s.rain, dt, 1.5);   // Regen: 40 % leiser
     // Voegel: nur im Wald und nur am Tag
     birdT -= dt * (s.forest > 0.35 ? 0.4 + 0.6 * s.forest : 0) * s.day * (1 - 0.8 * s.rain);
     // Wild: ab und zu Wildschwein-Grunzen, Rehbock-Schrecken oder Kitz-Fiepen (selten, nur im Wald, am Tag und Abend)
