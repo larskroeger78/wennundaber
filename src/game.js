@@ -3238,9 +3238,10 @@ function wlSpawnTry(){
   for(let t=0;t<24;t++){
     const kind=kinds[(Math.random()*kinds.length)|0],bo=kind==='boar';   // Wildschweine sind niedrig und dunkel: sie stehen naeher und mittiger im Lampenkegel, sonst sieht man sie nie
     const s=st.pos+(bo?26+Math.random()*22:35+Math.random()*40);if(s>TOTAL-60)break;
-    if(SURF[Math.min(N-1,Math.floor(s/SEG))]===0)continue;
+    const si=Math.min(N-1,Math.floor(s/SEG)),asp=SURF[si]===0;
+    if(GR[si]>-2&&Math.random()<0.7)continue;   // Schwerpunkt bergab: auf Anstiegen und flachen Stuecken nur selten
     sample(s,wlS);const o=(Math.random()<0.5?-1:1)*(bo?8.5+Math.random()*4:10+Math.random()*7),x=wlS.x-Math.cos(wlS.h)*o,z=wlS.z+Math.sin(wlS.h)*o;   // 10-17 m vom Weg (auf Distanz), beim Wegrennen nie ueber ~30 m
-    if(forestD(x,z)<0.38||inBuilding(x,z))continue;
+    if(forestD(x,z)<(asp?0.55:0.38)||inBuilding(x,z))continue;   // auch an Asphaltwegen (z. B. Hemstein), dann aber nur im dichteren Wald
     if(WL.list.some(q=>Math.hypot(q.x-x,q.z-z)<25))continue;
     wlSpawnGroup(kind,x,z);return true;
   }
@@ -3286,7 +3287,7 @@ function wlUpdateOne(a,dt){
   });
 }
 function updateWildlife(dt){
-  if(!MW||!NIGHT){while(WL.list.length)wlEnd(WL.list[0]);return;}
+  if(!MW||!NIGHT||(RT&&RT.alp)){while(WL.list.length)wlEnd(WL.list[0]);return;}   // Tiere auf allen Strecken ausser Soelden
   WL.list.slice().forEach(a=>wlUpdateOne(a,dt));
   WL.wait-=dt;
   if(WL.wait>0||st.v<2||st.lift)return;
