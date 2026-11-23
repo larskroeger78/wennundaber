@@ -2092,7 +2092,7 @@ function updateCockFx(now,deg){
   CKBD=Math.min(1,CKBD+(CKENV.mud&&v>1?dt*0.45*Math.min(1,v/6):0));CKBM=Math.max(CKBM,CKBD);   // Matsch sammelt sich an
   if(CKBD>CKBM*0.35)CKBD=Math.max(CKBM*0.35,CKBD-dt*((WX===2&&!CKENV.pud?0.02:0)+(CKENV.surf===0?0.004:0.0008)+(WX===0?0.003:0)));   // Regen, Sonne und Asphalt waschen etwas ab, ganz sauber wird das Rad nicht mehr   // Rad wird in Pfuetzen dreckig, trocknet auf Asphalt langsam ab
   CKB.style.opacity=Math.min(1,CKBD*1.15).toFixed(2);
-  {const wt=WX===2?(WXFIX?0.75:1):0;if(CKENV.pud&&v>1)CKWET=Math.min(Math.max(wt,0.55),CKWET+dt*0.12*Math.min(1,v/6));CKWET+=(wt-CKWET)*Math.min(1,dt*(wt>CKWET?0.014:(WX===0?0.012:0.005)));CKH.style.opacity=CKWET.toFixed(3);}   // Regen: nach etwa einer Minute sichtbar nass, trocknet langsam
+  {const wt=WX===2?(WXFIX?0.75:1):0;if(CKENV.pud&&v>1)CKWET=Math.min(Math.max(wt,0.55),CKWET+dt*0.12*Math.min(1,v/6));CKWET+=(wt-CKWET)*Math.min(1,dt*(wt>CKWET?0.03:(WX===0?0.012:0.005)));CKH.style.opacity=CKWET.toFixed(3);}   // Regen: nach etwa einer Minute sichtbar nass, trocknet langsam
   const k=Math.max(0.3,1-v/16);                 // bei hohem Tempo weichere, verwischte Stollen
   const bgp='0 '+(-(CKPH%14)*0.11).toFixed(3)+'vw';
   CKW.style.transform=tf;CKW.style.display='block';
@@ -2101,7 +2101,7 @@ function updateCockFx(now,deg){
   // Spiegelungen / Licht: Himmelsreflex wandert mit Lenkung und Blickrichtung zur Sonne, Blaetterdach wirft Flecken, Nacht und Nebel daempfen
   camera.getWorldDirection(_sv);
   const sf=Math.max(0,_sv.x*SUN.x+_sv.z*SUN.z)/Math.max(0.001,Math.hypot(SUN.x,SUN.z)),day=WXS.day==null?1:WXS.day;
-  const clear=(1-WXS.fog*0.6)*(1-WXS.rain*0.5),forest=Math.min(1,CKENV.fd||0);
+  const clear=(1-WXS.fog*0.6)*(1-WXS.rain*0.5)*(WX===2?0.15:1),forest=Math.min(1,CKENV.fd||0);
   const gx=50+deg*2.2+Math.sin(now*0.0003)*6,glint=day*clear*(0.18+0.5*sf*sf)*(1-forest*0.55)+WXS.rain*0.14;
   CKS.style.backgroundPosition=gx.toFixed(1)+'% 0';CKS.style.opacity=Math.min(0.85,glint).toFixed(2);
   {
@@ -2209,6 +2209,10 @@ function update(dt){
   SHK.vy+=(-420*SHK.y-17*SHK.vy)*dt;SHK.y+=SHK.vy*dt;SHK.vr+=(-380*SHK.r-16*SHK.vr)*dt;SHK.r+=SHK.vr*dt;
   const rough=(ROUTE?[0,0.4,1][SURF[i]]:(i>=iTrail?1:0.2))*(1+Math.max(0,-GR[i])*0.06)*Math.min(1,st.v/6);
   SHK.buzz=rough*(Math.sin(st.pos*9.3)+Math.sin(st.pos*17.9+1.3)*0.7+Math.sin(st.pos*31.7)*0.4);
+  if(typeof sun!=='undefined'&&sun){   // Bei Regen scheint keine Sonne: direktes Licht und Schatten werden stark gedaempft
+    if(WX!==2)window.__sunRef=sun.intensity;
+    else if(window.__sunRef!=null){const cap=window.__sunRef*0.3;if(sun.intensity>cap)sun.intensity=cap;}
+  }
   {   // Regen: zusaetzliche Pfuetzen und Matschlachen (auch bergab) erscheinen langsam und trocknen wieder ab
     const wt=WX===2?(WXFIX?0.7:1):0,wp=(window.__wp||0)+(wt-(window.__wp||0))*Math.min(1,dt*0.15);window.__wp=wp;
     if(window.__wetM)for(const w of window.__wetM){w.m.visible=wp>0.03;w.mt.opacity=w.o*Math.min(1,wp*1.6);}
