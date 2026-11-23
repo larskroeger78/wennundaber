@@ -2047,7 +2047,7 @@ click.onShift=shift;click.watch();
 setInterval(()=>{if(trainer.connected&&trainer.dev&&trainer.dev.gatt&&!trainer.dev.gatt.connected){trainer.connected=false;trainer.canControl=false;trainer.power=0;trainer.status='Verbindung verloren';trainer.onChange();}},2000);
 click.onNote=t=>{toastEl.textContent=t;toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),3500);};
 let bleKey='';
-const bleChange=()=>{if(trainer.connected)inputMode='trainer';else if(inputMode==='trainer')inputMode='keyboard';const ck=click.connected+'|'+click.devs.length;if(bleKey.indexOf(ck)<0&&bleMsg.indexOf('Click')===0)bleMsg='';const k=trainer.connected+'|'+ck+'|'+bleMsg;if(k===bleKey)return;bleKey=k;if(ov.style.display!=='none'&&lastMenu&&!helpOpen)menu(lastMenu[0],lastMenu[1]);};
+const bleChange=()=>{document.body.classList.toggle('trainer',!!trainer.connected);if(trainer.connected)inputMode='trainer';else if(inputMode==='trainer')inputMode='keyboard';const ck=click.connected+'|'+click.devs.length;if(bleKey.indexOf(ck)<0&&bleMsg.indexOf('Click')===0)bleMsg='';const k=trainer.connected+'|'+ck+'|'+bleMsg;if(k===bleKey)return;bleKey=k;if(ov.style.display!=='none'&&lastMenu&&!helpOpen)menu(lastMenu[0],lastMenu[1]);};
 trainer.onChange=bleChange;click.onChange=bleChange;   // nur noch Lenkeransicht (Cockpit)
 const CK_STAND=[1,3,0,900,30];const COCK=1;
 // Neuer Lenker: leichtes Filmkorn ueber dem Lenker und ein sich drehender Stollenreifen (Draufsicht), beides deckungsgleich mit dem Lenkerbild
@@ -2175,7 +2175,7 @@ function updateLift(dt){
 }
 function update(dt){
   if(!running){AUDIO.update(dt,{running:false,v:0,surf:0,pedal:0,brake:false,forest:0,rain:WXS.rain,day:WXS.day});return;}
-  const kb=inputMode==='keyboard';
+  const kb=true;   // Tastatur geht immer, auch mit gekoppeltem Trainer
   const up=kb&&keys.ArrowUp,down=kb&&keys.ArrowDown,left=kb&&keys.ArrowLeft,right=kb&&keys.ArrowRight;
   if(LIFTS.length){   // Bergbahn: abblenden, kurz fahren lassen, oben wieder einblenden (Zeit zaehlt nicht)
     if(!st.lift){const lf=LIFTS.find(l=>st.pos>=l.a*SEG&&st.pos<l.b*SEG-6);if(lf)startLift(lf);}
@@ -2183,7 +2183,7 @@ function update(dt){
   }
   const i=Math.min(N-1,Math.floor(st.pos/SEG)),dirt=SURF[i]===2;
   const tr=inputMode==='trainer'&&trainer.connected;
-  if(tr)st.power+=(trainer.power-st.power)*Math.min(1,dt*6);else st.power+=((up?PMAX:0)-st.power)*Math.min(1,dt*2.5);
+  if(tr)st.power+=(Math.max(trainer.power,up?PMAX:0)-st.power)*Math.min(1,dt*6);else st.power+=((up?PMAX:0)-st.power)*Math.min(1,dt*2.5);
   const gf=gearF();   // Gang x Schwierigkeit: Normal: leichtester Gang x0,25, schwerster x1,3; Leicht: alles x0,4
   const eg=Math.max(0,(GR[i]>0?GR[i]*gf+Math.max(0,gear)*0.25:Math.max(0,gear)*0.25*(GR[i]>-2?1:0))+(GR[i]>-2?(diff===3?0.8:diff===4?0.5:0):0));   // Abfahrten neutral; Hardcore/Eskalation auch auf flachen Stuecken mit etwas Grundlast
   if(tr)trainer.setGrade(eg,(dirt?0.012:SURF[i]===1?0.009:0.005)*(diff===1?0.5:1));
@@ -2458,7 +2458,7 @@ function menu(title,sub){
       (sub?'<div class="res">'+sub+'</div>':'')+
       '<div class="route">'+(ROUTE?RT.label:TRACK_NAME)+'</div>'+
       '<div class="stats"><div><b>'+km+'</b><i>km</i></div><div><b>'+HM+'</b><i>Höhenmeter</i></div></div>'+
-      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused||SAVED?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="fsb" class="sec">'+(isFS()?'Vollbild beenden (V)':'Vollbild (V)')+'</button><button id="trn" class="sec"><i class="dot'+(trainer.connected?' on':'')+'"></i>'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec"><i class="dot'+(click.connected?(click.devs.filter(x=>!x.lost).length>=2?' on':' mid'):'')+'"></i>'+(()=>{const n=click.devs.filter(x=>!x.lost).length;return n>=2?'Zwift Click: beide Hälften ✓':n===1&&click.connected?'Zwift Click ✓ · zweite Hälfte koppeln (stabiler)':(click.devs.length?'Zwift Click: getrennt – neu koppeln':'Zwift Click koppeln');})()+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button>'+'<button id="dif" class="sec">Schwierigkeit (S): '+DIFFN[diff]+'</button><button id="qual" class="sec">Grafik (Q): '+qLabel()+'</button><button id="snd" class="sec">Sound: '+(AUDIO.on?'an':'aus')+'</button><button id="wxb" class="sec">Wetter: '+WXL()+'</button><button id="ebb" class="sec">E-Bike (E): '+(EBIKE?'an':'aus')+'</button><button id="nghb" class="sec" style="display:'+(MW?'':'none')+'">Nightride: '+(NIGHT?'an':'aus')+'</button><button id="hubb" class="sec">Freilauf: '+(AUDIO.hub?AUDIO.hub+' Zähne':'aus')+'</button><button id="grpb" class="sec">'+(GRP_CODE?'Gruppe: '+GRP_CODE:'Gruppenfahrt')+'</button><button id="hlp" class="sec">So fährst du · Problem melden</button></div>'+mineHtml()+
+      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused||SAVED?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="fsb" class="sec">'+(isFS()?'Vollbild beenden (V)':'Vollbild (V)')+'</button><button id="trn" class="sec"><i class="dot'+(trainer.connected?' on':'')+'"></i>'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec"><i class="dot'+(click.connected?(click.devs.filter(x=>!x.lost).length>=2?' on':' mid'):'')+'"></i>'+(()=>{const n=click.devs.filter(x=>!x.lost).length;return n>=2?'Zwift Click: beide Hälften ✓':n===1&&click.connected?'Zwift Click ✓ · zweite Hälfte koppeln (stabiler)':(click.devs.length?'Zwift Click: getrennt – neu koppeln':'Zwift Click koppeln');})()+'</button>'+'<button id="dif" class="sec">Schwierigkeit (S): '+DIFFN[diff]+'</button><button id="qual" class="sec">Grafik (Q): '+qLabel()+'</button><button id="snd" class="sec">Sound: '+(AUDIO.on?'an':'aus')+'</button><button id="wxb" class="sec">Wetter: '+WXL()+'</button><button id="ebb" class="sec">E-Bike (E): '+(EBIKE?'an':'aus')+'</button><button id="nghb" class="sec" style="display:'+(MW?'':'none')+'">Nightride: '+(NIGHT?'an':'aus')+'</button><button id="hubb" class="sec">Freilauf: '+(AUDIO.hub?AUDIO.hub+' Zähne':'aus')+'</button><button id="grpb" class="sec">'+(GRP_CODE?'Gruppe: '+GRP_CODE:'Gruppenfahrt')+'</button><button id="hlp" class="sec">So fährst du · Problem melden</button></div>'+mineHtml()+
       '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?(IOS?'iPad: Seite in der App Bluefy öffnen (Safari kann kein Bluetooth).':'Bluetooth nur in Chrome/Edge (nicht Safari).'):'D100 oder KICKR einschalten, dann „Trainer koppeln“.')+(bleMsg?'<br>'+bleMsg:'')+''+(click.connected?'<br>'+click.name+' verbunden'+'<br>Click: kurz drücken = schwerer · gedrückt halten = leichter':(click.devs.length?'<br><b>'+click.name+': nicht verbunden</b> – Click einmal drücken oder neu koppeln':''))+'</div>'+
     '<div class="help" style="font-size:11px;opacity:.6">© 2026 Lars Kröger. Alle Rechte vorbehalten. Kopieren oder Weiterverwenden ohne Genehmigung untersagt.<br>© OpenStreetMap-Mitwirkende · © Geobasis NRW · Datenquelle: Land Tirol - data.tirol.gv.at (CC BY 4.0) · <a href="/rechtliches.html" target="_blank" rel="noopener" style="color:inherit">Rechtliches</a> · <a href="mailto:post@kroeger-grafikdesign.de" style="color:inherit">post@kroeger-grafikdesign.de</a></div>'+
     '</div></div>';
@@ -2470,7 +2470,6 @@ function menu(title,sub){
   document.getElementById('nghb').onclick=()=>{toggleNight();menu(title,sub);};
   document.getElementById('hubb').onclick=()=>{AUDIO.cycleHub();menu(title,sub);};
   document.getElementById('grpb').onclick=()=>{const c=window.prompt('Gruppencode für die gemeinsame Fahrt (alle Freunde geben denselben Code ein, leer = aus):',GRP_CODE);if(c===null)return;GRP_CODE=c.trim().toLowerCase().replace(/[^a-z0-9äöüß]+/g,'').slice(0,24);try{localStorage.setItem('miworu_group',GRP_CODE);}catch(_){}grpJoin();menu(title,sub);};
-  document.getElementById('mode').onclick=()=>{inputMode=inputMode==='keyboard'?'off':'keyboard';menu(title,sub);};
   document.querySelectorAll('[data-unlock]').forEach(b=>b.onclick=()=>showUnlock(b.getAttribute('data-unlock')||null));
   document.querySelectorAll('[data-route]').forEach(b=>b.onclick=()=>{const r=b.getAttribute('data-route');location.href=location.pathname+(r?'?route='+r:'')+'#go';});
   document.getElementById('fsb').onclick=()=>{toggleFS();setTimeout(()=>{const b=document.getElementById('fsb');if(b)b.textContent=isFS()?'Vollbild beenden (V)':'Vollbild (V)';},400);};
