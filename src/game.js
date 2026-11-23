@@ -2049,8 +2049,9 @@ const CK_STAND=[1,3,0,900,30];const COCK=1;
 const CKT=document.createElement('div'),CKG=document.createElement('div'),CKM=document.createElement('div'),CKS=document.createElement('div'),CKD=document.createElement('div'),CKP=document.createElement('div'),CKW=document.createElement('div');
 CKW.className='ckfx';CKW.id='ckwrap';CKW.style.display='none';document.getElementById('cockpit').after(CKW);
 const CKB=document.createElement('div');CKB.id='ckbike';
+const CKB2=document.createElement('div');CKB2.id='ckbike2';
 const CKH=document.createElement('div');CKH.id='ckgloves';   // nasse Handschuhe: Handruecken werden dunkler
-[CKT,CKM,CKP,CKB,CKH,CKS,CKG].forEach(d=>{d.className='ckc';CKW.appendChild(d);});
+[CKT,CKM,CKP,CKB,CKB2,CKH,CKS,CKG].forEach(d=>{d.className='ckc';CKW.appendChild(d);});
 const FORK=document.createElement('img');FORK.id='cockfork';FORK.className='c2';FORK.src='/assets/ui/cockpit2.png';FORK.draggable=false;FORK.style.display='none';document.getElementById('cockpit').after(FORK);
 CKT.id='cktire';CKP.id='ckspray';CKG.id='ckgrain';CKM.id='ckmud';CKS.id='cksheen';CKD.id='ckdapple';
 {const c=document.createElement('canvas');c.width=20;c.height=14;const g=c.getContext('2d');   // Stollenmuster: dunkle Klotzchen mit heller Kante
@@ -2069,7 +2070,7 @@ CKT.id='cktire';CKP.id='ckspray';CKG.id='ckgrain';CKM.id='ckmud';CKS.id='cksheen
 {const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d');   // Matschspritzer auf Lenker, Gabel und Vorbau
   for(let k=0;k<280;k++){const x=Math.random()*128,y=Math.random()*128,r=0.6+Math.random()*2.6;g.fillStyle='rgba('+(58+Math.random()*18|0)+','+(50+Math.random()*16|0)+','+(38+Math.random()*12|0)+','+(0.6+Math.random()*0.4).toFixed(2)+')';g.beginPath();g.ellipse(x,y,r,r*(0.5+Math.random()*0.9),Math.random()*3,0,6.3);g.fill();
     if(Math.random()<0.35){for(let j=0;j<4;j++){g.beginPath();g.arc(x+(Math.random()-0.5)*14,y+(Math.random()-0.5)*14,0.6+Math.random()*1.3,0,6.3);g.fill();}}}
-  CKB.style.backgroundImage='url('+c.toDataURL()+')';}
+  CKB.style.backgroundImage=CKB2.style.backgroundImage='url('+c.toDataURL()+')';}
 let CKDIRT=0,CKSPR=0,CKBD=0,CKBM=0,CKWET=0;
 let GRAINS=[];{for(let k=0;k<4;k++){const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d'),d=g.createImageData(128,128);
   for(let i=0;i<d.data.length;i+=4){const v=Math.random()*255|0;d.data[i]=d.data[i+1]=d.data[i+2]=v;d.data[i+3]=255;}g.putImageData(d,0,0);GRAINS.push('url('+c.toDataURL()+')');}}
@@ -2091,8 +2092,8 @@ function updateCockFx(now,deg){
   CKSPR+=(((CKENV.pud&&v>1)?Math.min(1,v/7):0)-CKSPR)*Math.min(1,dt*(CKENV.pud?9:3.5));   // Spritzwasser nur waehrend der Pfuetze, klingt schnell ab
   CKP.style.opacity=Math.min(1,CKSPR*1.1).toFixed(2);CKP.style.backgroundPosition=((CKPH*0.37)%64).toFixed(1)+'px '+(-(CKPH*1.6)%64).toFixed(1)+'px';
   CKBD=Math.min(1,CKBD+(CKENV.mud&&v>1?dt*0.082*Math.min(1.7,v/5)*(CKENV.gr<-1?1+Math.min(2,-CKENV.gr/4):(CKBD<0.2?(CKENV.gr>2?0.3:0.55):0)):0));CKBM=Math.max(CKBM,CKBD);   // Matsch sammelt sich an
-  if(CKBD>CKBM*0.35)CKBD=Math.max(CKBM*0.35,CKBD-dt*((WX===2&&!CKENV.pud?0.008+(CKENV.gr>2?CKBD*0.005:0):0)+(CKENV.surf===0?0.004:0.0008)+(WX===0?0.003:0)));   // Regen, Sonne und Asphalt waschen etwas ab, ganz sauber wird das Rad nicht mehr   // Rad wird in Pfuetzen dreckig, trocknet auf Asphalt langsam ab
-  CKB.style.opacity=Math.min(1,CKBD*1.15).toFixed(2);
+  // Matsch am Rad geht nie wieder weg: nur mehr, bis zum Maximum; gegen Ende der Tour kommt eine zweite, dichtere Spritzerschicht dazu
+  CKB.style.opacity=Math.min(1,CKBD*1.15).toFixed(2);CKB2.style.opacity=Math.max(0,Math.min(0.9,(CKBD-0.55)*2.2)).toFixed(2);
   {const wt=WX===2?(WXFIX?0.75:1):0;if(CKENV.pud&&v>1)CKWET=Math.min(Math.max(wt,0.55),CKWET+dt*0.12*Math.min(1,v/6));CKWET+=(wt-CKWET)*Math.min(1,dt*(wt>CKWET?0.03:(WX===0?0.012:0.005)));CKH.style.opacity=CKWET.toFixed(3);}   // Regen: nach etwa einer Minute sichtbar nass, trocknet langsam
   const k=Math.max(0.3,1-v/16);                 // bei hohem Tempo weichere, verwischte Stollen
   const bgp='0 '+(-(CKPH%14)*0.11).toFixed(3)+'vw';
