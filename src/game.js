@@ -3385,17 +3385,16 @@ requestAnimationFrame(()=>{const b=document.getElementById('boot');if(b){b.class
 setTimeout(()=>{trainer.reconnect();click.reconnect();},1500);
 
 // E-Bike-Schalter auch in der oberen Leiste (neben Nightride): Kopie des Nightride-Knopfes, wird nach jedem Neuaufbau der Leiste ergaenzt
-{const lab='E-Bike '+'';
- const ensure=()=>{
-  const src=hintEl.querySelector('[data-act="l"]');if(!src)return;
-  let b=hintEl.querySelector('[data-act="e"]');
-  if(!b){b=src.cloneNode(true);b.setAttribute('data-act','e');src.after(b);}
-  const w=document.createTreeWalker(b,NodeFilter.SHOW_TEXT),tn=[];while(w.nextNode())if(w.currentNode.nodeValue.trim())tn.push(w.currentNode);
-  const t='E-Bike '+(EBIKE?'an':'aus');
-  if(tn.length>=2){if(tn[0].nodeValue!=='E')tn[0].nodeValue='E';if(tn[1].nodeValue!==t)tn[1].nodeValue=t;}
-  else if(tn.length===1){const v='E '+t;if(tn[0].nodeValue!==v)tn[0].nodeValue=v;}
-  b.classList.toggle('on',EBIKE);
+{const one=(act,key,text,on)=>{   // Knopf als Kopie des Nightride-Knopfes anlegen bzw. Beschriftung aktualisieren
+   const src=hintEl.querySelector('[data-act="l"]');if(!src)return;
+   let b=hintEl.querySelector('[data-act="'+act+'"]');
+   if(!b){b=src.cloneNode(true);b.setAttribute('data-act',act);hintEl.querySelector('[data-act="'+(act==='t'?'l':'e')+'"]')?.after(b);if(!b.parentNode)src.after(b);}
+   const w=document.createTreeWalker(b,NodeFilter.SHOW_TEXT),tn=[];while(w.nextNode())if(w.currentNode.nodeValue.trim())tn.push(w.currentNode);
+   if(tn.length>=2){if(tn[0].nodeValue!==key)tn[0].nodeValue=key;if(tn[1].nodeValue!==text)tn[1].nodeValue=text;}
+   else if(tn.length===1){const v=key+' '+text;if(tn[0].nodeValue!==v)tn[0].nodeValue=v;}
+   b.classList.toggle('on',!!on);
  };
+ const ensure=()=>{one('e','E','E-Bike '+(EBIKE?'an':'aus'),EBIKE);one('t','T','Zeit '+(TODN[TODM]||''),false);};
  new MutationObserver(ensure).observe(hintEl,{childList:true,subtree:true,characterData:true});
- hintEl.addEventListener('click',e=>{if(e.target.closest('[data-act="e"]')){toggleEbike();ensure();}});
- ensure();window.__ensureEbHint=ensure;}
+ hintEl.addEventListener('click',e=>{if(e.target.closest('[data-act="e"]')){toggleEbike();ensure();}else if(e.target.closest('[data-act="t"]')){todSet((TODM+1)%5);toastMsg('Tageszeit: '+TODN[TODM]);ensure();}});
+ ensure();window.__ensureEbHint=ensure;setInterval(ensure,1000);}

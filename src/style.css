@@ -182,3 +182,5 @@ body.nocur,body.nocur *{cursor:none!important}
 #ckbike2{-webkit-mask:url(/assets/ui/cockpit2.png) 0 0/100% 100% no-repeat;mask:url(/assets/ui/cockpit2.png) 0 0/100% 100% no-repeat;background-size:9vw 9vw;background-position:4vw 2.5vw;opacity:0}
 body.ebike #spd::before{content:'';display:inline-block;width:.31em;height:.5em;margin-right:.18em;vertical-align:.08em;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 16'%3E%3Cpath d='M6 0 0 9h4l-1 7 7-10H6z' fill='%232f8cff'/%3E%3C/svg%3E") center/contain no-repeat;animation:ebp 1.4s ease-in-out infinite}
 @keyframes ebp{0%,100%{opacity:.55;transform:scale(.92);filter:drop-shadow(0 0 0 rgba(47,140,255,0))}50%{opacity:1;transform:scale(1.08);filter:drop-shadow(0 0 6px rgba(47,140,255,.95))}}
+/* schmale Bildschirme (iPad hochkant, Handy): E-Bike- und Zeit-Knopf in der oberen Leiste ausblenden, damit sie nicht umbricht; beides bleibt im Menue und per Taste */
+@media (max-width:900px){#hint [data-act="e"],#hint [data-act="t"]{display:none!important}}
