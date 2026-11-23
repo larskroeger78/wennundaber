@@ -221,11 +221,13 @@ if(ROUTE&&!CUS&&OBJ_RAW){   // Asphaltbreite der Strecke aus der naechsten OSM-S
       if(d2<bd){bd=d2;bw=rs[k+4];}}
     if(bw)HW[i]=Math.max(1.5,Math.min(4,bw/2));}
 }
+let strIn=null;   // liegt ein Punkt auf einer amtlichen Strassenflaeche? (nur wenn Daten vorhanden)
 if(ROUTE&&!CUS&&STR_RAW){   // echte Fahrbahnbreite aus den amtlichen Flaechen (ALKIS): quer zur Strecke messen
   const G=24,gm=new Map(),polys=STR_RAW.polys,bbs=polys.map(P=>{let a=1e9,b=1e9,c=-1e9,d=-1e9;for(let i=0;i<P.length;i+=2){a=Math.min(a,P[i]);c=Math.max(c,P[i]);b=Math.min(b,P[i+1]);d=Math.max(d,P[i+1]);}return [a,b,c,d];});
   polys.forEach((P,k)=>{const b=bbs[k];for(let cx=Math.floor(b[0]/G);cx<=Math.floor(b[2]/G);cx++)for(let cz=Math.floor(b[1]/G);cz<=Math.floor(b[3]/G);cz++){const key=cx*100000+cz;(gm.get(key)||gm.set(key,[]).get(key)).push(k);}});
   const inR=(x,z)=>{const l=gm.get(Math.floor(x/G)*100000+Math.floor(z/G));if(!l)return false;
     for(const k of l){const b=bbs[k];if(x<b[0]||x>b[2]||z<b[1]||z>b[3])continue;const P=polys[k];let c=false;for(let u=0,w=P.length-2;u<P.length;w=u,u+=2){if((P[u+1]>z)!==(P[w+1]>z)&&x<(P[w]-P[u])*(z-P[u+1])/(P[w+1]-P[u+1])+P[u])c=!c;}if(c)return true;}return false;};
+  strIn=inR;
   let nm=0;
   for(let i=0;i<=N;i++){if(SEC[i]!==0)continue;
     const a=Math.max(0,i-1),b=Math.min(N,i+1),dx=PX[b]-PX[a],dz=PZ[b]-PZ[a],l=Math.hypot(dx,dz)||1,nx=-dz/l,nz=dx/l;
@@ -2750,6 +2752,9 @@ function updateTiles(cp){   // weit entfernte Kacheln nicht zeichnen, Schatten n
       let dist=0;
       for(let i=0;i+1<pts.length;i++){
         const a=pts[i],b=pts[i+1],A=nearI(a),B=nearI(b);
+        if(strIn){   // OSM-Strasse nur dort zeichnen, wo es amtlich auch eine Strassenflaeche gibt: keine schwebenden Fragmente im Gelaende
+          const mx=(a[0]+b[0])/2,mz=(a[1]+b[1])/2,ex2=b[0]-a[0],ez2=b[1]-a[1],el=Math.hypot(ex2,ez2)||1,ox=-ez2/el*w*0.4,oz=ex2/el*w*0.4;
+          if(!(strIn(mx,mz)||strIn(a[0],a[1])||strIn(b[0],b[1])||strIn(mx+ox,mz+oz)||strIn(mx-ox,mz-oz)))continue;}
         {   // parallel zur Strecke (dieselbe Strasse): auslassen; querende Strasse: bis an den Rand der Strecke durchziehen
           const sx=b[0]-a[0],sz=b[1]-a[1],sl=Math.hypot(sx,sz)||1,ni=A?A.i:(B?B.i:-1),par=ni>=0?Math.abs(sx*Math.sin(HS[ni])+sz*Math.cos(HS[ni]))/sl>0.8:false;
           if(par){if((A&&A.d<hrAt(A.i)+w/2+2.5)||(B&&B.d<hrAt(B.i)+w/2+2.5))continue;}
@@ -2783,6 +2788,7 @@ function updateTiles(cp){   // weit entfernte Kacheln nicht zeichnen, Schatten n
         for(let i=0;i<q.length;i+=2){const kx=Math.round(q[i]/0.8),kz=Math.round(q[i+1]/0.8),k=kx*100003+kz;let o=J.get(k);if(!o)J.set(k,o={x:q[i],z:q[i+1],ws:new Set(),w:0,end:0,n:q.length/2,rb:e.rb});
           o.ws.add(wi);o.w=Math.max(o.w,e.w||5);if(i===0||i===q.length-2)o.end++;}});
       J.forEach(o=>{if(o.ws.size<3&&!(o.ws.size===2&&o.end>=2&&false))return;
+        if(strIn&&!strIn(o.x,o.z))return;
         const f=nearest(allHash,o.x,o.z),nd=f?nD:99;if(f&&nd<hrAt(nI)*0.9)return;   // nicht auf der Strecke selbst
         const r=o.w/2*1.12+0.2,M2=22,y=G(o.x,o.z)+0.125;
         for(let m=0;m<M2;m++){const a0=m/M2*6.2832,a1=(m+1)/M2*6.2832;[[o.x,o.z,y],[o.x+Math.cos(a0)*r,o.z+Math.sin(a0)*r,G(o.x+Math.cos(a0)*r,o.z+Math.sin(a0)*r)+0.125],[o.x+Math.cos(a1)*r,o.z+Math.sin(a1)*r,G(o.x+Math.cos(a1)*r,o.z+Math.sin(a1)*r)+0.125]].forEach(v=>{RP.push(v[0],v[2],v[1]);RC.push(0.11,0.115,0.12);});}});
