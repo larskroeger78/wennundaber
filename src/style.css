@@ -174,3 +174,6 @@ body.phone #goBtn.on{background:rgba(245,165,36,.75);border-color:#f5a524}
 body.phone #brkBtn{display:flex;position:absolute;right:118px;bottom:30px;width:58px;height:58px;border-radius:50%;border:2px solid rgba(255,255,255,.5);background:rgba(20,20,20,.38);color:#fff;font-size:22px;line-height:1;align-items:center;justify-content:center;pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;z-index:5}
 body.phone #brkBtn.on{background:rgba(220,50,40,.75);border-color:#e03a2c}
 body.nocur,body.nocur *{cursor:none!important}
+.dot{display:inline-block;width:11px;height:11px;border-radius:50%;background:#d23a2e;margin-right:9px;vertical-align:-1px;box-shadow:0 0 0 2px rgba(255,255,255,.35)}
+.dot.on{background:#35c75a}
+#ckbike{-webkit-mask:url(/assets/ui/cockpit2.png) 0 0/100% 100% no-repeat;mask:url(/assets/ui/cockpit2.png) 0 0/100% 100% no-repeat;background-size:14vw 14vw;opacity:0}

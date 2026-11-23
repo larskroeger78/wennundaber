@@ -1320,12 +1320,16 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
   // Pfuetzen (spiegeln den Himmel) und Herbstlaub auf/neben dem Weg
   {
     const hwOf=i=>HW[i]*(ROUTE?[1,1.5,1.7][SURF[i]]:1.7);
-    const pud=[],leaves=[];
+    const pud=[],leaves=[],pudW=[];
     for(let i=2;i<N-2;i++){
       const h=HS[i],rx=-Math.cos(h),rz=Math.sin(h),hw=hwOf(i),dirt=!ROUTE||SURF[i]>0;
       if(dirt&&Math.abs(GR[i])<3&&rnd()<0.06){
         const o=(rnd()*2-1)*hw*0.55,x=PX[i]+rx*o,z=PZ[i]+rz*o,a=0.9+rnd()*1.6;
         pud.push({x:x,y:gnd(x,z),z:z,a:a,b:a*(0.35+rnd()*0.4),r:-h+(rnd()-0.5)*0.5});
+      }
+      if(rnd()<(dirt?0.24:0.025)){   // Regenpfuetzen: nur bei Regen sichtbar, auf Trails auch bergab und als Matschlachen
+        const o=(rnd()*2-1)*hw*0.6,x=PX[i]+rx*o,z=PZ[i]+rz*o,a=(0.8+rnd()*1.8)*(Math.abs(GR[i])>=3?0.75:1);
+        pudW.push({x:x,y:gnd(x,z),z:z,a:a,b:a*(0.4+rnd()*0.4),r:-h+(rnd()-0.5)*0.5,m:dirt&&rnd()<0.7?1:0,w:1});
       }
       const nl=dirt?7:3;
       for(let k=0;k<nl;k++){
@@ -1359,6 +1363,14 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
       DUM.position.y=p.y+0.095;DUM.scale.set(p.a,1,p.b);DUM.updateMatrix();wat.setMatrixAt(i,DUM.matrix);
     });
     mud.frustumCulled=wat.frustumCulled=false;mud.renderOrder=2;wat.renderOrder=3;scene.add(mud);scene.add(wat);
+    {   // Regenpfuetzen (Wasser) und Matschlachen: zwei weitere Instanzgruppen, werden per Wetter ein- und ausgeblendet
+      const mkW=(list,mat,dy,sc)=>{const m=new THREE.InstancedMesh(pg2,mat,Math.max(1,list.length));m.count=list.length;
+        list.forEach((p,i)=>{DUM.rotation.set(0,p.r,0);DUM.position.set(p.x,p.y+dy,p.z);DUM.scale.set(p.a*sc,1,p.b*sc);DUM.updateMatrix();m.setMatrixAt(i,DUM.matrix);});
+        m.frustumCulled=false;m.renderOrder=3;m.visible=false;scene.add(m);return m;};
+      const m1=watM.clone(),m2=mudM.clone();m2.color.setHex(0x33271a);m2.roughness=0.3;m2.opacity=0.9;m2.alphaMap=watT;
+      window.__wetM=[{m:mkW(pudW.filter(p=>!p.m),m1,0.097,1),mt:m1,o:0.93},{m:mkW(pudW.filter(p=>p.m),m2,0.093,1.25),mt:m2,o:0.9}];
+      window.PUDW={};pudW.forEach(q=>{const k=Math.floor(q.x/8)+','+Math.floor(q.z/8);(window.PUDW[k]||(window.PUDW[k]=[])).push(q);});
+    }
     // Laub: kleine flache Blaetter, Herbstfarben
     const lg=new THREE.PlaneGeometry(1,1);lg.rotateX(-Math.PI/2);
     const lt=canvasTex(64,64,(g,w,h)=>{
@@ -1968,13 +1980,14 @@ await BOOT('Starte Physik …',88);
 function applyWXOther(){   // Strecken ohne Sonnenstand-Modell: Himmel/Dunst grau, Sonne schwaecher
   if(BK)return;
   if(WXB.sun===undefined){WXB.sun=sun.intensity;WXB.hemi=hemi.intensity;WXB.fog=scene.fog.color.clone();}
-  WXS.rain=WX===2?1:0;
+  WXS.rain=WX===2?(WXFIX?0.35:1):0;
   if(WX){const g=WX===1?0.72:0.5,c=new THREE.Color(g,g*1.01,g*1.04);scene.background=c;scene.fog.color.copy(c);sky.visible=false;sun.intensity=WXB.sun*(WX===1?0.42:0.3);hemi.intensity=WXB.hemi*(WX===1?1.15:0.95);}
   else{scene.background=HDRTEX||HORIZON;scene.fog.color.copy(WXB.fog);sky.visible=!HDRTEX;sun.intensity=WXB.sun;hemi.intensity=WXB.hemi;}
   scene.fog.density=[0,0.0009,0.00055,0.0004][QE()]*[1,5,2.2][WX];
 }
 const WXPOS={miworu:[51.62,7.62],hagen:[51.34,7.45],buellberg:[51.38,7.32],dortmund:[51.42,7.47],hemer:[51.36,7.79],iserlohn:[51.36,7.69],wuppertal:[51.22,7.11]};
-const WXL=()=>WXLIVE?'Live'+(WXLIVEOK?' · '+WXN[WX]:' …'):'Aus';
+var WXFIX=(()=>{try{return localStorage.getItem('miworu_wxfix')==='1';}catch(_){return false;}})();   // "Schlecht": fester, leichter Nieselregen
+const WXL=()=>WXFIX?'Schlecht':WXLIVE?'Live'+(WXLIVEOK?' · '+WXN[WX]:' …'):'Aus';
 function wxApply(){if(BK)applySun(true);else applyWXOther();applyQ();}
 async function wxFetch(){
   if(!WXLIVE)return;
@@ -1986,11 +1999,13 @@ async function wxFetch(){
   catch(e){if(WXLIVE){WX=0;WXLIVEOK=false;wxApply();hintHud.k=null;}}
 }
 setInterval(()=>{if(WXLIVE)wxFetch();},15*60*1000);
-function cycleWX(){WXLIVE=!WXLIVE;try{localStorage.setItem('miworu_wxl',WXLIVE?'1':'0');}catch(_){}
-  if(WXLIVE){WXLIVEOK=false;wxFetch();}else{WX=0;WXLIVEOK=false;wxApply();}
-  hintHud.k=null;toastEl.textContent='Wetter: '+(WXLIVE?'Live (wird geladen …)':'Aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1400);
+function cycleWX(){   // Aus -> Live -> Schlecht (leichter, dauerhafter Nieselregen) -> Aus
+  if(!WXLIVE&&!WXFIX){WXLIVE=true;}else if(WXLIVE){WXLIVE=false;WXFIX=true;}else{WXFIX=false;}
+  try{localStorage.setItem('miworu_wxl',WXLIVE?'1':'0');localStorage.setItem('miworu_wxfix',WXFIX?'1':'0');}catch(_){}
+  if(WXLIVE){WXLIVEOK=false;wxFetch();}else if(WXFIX){WX=2;WXLIVEOK=false;wxApply();}else{WX=0;WXLIVEOK=false;wxApply();}
+  hintHud.k=null;toastEl.textContent='Wetter: '+(WXFIX?'Schlecht (leichter Regen)':WXLIVE?'Live (wird geladen …)':'Aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1400);
   if(WXLIVE)setTimeout(()=>{if(WXLIVEOK){toastEl.textContent='Wetter live: '+WXN[WX];toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1600);}},1500);}
-if(WXLIVE)setTimeout(wxFetch,600);
+if(WXLIVE)setTimeout(wxFetch,600);else if(WXFIX){WX=2;setTimeout(wxApply,600);}
 
 // ================= Zustand, Eingabe, Physik =================
 const M=95,CDA=0.38,RHO=1.2,GRAV=9.81,PMAX=300,BRAKE=260;
@@ -2032,7 +2047,8 @@ const CK_STAND=[1,3,0,900,30];const COCK=1;
 // Neuer Lenker: leichtes Filmkorn ueber dem Lenker und ein sich drehender Stollenreifen (Draufsicht), beides deckungsgleich mit dem Lenkerbild
 const CKT=document.createElement('div'),CKG=document.createElement('div'),CKM=document.createElement('div'),CKS=document.createElement('div'),CKD=document.createElement('div'),CKP=document.createElement('div'),CKW=document.createElement('div');
 CKW.className='ckfx';CKW.id='ckwrap';CKW.style.display='none';document.getElementById('cockpit').after(CKW);
-[CKT,CKM,CKP,CKS,CKG].forEach(d=>{d.className='ckc';CKW.appendChild(d);});
+const CKB=document.createElement('div');CKB.id='ckbike';
+[CKT,CKM,CKP,CKB,CKS,CKG].forEach(d=>{d.className='ckc';CKW.appendChild(d);});
 const FORK=document.createElement('img');FORK.id='cockfork';FORK.className='c2';FORK.src='/assets/ui/cockpit2.png';FORK.draggable=false;FORK.style.display='none';document.getElementById('cockpit').after(FORK);
 CKT.id='cktire';CKP.id='ckspray';CKG.id='ckgrain';CKM.id='ckmud';CKS.id='cksheen';CKD.id='ckdapple';
 {const c=document.createElement('canvas');c.width=20;c.height=14;const g=c.getContext('2d');   // Stollenmuster: dunkle Klotzchen mit heller Kante
@@ -2048,7 +2064,11 @@ CKT.id='cktire';CKP.id='ckspray';CKG.id='ckgrain';CKM.id='ckmud';CKS.id='cksheen
 {const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');   // Wassertropfen, die vom Reifen spritzen
   for(let k=0;k<22;k++){const x=Math.random()*64,y=Math.random()*64,r=0.8+Math.random()*2.6;g.fillStyle='rgba(225,238,248,'+(0.45+Math.random()*0.45).toFixed(2)+')';g.beginPath();g.ellipse(x,y,r*0.8,r*(1.2+Math.random()*1.4),0,0,6.3);g.fill();}
   CKP.style.backgroundImage='url('+c.toDataURL()+')';}
-let CKDIRT=0,CKSPR=0;
+{const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d');   // Matschspritzer auf Lenker, Gabel und Vorbau
+  for(let k=0;k<40;k++){const x=Math.random()*128,y=Math.random()*128,r=1+Math.random()*4.5;g.fillStyle='rgba('+(48+Math.random()*24|0)+','+(34+Math.random()*16|0)+','+(20+Math.random()*10|0)+','+(0.6+Math.random()*0.4).toFixed(2)+')';g.beginPath();g.ellipse(x,y,r,r*(0.5+Math.random()*0.9),Math.random()*3,0,6.3);g.fill();
+    if(Math.random()<0.35){for(let j=0;j<4;j++){g.beginPath();g.arc(x+(Math.random()-0.5)*14,y+(Math.random()-0.5)*14,0.6+Math.random()*1.3,0,6.3);g.fill();}}}
+  CKB.style.backgroundImage='url('+c.toDataURL()+')';}
+let CKDIRT=0,CKSPR=0,CKBD=0;
 let GRAINS=[];{for(let k=0;k<4;k++){const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d'),d=g.createImageData(128,128);
   for(let i=0;i<d.data.length;i+=4){const v=Math.random()*255|0;d.data[i]=d.data[i+1]=d.data[i+2]=v;d.data[i+3]=255;}g.putImageData(d,0,0);GRAINS.push('url('+c.toDataURL()+')');}}
 let CKPH=0,CKLT=0,CKGT=0,CKGI=0;
@@ -2068,6 +2088,8 @@ function updateCockFx(now,deg){
   CKDIRT+=(want-CKDIRT)*Math.min(1,dt*(want>CKDIRT?1.6:0.12))*(v>0.5?1:0.2);
   CKSPR+=(((CKENV.pud&&v>1)?Math.min(1,v/7):0)-CKSPR)*Math.min(1,dt*(CKENV.pud?9:3.5));   // Spritzwasser nur waehrend der Pfuetze, klingt schnell ab
   CKP.style.opacity=(CKSPR*0.8).toFixed(2);CKP.style.backgroundPosition=((CKPH*0.37)%64).toFixed(1)+'px '+(-(CKPH*1.6)%64).toFixed(1)+'px';
+  CKBD=Math.max(0,Math.min(0.8,CKBD+(CKENV.pud&&v>1?dt*0.3*Math.min(1,v/6):0)-dt*(CKENV.surf===0?0.012:0.0025)));   // Rad wird in Pfuetzen dreckig, trocknet auf Asphalt langsam ab
+  CKB.style.opacity=CKBD.toFixed(2);
   const k=Math.max(0.3,1-v/16);                 // bei hohem Tempo weichere, verwischte Stollen
   const bgp='0 '+(-(CKPH%14)*0.11).toFixed(3)+'vw';
   CKW.style.transform=tf;CKW.style.display='block';
@@ -2184,9 +2206,13 @@ function update(dt){
   SHK.vy+=(-420*SHK.y-17*SHK.vy)*dt;SHK.y+=SHK.vy*dt;SHK.vr+=(-380*SHK.r-16*SHK.vr)*dt;SHK.r+=SHK.vr*dt;
   const rough=(ROUTE?[0,0.4,1][SURF[i]]:(i>=iTrail?1:0.2))*(1+Math.max(0,-GR[i])*0.06)*Math.min(1,st.v/6);
   SHK.buzz=rough*(Math.sin(st.pos*9.3)+Math.sin(st.pos*17.9+1.3)*0.7+Math.sin(st.pos*31.7)*0.4);
+  {   // Regen: zusaetzliche Pfuetzen und Matschlachen (auch bergab) erscheinen langsam und trocknen wieder ab
+    const wt=WX===2?(WXFIX?0.7:1):0,wp=(window.__wp||0)+(wt-(window.__wp||0))*Math.min(1,dt*0.15);window.__wp=wp;
+    if(window.__wetM)for(const w of window.__wetM){w.m.visible=wp>0.03;w.mt.opacity=w.o*Math.min(1,wp*1.6);}
+  }
   {   // Pfuetze erwischt? Tropfen aufs Bild (nur steigende Flanke, ab 1,5 m/s)
     sample(st.pos,smp);const bwx=smp.x-Math.cos(smp.h)*st.x,bwz=smp.z+Math.sin(smp.h)*st.x,gx=Math.floor(bwx/8),gz=Math.floor(bwz/8);let hit=false;
-    for(let a=-1;a<=1&&!hit;a++)for(let b=-1;b<=1&&!hit;b++){const L=PUDH[(gx+a)+','+(gz+b)];if(!L)continue;
+    for(let a=-1;a<=1&&!hit;a++)for(let b=-1;b<=1&&!hit;b++){const kk=(gx+a)+','+(gz+b),wk=window.__wp>0.3&&window.PUDW&&window.PUDW[kk],L=wk?(PUDH[kk]||[]).concat(wk):PUDH[kk];if(!L)continue;
       for(let k=0;k<L.length;k++){const q=L[k],dx=bwx-q.x,dz=bwz-q.z,c=Math.cos(q.r),sn=Math.sin(q.r),lx=(dx*c-dz*sn)/(q.a*0.6),lz=(dx*sn+dz*c)/(q.b*0.6);if(lx*lx+lz*lz<1){hit=true;break;}}}
     if(hit&&!update.inPud&&st.v>1.5){splashDrops(st.v);AUDIO.splash(st.v);}update.inPud=hit;
   }
@@ -2413,7 +2439,7 @@ function menu(title,sub){
       (sub?'<div class="res">'+sub+'</div>':'')+
       '<div class="route">'+(ROUTE?RT.label:TRACK_NAME)+'</div>'+
       '<div class="stats"><div><b>'+km+'</b><i>km</i></div><div><b>'+HM+'</b><i>Höhenmeter</i></div></div>'+
-      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused||SAVED?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="fsb" class="sec">'+(isFS()?'Vollbild beenden (V)':'Vollbild (V)')+'</button><button id="trn" class="sec">'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec">'+(()=>{const n=click.devs.filter(x=>!x.lost).length;return n>=2?'Zwift Click: beide Hälften ✓':n===1&&click.connected?'Zwift Click ✓ · zweite Hälfte koppeln (stabiler)':(click.devs.length?'Zwift Click: getrennt – neu koppeln':'Zwift Click koppeln');})()+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button>'+'<button id="dif" class="sec">Schwierigkeit: '+DIFFN[diff]+'</button><button id="qual" class="sec">Grafik: '+QN[quality]+'</button><button id="snd" class="sec">Sound: '+(AUDIO.on?'an':'aus')+'</button><button id="wxb" class="sec">Wetter: '+WXL()+'</button><button id="nghb" class="sec" style="display:'+(MW?'':'none')+'">Nightride: '+(NIGHT?'an':'aus')+'</button><button id="hubb" class="sec">Freilauf: '+(AUDIO.hub?AUDIO.hub+' Zähne':'aus')+'</button><button id="grpb" class="sec">'+(GRP_CODE?'Gruppe: '+GRP_CODE:'Gruppenfahrt')+'</button><button id="hlp" class="sec">So fährst du</button><button id="rep" class="sec">Problem melden</button></div>'+mineHtml()+
+      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused||SAVED?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="fsb" class="sec">'+(isFS()?'Vollbild beenden (V)':'Vollbild (V)')+'</button><button id="trn" class="sec"><i class="dot'+(trainer.connected?' on':'')+'"></i>'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec"><i class="dot'+(click.connected?' on':'')+'"></i>'+(()=>{const n=click.devs.filter(x=>!x.lost).length;return n>=2?'Zwift Click: beide Hälften ✓':n===1&&click.connected?'Zwift Click ✓ · zweite Hälfte koppeln (stabiler)':(click.devs.length?'Zwift Click: getrennt – neu koppeln':'Zwift Click koppeln');})()+'</button><button id="mode" class="sec">'+(inputMode==='keyboard'?'Tastatur: an':'Tastatur: aus')+'</button>'+'<button id="dif" class="sec">Schwierigkeit: '+DIFFN[diff]+'</button><button id="qual" class="sec">Grafik: '+QN[quality]+'</button><button id="snd" class="sec">Sound: '+(AUDIO.on?'an':'aus')+'</button><button id="wxb" class="sec">Wetter: '+WXL()+'</button><button id="nghb" class="sec" style="display:'+(MW?'':'none')+'">Nightride: '+(NIGHT?'an':'aus')+'</button><button id="hubb" class="sec">Freilauf: '+(AUDIO.hub?AUDIO.hub+' Zähne':'aus')+'</button><button id="grpb" class="sec">'+(GRP_CODE?'Gruppe: '+GRP_CODE:'Gruppenfahrt')+'</button><button id="hlp" class="sec">So fährst du</button><button id="rep" class="sec">Problem melden</button></div>'+mineHtml()+
       '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?(IOS?'iPad: Seite in der App Bluefy öffnen (Safari kann kein Bluetooth).':'Bluetooth nur in Chrome/Edge (nicht Safari).'):'D100 oder KICKR einschalten, dann „Trainer koppeln“.')+(bleMsg?'<br>'+bleMsg:'')+''+(click.connected?'<br>'+click.name+' verbunden'+'<br>Click: kurz drücken = schwerer · gedrückt halten = leichter':(click.devs.length?'<br><b>'+click.name+': nicht verbunden</b> – Click einmal drücken oder neu koppeln':''))+'</div>'+
     '<div class="help" style="font-size:11px;opacity:.6">© 2026 Lars Kröger. Alle Rechte vorbehalten. Kopieren oder Weiterverwenden ohne Genehmigung untersagt.<br>© OpenStreetMap-Mitwirkende · © Geobasis NRW · Datenquelle: Land Tirol - data.tirol.gv.at (CC BY 4.0) · <a href="/rechtliches.html" target="_blank" rel="noopener" style="color:inherit">Rechtliches</a> · <a href="mailto:post@kroeger-grafikdesign.de" style="color:inherit">post@kroeger-grafikdesign.de</a></div>'+
     '</div></div>';
