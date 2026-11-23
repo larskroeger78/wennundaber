@@ -190,7 +190,7 @@ export const AUDIO = (() => {
     const t = ctx.currentTime, v = s.running ? s.v : 0, sp = Math.min(1, v / 14);
     master.gain.value += ((on ? vol : 0) - master.gain.value) * Math.min(1, dt * 5);
     const surf = s.surf;
-    if (N.motor) { const mk = s.running ? (window.__motor || 0) : 0; N.motor.g.gain.setTargetAtTime(0.0125 * mk, t, 0.3); const f = 80 + 55 * sp; N.motor.o.frequency.setTargetAtTime(f, t, 0.3); N.motor.o2.frequency.setTargetAtTime(f * 0.5, t, 0.3); }
+    if (N.motor) { const mk = s.running ? (window.__motor || 0) : 0; N.motor.g.gain.setTargetAtTime(0.0156 * mk, t, 0.3); const f = 80 + 55 * sp; N.motor.o.frequency.setTargetAtTime(f, t, 0.3); N.motor.o2.frequency.setTargetAtTime(f * 0.5, t, 0.3); }
     // Wind: quadratisch mit Tempo, heller bei hoher Geschwindigkeit
     // kein Grundrauschen: weder Wind in Baeumen noch Wasser; nur Fahrtwind, erst bei Tempo hoerbar
     set(N.wind, 0.09 * sp * sp * sp * (s.running ? 1 : 0), dt, 4); N.wind.f.frequency.value = 350 + 1500 * sp;
