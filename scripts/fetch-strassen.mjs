@@ -6,7 +6,8 @@ import fs from 'node:fs';
 
 const NAME = process.argv.slice(2).find(a => !a.startsWith('--')) || 'miworu';
 const rd = f => JSON.parse(fs.readFileSync(new URL(`../src/routes/${f}`, import.meta.url), 'utf8'));
-const ROUTE = rd(`${NAME}.json`), DOP = rd(`${NAME}.dop.json`), a = DOP.aff;   // aff: UTM32 <-> Spielkoordinaten (E = E0 + ex*x + ez*z, N = N0 + nx*x + nz*z)
+const ROUTEFILE = process.argv.find(a => a.startsWith('--route='))?.slice(8) || NAME;   // z. B. wuppertal --route=wuppertal2 (andere Strecke, gleiches Kartengebiet)
+const ROUTE = rd(`${ROUTEFILE}.json`), DOP = rd(`${NAME}.dop.json`), a = DOP.aff;   // aff: UTM32 <-> Spielkoordinaten (E = E0 + ex*x + ez*z, N = N0 + nx*x + nz*z)
 const BASE = 'https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht';
 const det = a.ex * a.nz - a.ez * a.nx;
 const toEN = (x, z) => [a.E0 + a.ex * x + a.ez * z, a.N0 + a.nx * x + a.nz * z];
@@ -25,7 +26,8 @@ const get = async (url) => {
 };
 // 1) Welche Objektarten gibt es?
 const cap = await get(`${BASE}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities`);
-const names = [...cap.matchAll(/<(?:\w+:)?FeatureType>\s*<(?:\w+:)?Name>([^<]+)</g)].map(m => m[1]);
+const names = [...cap.matchAll(/<(?:\w+:)?FeatureType[^>]*>\s*<(?:\w+:)?Name[^>]*>([^<]+)</g)].map(m => m[1].trim());
+if (!names.length) console.log('Antwort des Dienstes (Anfang):\n' + cap.slice(0, 2500));
 console.log('Objektarten im Dienst:', names.join(' | '));
 const tn = process.argv.find(x => x.startsWith('--typ='))?.slice(6) || names.find(n => /nutzung/i.test(n) && !/gebaeude|gebäude/i.test(n)) || names.find(n => /nutzung/i.test(n));
 if (!tn) { console.log('FEHLER: keine Nutzungs-Objektart gefunden. Schick mir die Liste oben, dann stelle ich den Namen ein (oder: npm run strassen -- miworu --typ=NAME).'); process.exit(1); }
