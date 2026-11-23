@@ -2731,7 +2731,7 @@ function updateTiles(cp){   // weit entfernte Kacheln nicht zeichnen, Schatten n
       const ring=(r0,r1,y,col,P_,C_)=>{for(let m=0;m<M;m++){const a0=m/M*6.2832,a1=(m+1)/M*6.2832;
         const p=(r,a)=>[cx+Math.cos(a)*r,cz+Math.sin(a)*r],A=p(r0,a0),B=p(r1,a0),C=p(r0,a1),D=p(r1,a1);
         [[A],[B],[C],[B],[D],[C]].forEach(v=>{P_.push(v[0][0],G(v[0][0],v[0][1])+y,v[0][1]);C_.push(col[0]*(0.95+0.1*fbm(v[0][0]/3,v[0][1]/3)),col[1],col[2]);});}};
-      ring(ri,ro,lift,[0.11,0.115,0.12],RP,RC);
+      ring(ri,ro,lift,[0.4,0.4,0.4],RP,RC);
       ring(0,ri-0.35,lift+0.12,[0.2,0.33,0.14],MP,MC);   // Mittelinsel mit Gras
       ring(ri-0.35,ri,lift+0.14,[0.6,0.6,0.58],MP,MC);   // Bordstein
       ring(ro,ro+0.3,lift+0.02,[0.55,0.55,0.53],MP,MC);  // aeusserer Randstein
@@ -2758,8 +2758,11 @@ function updateTiles(cp){   // weit entfernte Kacheln nicht zeichnen, Schatten n
         const ya=G(a[0],a[1]),yb=G(b[0],b[1]),lift=0.13;
         const cA=[a[0]+nx*w/2,a[1]+nz*w/2],dA=[a[0]-nx*w/2,a[1]-nz*w/2],cB=[b[0]+nx*w/2,b[1]+nz*w/2],dB=[b[0]-nx*w/2,b[1]-nz*w/2];
         const hA1=G(cA[0],cA[1])+lift,hA2=G(dA[0],dA[1])+lift,hB1=G(cB[0],cB[1])+lift,hB2=G(dB[0],dB[1])+lift;
-        const sh=0.9+0.12*fbm(a[0]/4,a[1]/4),pth=(hw==='footway'||hw==='cycleway'||hw==='pedestrian'),cb=pth?0.2:0.11;   // Wege heller als Fahrbahnen
-        [[cA,hA1],[dA,hA2],[cB,hB1],[dA,hA2],[dB,hB2],[cB,hB1]].forEach(v=>{RP.push(v[0][0],v[1],v[0][1]);RC.push(cb*sh,cb*1.04*sh,cb*1.08*sh);});
+        const sh=0.9+0.12*fbm(a[0]/4,a[1]/4),pth=(hw==='footway'||hw==='cycleway'||hw==='pedestrian'),cb=pth?0.5:0.4;   // Wege heller als Fahrbahnen
+        {const lat=(P_,Q_,t)=>[P_[0]+(Q_[0]-P_[0])*t,P_[1]+(Q_[1]-P_[1])*t];
+          const sa=[cA,lat(cA,dA,1/3),lat(cA,dA,2/3),dA],sb=[cB,lat(cB,dB,1/3),lat(cB,dB,2/3),dB],hh=(c)=>G(c[0],c[1])+lift;
+          for(let m=0;m<3;m++){const a1=sa[m],a2=sa[m+1],b1=sb[m],b2=sb[m+1];
+            [[a1],[a2],[b1],[a2],[b2],[b1]].forEach(v=>{RP.push(v[0][0],hh(v[0]),v[0][1]);RC.push(cb*sh,cb*sh,cb*sh*1.01);});}}
         const flat=(x0,z0,x1,z1,ww,col,y0,y1)=>{const ddx=x1-x0,ddz=z1-z0,ll=Math.hypot(ddx,ddz)||1,nn=[-ddz/ll*ww/2,ddx/ll*ww/2];
           [[x0+nn[0],y0,z0+nn[1]],[x0-nn[0],y0,z0-nn[1]],[x1+nn[0],y1,z1+nn[1]],[x0-nn[0],y0,z0-nn[1]],[x1-nn[0],y1,z1-nn[1]],[x1+nn[0],y1,z1+nn[1]]].forEach(v=>{MP.push(v[0],v[1],v[2]);MC.push(col[0],col[1],col[2]);});};
         if(mid&&((dist/6)|0)%2===0)flat(a[0],a[1],b[0],b[1],0.14,[0.85,0.85,0.8],ya+0.16,yb+0.16);
@@ -2827,9 +2830,11 @@ function updateTiles(cp){   // weit entfernte Kacheln nicht zeichnen, Schatten n
               flat(ax,az,bx,bz,0.1,[0.8,0.8,0.78],G(ax,az)+lift+0.05,G(bx,bz)+lift+0.05);}}}
       }
     });
-    const mkRibbon=(arr,carr,off)=>{if(!arr.length)return;const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(arr,3));g.setAttribute('color',new THREE.Float32BufferAttribute(carr,3));g.computeVertexNormals();g.computeBoundingSphere();
-      const m=new THREE.Mesh(g,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:off,polygonOffsetUnits:off}));m.receiveShadow=true;scene.add(m);};
-    mkRibbon(RP,RC,-2);mkRibbon(MP,MC,-4);
+    const mkRibbon=(arr,carr,off,tex)=>{if(!arr.length)return;const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(arr,3));
+      if(tex){const uv=new Float32Array(arr.length/3*2);for(let i=0;i<arr.length/3;i++){uv[i*2]=arr[i*3]*0.16;uv[i*2+1]=arr[i*3+2]*0.16;}g.setAttribute('uv',new THREE.BufferAttribute(uv,2));}g.setAttribute('color',new THREE.Float32BufferAttribute(carr,3));g.computeVertexNormals();g.computeBoundingSphere();
+      const m=new THREE.Mesh(g,new THREE.MeshLambertMaterial({vertexColors:true,map:tex||null,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:off,polygonOffsetUnits:off}));m.receiveShadow=true;scene.add(m);};
+    const texRoad=canvasTex(256,256,(g,w,h)=>{g.fillStyle='#8a8a8c';g.fillRect(0,0,w,h);speckle(g,w,h,14000,['#6c6c6e','#a0a0a2','#b2b2b4','#5e5e60','#939395'],1,2.6);},true);
+    mkRibbon(RP,RC,-2,texRoad);mkRibbon(MP,MC,-4);
     if(window.__counts)window.__counts.objV=P.length/3;
     if(P.length){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(Nn,3));g.setAttribute('color',new THREE.Float32BufferAttribute(Cc,3));
       g.computeBoundingSphere();const m=new THREE.Mesh(g,new THREE.MeshLambertMaterial({vertexColors:true}));m.castShadow=false;m.receiveShadow=true;scene.add(m);}
