@@ -178,3 +178,4 @@ body.nocur,body.nocur *{cursor:none!important}
 .dot.on{background:#35c75a}
 #ckbike{-webkit-mask:url(/assets/ui/cockpit2.png) 0 0/100% 100% no-repeat;mask:url(/assets/ui/cockpit2.png) 0 0/100% 100% no-repeat;background-size:14vw 14vw;opacity:0}
 .dot.mid{background:#f2b705}
+#ckgloves{-webkit-mask:url(/assets/ui/cockpit2.png) 0 0/100% 100% no-repeat;mask:url(/assets/ui/cockpit2.png) 0 0/100% 100% no-repeat;mix-blend-mode:multiply;opacity:0;background:radial-gradient(ellipse 7.5% 30% at 12.6% 24%,rgba(12,18,30,.78) 0,rgba(12,18,30,.5) 45%,rgba(12,18,30,0) 100%),radial-gradient(ellipse 7.5% 30% at 83.6% 33%,rgba(12,18,30,.78) 0,rgba(12,18,30,.5) 45%,rgba(12,18,30,0) 100%)}
