@@ -107,7 +107,7 @@ export class ClickPad {
   // Click v1 = ein Gerät mit + und −. Click v2 = zwei getrennte Geräte (links −, rechts +): beide koppeln, der erste Druck auf den LINKEN legt die Rollen fest.
   constructor() { this.devs = []; this.log = []; this.dlog = []; this.t0 = Date.now(); this.kaOk = 0; this.rxN = 0; this.rxT = 0; this.onShift = () => {}; this.onChange = () => {}; this.onNote = () => {}; this.onUnknown = () => {}; this.err = ''; this.calib = false; this.lastBit = -1; this._solo = { down: 0, role: 0 }; }
   dbg(m) { this.dlog.push(((Date.now() - this.t0) / 1000).toFixed(1).padStart(6) + ' s  ' + m); if (this.dlog.length > 80) this.dlog.shift(); }
-  get connected() { return this.devs.some(x => !x.lost) && Date.now() - this.rxT < 12000; }   // ohne Antwort/Paket seit 12 s gilt der Click als getrennt
+  get connected() { return this.devs.some(x => !x.lost && x.dev.gatt && x.dev.gatt.connected) && Date.now() - this.rxT < 12000; }   // ohne Antwort/Paket seit 12 s gilt der Click als getrennt
   get name() { return this.devs.length > 1 ? this.devs.length + ' Click' : (this.devs[0] ? this.devs[0].name : ''); }
   async connect() {
     this.dbg('Koppeln gestartet');
