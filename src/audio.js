@@ -104,7 +104,7 @@ export const AUDIO = (() => {
     if (rb) {   // echte Aufnahme, leise, jedes Tier ruft nur einmal (Rufe duerfen sich ueberlagern)
       const src = ctx.createBufferSource(); src.buffer = rb;
       src.playbackRate.value = (kind === 'piglet' ? 1.55 : kind === 'doe' ? 1.18 : kind === 'stag' ? 0.86 : 0.95 + Math.random() * 0.12) * (0.96 + Math.random() * 0.08);
-      const gg = ctx.createGain(); gg.gain.value = (rb === boarBuf ? 0.5 : 0.16) * (kind === 'piglet' ? 0.7 : 1); src.connect(gg); gg.connect(d); src.start(t); return;
+      const gg = ctx.createGain(); gg.gain.value = (rb === boarBuf ? 0.75 : 0.16) * (kind === 'piglet' ? 0.7 : 1); src.connect(gg); gg.connect(d); src.start(t); return;
     }
     if (kind === 'boar') {   // Wildschwein: zwei, drei tiefe Grunzer, am Ende ein kurzes Quieken
       const n = 2 + (Math.random() * 2 | 0);

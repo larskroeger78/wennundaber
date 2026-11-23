@@ -3222,7 +3222,7 @@ function wlSpawnAt(kind,s,o){   // Einzeltier (auch fuer Tests)
   return wlPlace(kind,x,z,{stand:4+Math.random()*6,panic:false},0);
 }
 function wlSpawnGroup(kind,x,z){   // Wildschweine kommen in Rotten: 2-3 Bachen mit 2-4 Frischlingen; Hirsch/Reh einzeln oder als kleines Paar
-  const grp={stand:4+Math.random()*6,panic:false};
+  const grp={stand:kind==='boar'?0.5+Math.random()*1.2:4+Math.random()*6,panic:false};   // Wildschweine stehen naeher am Weg: sie muessen frueher rufen, sonst fliehen sie vor dem Ruf
   if(kind==='boar'){
     const nb=2+((Math.random()*3)|0),np=3+((Math.random()*3)|0);
     for(let i=0;i<nb;i++)wlPlace('boar',x+(Math.random()-0.5)*5,z+(Math.random()-0.5)*5,grp,i*0.5+Math.random()*0.6);
