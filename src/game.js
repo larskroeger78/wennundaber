@@ -2194,7 +2194,7 @@ function update(dt){
   const fres=M*GRAV*((dirt?0.012:SURF[i]===1?0.009:0.005)+climb-dh*1.2)+0.5*RHO*CDA*v*v+(down?BRAKE:0);
   const pf=[1,1.6,1,0.85,0.83,0.64][diff]||1;   // Schwierigkeit wirkt auf jeder Strecke: Leicht 1,6x Wirkung der Watt, Normal 1,0x (realistisch), Hardcore 0,85x, Eskalation 0,83x (20 % haerter)
   const fmot=(EBIKE&&(st.power>15)&&v>=0)?Math.min(380/vs,220)*Math.max(0,Math.min(1,(7.22-v)/0.7)):0;   // Motor: max. 380 W, Hilfe endet bei 26 km/h, in jedem Gang; bergauf begrenzt die Motorleistung das Tempo
-  window.__motor=fmot>2?(0.5+0.5*Math.min(1,fmot/90))*(GR[i]>1?1:0.7):0;   // Motorbrummen beim Treten, bergauf am deutlichsten
+  window.__motor=(EBIKE&&st.power>15&&st.v>0.3)?(0.6+0.4*Math.min(1,fmot/90))*(GR[i]>1?1:0.8):0;   // Motorbrummen beim Treten, bergauf am deutlichsten
   st.v=Math.max(0,v+(Math.min(st.power*pf/vs,420)+fmot-fres)/M*dt);   // Zugkraft am Hinterrad gedeckelt (Traktion)
   if(st.v<0.3&&eg>7&&st.power>15&&st.t-(update.hintT||-9)>7){update.hintT=st.t;toastEl.textContent='Zu steil für diese Leistung · "−" = leichterer Gang';toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),2600);}
   BRK+=((down&&st.v>1.5?1:0)-BRK)*Math.min(1,dt*5);
