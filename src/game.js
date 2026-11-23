@@ -2056,7 +2056,7 @@ CKT.id='cktire';CKP.id='ckspray';CKG.id='ckgrain';CKM.id='ckmud';CKS.id='cksheen
   g.fillRect(1,1,8,5);g.fillRect(11,8,8,5);g.fillStyle='rgba(30,30,30,0.7)';g.fillRect(2,5,7,1.5);g.fillRect(12,12,7,1.5);
   CKT.style.backgroundImage='url('+c.toDataURL()+')';}
 {const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');   // Schlammspritzer fuer den Reifen
-  for(let k=0;k<46;k++){const x=Math.random()*64,y=Math.random()*64,r=1.5+Math.random()*5;g.fillStyle='rgba('+(52+Math.random()*28|0)+','+(36+Math.random()*20|0)+','+(20+Math.random()*12|0)+','+(0.55+Math.random()*0.45).toFixed(2)+')';g.beginPath();g.ellipse(x,y,r,r*(0.6+Math.random()*0.8),Math.random()*3,0,6.3);g.fill();}
+  for(let k=0;k<46;k++){const x=Math.random()*64,y=Math.random()*64,r=1.5+Math.random()*5;g.fillStyle='rgba('+(60+Math.random()*20|0)+','+(50+Math.random()*18|0)+','+(38+Math.random()*12|0)+','+(0.55+Math.random()*0.45).toFixed(2)+')';g.beginPath();g.ellipse(x,y,r,r*(0.6+Math.random()*0.8),Math.random()*3,0,6.3);g.fill();}
   CKM.style.backgroundImage='url('+c.toDataURL()+')';}
 {const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,128,128);   // Licht-und-Schatten-Flecken (Blaetterdach)
   for(let k=0;k<26;k++){const x=Math.random()*128,y=Math.random()*128,r=6+Math.random()*16;const gr=g.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,'rgba(0,0,0,0.85)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(x-r,y-r,2*r,2*r);}
@@ -2065,10 +2065,10 @@ CKT.id='cktire';CKP.id='ckspray';CKG.id='ckgrain';CKM.id='ckmud';CKS.id='cksheen
   for(let k=0;k<40;k++){const x=Math.random()*64,y=Math.random()*64,r=1+Math.random()*3.4;g.fillStyle='rgba(225,238,248,'+(0.45+Math.random()*0.45).toFixed(2)+')';g.beginPath();g.ellipse(x,y,r*0.8,r*(1.2+Math.random()*1.4),0,0,6.3);g.fill();}
   CKP.style.backgroundImage='url('+c.toDataURL()+')';}
 {const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d');   // Matschspritzer auf Lenker, Gabel und Vorbau
-  for(let k=0;k<75;k++){const x=Math.random()*128,y=Math.random()*128,r=1+Math.random()*5.5;g.fillStyle='rgba('+(48+Math.random()*24|0)+','+(34+Math.random()*16|0)+','+(20+Math.random()*10|0)+','+(0.6+Math.random()*0.4).toFixed(2)+')';g.beginPath();g.ellipse(x,y,r,r*(0.5+Math.random()*0.9),Math.random()*3,0,6.3);g.fill();
+  for(let k=0;k<75;k++){const x=Math.random()*128,y=Math.random()*128,r=1+Math.random()*5.5;g.fillStyle='rgba('+(58+Math.random()*18|0)+','+(50+Math.random()*16|0)+','+(38+Math.random()*12|0)+','+(0.6+Math.random()*0.4).toFixed(2)+')';g.beginPath();g.ellipse(x,y,r,r*(0.5+Math.random()*0.9),Math.random()*3,0,6.3);g.fill();
     if(Math.random()<0.35){for(let j=0;j<4;j++){g.beginPath();g.arc(x+(Math.random()-0.5)*14,y+(Math.random()-0.5)*14,0.6+Math.random()*1.3,0,6.3);g.fill();}}}
   CKB.style.backgroundImage='url('+c.toDataURL()+')';}
-let CKDIRT=0,CKSPR=0,CKBD=0;
+let CKDIRT=0,CKSPR=0,CKBD=0,CKBM=0;
 let GRAINS=[];{for(let k=0;k<4;k++){const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d'),d=g.createImageData(128,128);
   for(let i=0;i<d.data.length;i+=4){const v=Math.random()*255|0;d.data[i]=d.data[i+1]=d.data[i+2]=v;d.data[i+3]=255;}g.putImageData(d,0,0);GRAINS.push('url('+c.toDataURL()+')');}}
 let CKPH=0,CKLT=0,CKGT=0,CKGI=0;
@@ -2088,7 +2088,8 @@ function updateCockFx(now,deg){
   CKDIRT+=(want-CKDIRT)*Math.min(1,dt*(want>CKDIRT?1.6:0.12))*(v>0.5?1:0.2);
   CKSPR+=(((CKENV.pud&&v>1)?Math.min(1,v/7):0)-CKSPR)*Math.min(1,dt*(CKENV.pud?9:3.5));   // Spritzwasser nur waehrend der Pfuetze, klingt schnell ab
   CKP.style.opacity=Math.min(1,CKSPR*1.1).toFixed(2);CKP.style.backgroundPosition=((CKPH*0.37)%64).toFixed(1)+'px '+(-(CKPH*1.6)%64).toFixed(1)+'px';
-  CKBD=Math.max(0,Math.min(1,CKBD+(CKENV.pud&&v>1?dt*0.45*Math.min(1,v/6):0)-dt*(CKENV.surf===0?0.004:0.0008)));   // Rad wird in Pfuetzen dreckig, trocknet auf Asphalt langsam ab
+  CKBD=Math.min(1,CKBD+(CKENV.pud&&v>1?dt*0.45*Math.min(1,v/6):0)+(CKENV.surf>0&&v>1?dt*0.004:0));CKBM=Math.max(CKBM,CKBD);   // Matsch sammelt sich an
+  if(CKBD>CKBM*0.35)CKBD=Math.max(CKBM*0.35,CKBD-dt*((WX===2&&!CKENV.pud?0.02:0)+(CKENV.surf===0?0.004:0.0008)));   // Regen und Asphalt waschen etwas ab, ganz sauber wird das Rad nicht mehr   // Rad wird in Pfuetzen dreckig, trocknet auf Asphalt langsam ab
   CKB.style.opacity=Math.min(1,CKBD*1.15).toFixed(2);
   const k=Math.max(0.3,1-v/16);                 // bei hohem Tempo weichere, verwischte Stollen
   const bgp='0 '+(-(CKPH%14)*0.11).toFixed(3)+'vw';
