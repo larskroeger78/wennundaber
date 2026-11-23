@@ -2000,7 +2000,7 @@ const trainer=new Trainer(),click=new ClickPad();let paused=false,gear=0,bleMsg=
 let gearUsed=false,toastT=0;
 const DIFFN={1:'Leicht',2:'Normal',3:'Hardcore',4:'Eskalation'};
 let diff=1;try{const v=+localStorage.getItem('miworu_diff');if(v>=1&&v<=4)diff=v;}catch(e){}   // Schwierigkeit: 1 Leicht (Steigungen zählen 40 %), 2 Normal
-const gearF=()=>(gear<0?Math.pow(1.26,gear):1+gear*0.05)*(diff===1?0.4:(diff===3?1.5:(diff===4?1.2:1)));   // Faktor auf die Steigung: Gang x Schwierigkeit
+const gearF=()=>(gear<0?Math.pow(1.26,gear):1+gear*0.09)*(diff===1?0.4:(diff===3?1.5:(diff===4?1.2:1)));   // Faktor auf die Steigung: Gang x Schwierigkeit
 function setDiff(d){diff=d;try{localStorage.setItem('miworu_diff',d);}catch(e){}gearHud.k=null;hintHud.k=null;toastEl.textContent='Schwierigkeit: '+DIFFN[d];toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1200);}
 const gearEl=document.getElementById('gear'),toastEl=document.getElementById('toast'),hintEl=document.getElementById('hint');
 function shift(d){
@@ -2155,7 +2155,7 @@ function update(dt){
   const tr=inputMode==='trainer'&&trainer.connected;
   if(tr)st.power+=(trainer.power-st.power)*Math.min(1,dt*6);else st.power+=((up?PMAX:0)-st.power)*Math.min(1,dt*2.5);
   const gf=gearF();   // Gang x Schwierigkeit: Normal: leichtester Gang x0,25, schwerster x1,3; Leicht: alles x0,4
-  const eg=Math.max(0,(GR[i]>0?GR[i]*gf+Math.max(0,gear)*0.15:Math.max(0,gear)*0.15*(GR[i]>-2?1:0))+(GR[i]>-2?(diff===3?0.8:diff===4?0.5:0):0));   // Abfahrten neutral; Hardcore/Eskalation auch auf flachen Stuecken mit etwas Grundlast
+  const eg=Math.max(0,(GR[i]>0?GR[i]*gf+Math.max(0,gear)*0.25:Math.max(0,gear)*0.25*(GR[i]>-2?1:0))+(GR[i]>-2?(diff===3?0.8:diff===4?0.5:0):0));   // Abfahrten neutral; Hardcore/Eskalation auch auf flachen Stuecken mit etwas Grundlast
   if(tr)trainer.setGrade(eg,(dirt?0.012:SURF[i]===1?0.009:0.005)*(diff===1?0.5:1));
   const climb=eg/100;            // Abfahrten neutral: zählen wie flach
   const v=st.v,vs=Math.max(v,0.55);   // kleine Mindestgeschwindigkeit: auch steile Rampen lassen sich aus dem Stand anfahren
@@ -2321,7 +2321,7 @@ function showReport(){   // Problem melden: technische Daten werden automatisch 
     '<div class="ucode"><div class="uh">Nachricht</div><textarea id="rmsg" class="rsel" rows="5" maxlength="2000" placeholder="Was ist passiert? Wo? Was hast du vorher gemacht?"></textarea></div>'+
     '<div class="ucode"><div class="uh">E-Mail für Rückfragen (freiwillig)</div><input id="rmail" type="text" class="rsel" inputmode="email" autocomplete="off" maxlength="120"></div>'+
     '<input id="rhp" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;opacity:0">'+
-    '<div class="help" style="font-size:12px;opacity:.7">Die Angaben werden nur zur Fehlerbehebung gespeichert, die E-Mail nur für Rückfragen. Mehr unter <a href="/rechtliches.html#datenschutz" target="_blank" rel="noopener" style="color:inherit">Datenschutz</a>.</div>'+
+    '<div class="help" style="font-size:12px;opacity:.7">Die Angaben werden nur zur Fehlerbehebung gespeichert, die E-Mail nur für Rückfragen.</div>'+
     '<div class="help" id="rst2"></div>'+
     '<div class="btns"><button id="rsend" class="main">Senden</button><button id="rback" class="sec">← Zurück</button></div></div></div>';
   ['rmsg','rmail','rhp','rcat'].forEach(id=>{const e=document.getElementById(id);e.onkeydown=e.onkeyup=e.onkeypress=ev=>ev.stopPropagation();});
@@ -2360,7 +2360,7 @@ function showUnlock(want){   // Support-Fenster: Betrag ab 1 EUR, kurze Geschich
     '<div class="ucode"><div class="uh">Betrag</div><div class="urow"><input id="uamt" type="text" inputmode="decimal" autocomplete="off" value="5" aria-label="Betrag in Euro"><span class="ueur">€</span><button id="ubuy" class="main">Supporten</button></div><div id="upp"></div></div>'+
     '<div class="help" id="umsg"></div>'+
     '<div class="ucode"><div class="uh">Community-Code</div><div class="urow"><input id="ucode" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Code eingeben"><button id="ucodeb" class="sec">Einlösen</button></div></div>'+
-    '<div class="help ulinks"><a href="#" id="ustory">Warum gibt es das Projekt?</a> · <a href="/rechtliches.html#impressum" target="_blank" rel="noopener">Impressum</a> · <a href="/rechtliches.html#datenschutz" target="_blank" rel="noopener">Datenschutz</a></div>'+
+    '<div class="help ulinks"><a href="#" id="ustory">Warum gibt es das Projekt?</a></div>'+
     '<div class="btns"><button id="uback" class="sec">← Zurück</button></div>'+
   '</div></div>';
   const msg=t=>{document.getElementById('umsg').textContent=t||'';};
