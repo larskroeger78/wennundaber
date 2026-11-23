@@ -3,7 +3,7 @@
 export const AUDIO = (() => {
   let ctx = null, master = null, noise = null, on = true, vol = 0.8, ok = false;
   const N = {};              // Dauer-Klaenge: Name -> {g: GainNode, f: BiquadFilter}
-  let rough = 0, tyreBuf = null, hubBuf = null, splashBuf = null, deerBuf = null, boarBuf = null, wildT = 50 + Math.random() * 60, uhuT = 20 + Math.random() * 40, kitzT = 40 + Math.random() * 80, specT = 25 + Math.random() * 50, birdT = 3, clickAcc = 0, stoneAcc = 0, rainAcc = 0, lastSurf = 0, brakeG = null;
+  let rough = 0, tyreBuf = null, hubBuf = null, splashBuf = null, deerBuf = null, boarBuf = null, doeBuf = null, doeT = 120 + Math.random() * 120, wildT = 50 + Math.random() * 60, uhuT = 20 + Math.random() * 40, kitzT = 40 + Math.random() * 80, specT = 25 + Math.random() * 50, birdT = 3, clickAcc = 0, stoneAcc = 0, rainAcc = 0, lastSurf = 0, brakeG = null;
   let hubN = 72; const HUBS = [0, 16, 32, 56, 72];   // Freilauf: aus oder Zaehnezahl der Sperrklinken-Zahnscheibe (weniger Zaehne = gröber, klickernder)
   try { const v = localStorage.getItem('miworu_snd'); if (v === '0') on = false; const h = +localStorage.getItem('miworu_hub'); if (HUBS.indexOf(h) >= 0 && localStorage.getItem('miworu_hub') !== null) hubN = h; } catch (e) {}
 
@@ -173,6 +173,7 @@ export const AUDIO = (() => {
         N.hub = { o, g, hp, bp }; }
       ok = true;
       fetch('/assets/audio/hirsch.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => { deerBuf = buf; }).catch(() => {});
+      fetch('/assets/audio/rehfiepen.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => { doeBuf = buf; }).catch(() => {});
       fetch('/assets/audio/wildschwein.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => { boarBuf = buf; }).catch(() => {});
       fetch('/assets/audio/reifen.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => {   // echte Aufnahme: Reifen auf Asphalt, Loop, nur unterschwellig
         const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true; src.loopStart = 0.04; src.loopEnd = buf.duration - 0.04;
@@ -246,6 +247,10 @@ export const AUDIO = (() => {
     if (specT <= 0) { specT = 70 + Math.random() * 110; specht(t + 0.1); }
     kitzT -= dt * ((s.night || s.day < 0.35) && s.forest > 0.2 && s.rain < 0.6 ? 1 : 0);
     if (kitzT <= 0) { kitzT = 90 + Math.random() * 130; kitz(t + 0.1); }
+    // Rehgeiss fiept in weiter Ferne: nur nachts bzw. in der Daemmerung im Wald, sehr selten, leise und dumpf (Entfernung)
+    doeT -= dt * ((s.night || s.day < 0.35) && s.forest > 0.2 && s.rain < 0.6 ? 1 : 0);
+    if (doeT <= 0) { doeT = 240 + Math.random() * 360; if (doeBuf) { const src = ctx.createBufferSource(); src.buffer = doeBuf; src.playbackRate.value = 0.96 + Math.random() * 0.08;
+        const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1700; lp.Q.value = 0.5; const gg = ctx.createGain(); gg.gain.value = 0.07; const d = pan(t + 0.1, (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.4), 0.5); src.connect(lp); lp.connect(gg); gg.connect(d); src.start(t + 0.1); } }
     if (birdT <= 0) { birdT = 5 + Math.random() * 10; if (s.forest > 0.35) bird(t + Math.random() * 0.3); }
   }
   // Einmalige Ereignisse
