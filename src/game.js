@@ -3401,7 +3401,17 @@ setTimeout(()=>{trainer.reconnect();click.reconnect();},1500);
    else if(tn.length===1){const v=key+' '+text;if(tn[0].nodeValue!==v)tn[0].nodeValue=v;}
    b.classList.toggle('on',!!on);
  };
- const ensure=()=>{one('e','E','E-Bike '+(EBIKE?'an':'aus'),EBIKE);one('t','T','Zeit '+(TODN[TODM]||''),false);};
+ const diffOne=()=>{   // Schwierigkeit: vier Knoepfe zu einem zusammenfassen, der beim Klick durchschaltet (wie Grafik)
+   ['d1','d3','d4'].forEach(a=>{const x=hintEl.querySelector('[data-act="'+a+'"]');if(x&&x.style.display!=='none')x.style.display='none';});
+   const b=hintEl.querySelector('[data-act="d2"]');if(!b)return;
+   const w=document.createTreeWalker(b,NodeFilter.SHOW_TEXT),tn=[];while(w.nextNode())if(w.currentNode.nodeValue.trim())tn.push(w.currentNode);
+   const key=String(diff),text='Stufe '+DIFFN[diff];
+   if(tn.length>=2){if(tn[0].nodeValue!==key)tn[0].nodeValue=key;if(tn[1].nodeValue!==text)tn[1].nodeValue=text;}
+   else if(tn.length===1){const v=key+' '+text;if(tn[0].nodeValue!==v)tn[0].nodeValue=v;}
+   b.classList.add('on');
+ };
+ hintEl.addEventListener('click',e=>{if(e.target.closest('[data-act="d2"]')){e.stopPropagation();setDiff(diff%4+1);diffOne();}},true);
+ const ensure=()=>{one('e','E','E-Bike '+(EBIKE?'an':'aus'),EBIKE);one('t','T','Zeit '+(TODN[TODM]||''),false);diffOne();};
  new MutationObserver(ensure).observe(hintEl,{childList:true,subtree:true,characterData:true});
  hintEl.addEventListener('click',e=>{if(e.target.closest('[data-act="e"]')){toggleEbike();ensure();}else if(e.target.closest('[data-act="t"]')){todSet((TODM+1)%5);toastMsg('Tageszeit: '+TODN[TODM]);ensure();}});
  ensure();window.__ensureEbHint=ensure;setInterval(ensure,1000);}
