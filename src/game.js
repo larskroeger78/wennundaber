@@ -1231,7 +1231,7 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
       if(ROUTE&&SURF[i]===0)continue;
       const dn=-GR[i];if(dn<2)continue;
       const stp=STEEP[i],pr=clamp((dn-2)/7,0,1)*(ROUTE&&SURF[i]===1?0.85:1),h=HS[i],rx=-Math.cos(h),rz=Math.sin(h);
-      if(rnd()<Math.min(1,pr*(0.8+0.5*stp))){
+      for(let wq=0,nw=1+(stp>0.35&&rnd()<stp*0.9?1:0)+(stp>0.7&&rnd()<0.5?1:0);wq<nw;wq++)if(rnd()<Math.min(1,pr*(0.8+1.0*stp))){
         const hw=HW[i]*(ROUTE?[1,1.5,1.7][SURF[i]]:1.7)*0.9,o0=-hw*(0.7+rnd()*0.3),o1=hw*(0.7+rnd()*0.3),Lf=o1-o0,L=Lf*(0.45+rnd()*0.5),oc=rnd()<0.5?o0+L/2:o1-L/2,sk=(rnd()-0.5)*0.9;
         const x=PX[i]+rx*oc,z=PZ[i]+rz*oc;
         const rr=0.04+rnd()*0.05+stp*(0.03+rnd()*0.07);BUMPS.push({s:i*SEG,o0:o0-0.1,o1:o1+0.1,a:0.45+rnd()*0.35+rr*1.5});roots.push({x:x,y:gnd(x,z)+rr*0.4,z:z,L:L/Math.cos(sk),r:rr,a:Math.atan2(-rz,rx)+sk,t:rnd()});
@@ -1241,13 +1241,13 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
           roots.push({x:x3,y:gnd(x3,z3)+rb*0.4,z:z3,L:0.5+rnd()*1.1,r:rb,a:Math.atan2(-rz,rx)+Math.PI/2+(rnd()-0.5)*1.1,t:rnd()});
         }
       }
-      if(rnd()<pr*(0.55+0.6*stp)){   // duenne Wurzelstraenge und ab und zu eine dicke Wurzel zusaetzlich zu den Querwurzeln
+      if(rnd()<pr*(0.55+1.0*stp)){   // duenne Wurzelstraenge und ab und zu eine dicke Wurzel zusaetzlich zu den Querwurzeln
         const hw=hw0(i);
-        for(let q=0,nq=1+(rnd()*3|0);q<nq;q++){const o=(rnd()*2-1)*hw*1.15,x=PX[i]+rx*o,z=PZ[i]+rz*o,rr=0.010+rnd()*0.02;roots.push({x:x,y:gnd(x,z)+rr*0.3,z:z,L:0.7+rnd()*1.9,r:rr,a:Math.atan2(-rz,rx)+(rnd()-0.5)*2.6,t:rnd()});}
-        if(rnd()<0.2+0.3*stp){const o=(rnd()*2-1)*hw*0.8,x=PX[i]+rx*o,z=PZ[i]+rz*o,rr=0.075+rnd()*0.07+stp*0.04;BUMPS.push({s:i*SEG,o0:o-0.9,o1:o+0.9,a:0.55+rnd()*0.3});roots.push({x:x,y:gnd(x,z)+rr*0.35,z:z,L:1.0+rnd()*1.5,r:rr,a:Math.atan2(-rz,rx)+(rnd()-0.5)*1.0,t:rnd()});}
+        for(let q=0,nq=1+(rnd()*3|0)+Math.round(stp*2);q<nq;q++){const o=(rnd()*2-1)*hw*1.15,x=PX[i]+rx*o,z=PZ[i]+rz*o,rr=0.010+rnd()*0.02;roots.push({x:x,y:gnd(x,z)+rr*0.3,z:z,L:0.7+rnd()*1.9,r:rr,a:Math.atan2(-rz,rx)+(rnd()-0.5)*2.6,t:rnd()});}
+        if(rnd()<0.2+0.55*stp){const o=(rnd()*2-1)*hw*0.8,x=PX[i]+rx*o,z=PZ[i]+rz*o,rr=0.075+rnd()*0.07+stp*0.07;BUMPS.push({s:i*SEG,o0:o-0.9,o1:o+0.9,a:0.55+rnd()*0.3});roots.push({x:x,y:gnd(x,z)+rr*0.35,z:z,L:1.0+rnd()*1.5,r:rr,a:Math.atan2(-rz,rx)+(rnd()-0.5)*1.0,t:rnd()});}
       }
-      if(dn>=3.5&&rnd()<0.012*Math.min(1,dn/10)){   // Absprungstein: schraege, halb eingegrabene Felsplatte, die wie eine kleine Rampe nach oben zeigt
-        const hw=hw0(i),o=(rnd()*2-1)*hw*0.55,x=PX[i]+rx*o,z=PZ[i]+rz*o,w=0.4+rnd()*0.4,hh=0.12+rnd()*0.1;
+      if(dn>=3.5&&rnd()<0.012*Math.min(1,dn/10)*(1+2.5*stp)){   // Absprungstein: schraege, halb eingegrabene Felsplatte, die wie eine kleine Rampe nach oben zeigt
+        const hw=hw0(i),o=(rnd()*2-1)*hw*0.55,x=PX[i]+rx*o,z=PZ[i]+rz*o,w=0.4+rnd()*0.4+stp*0.25,hh=0.12+rnd()*0.1+stp*0.08;
         BUMPS.push({s:i*SEG,o0:o-w-0.1,o1:o+w+0.1,a:0.6+rnd()*0.3});
         stones.push({x:x,y:gnd(x,z)+hh*(-0.1+rnd()*0.2),z:z,w:w,hh:hh,zl:0.7+rnd()*0.5,t:0.55+rnd()*0.4,k:{p:Math.atan(dn/100)-(0.28+rnd()*0.2),y:h,r:(rnd()-0.5)*0.2}});
       }
@@ -1255,13 +1255,17 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
         const kv=Math.abs(KV[i]),r=rnd(),pd=Math.min(1,dn/12);
         const t1=TABS.length===0&&SURF[i]>=1&&dn>=6&&dn<=22&&kv<0.05;   // erste Table gleich am ersten Downhill (Testpunkt)
         if(((kv<0.03&&SURF[i]>=1&&dn<=18&&dn>=3.5&&r<0.085*pd&&(TABS.length===0||i*SEG-TABS[TABS.length-1].s0>150))||t1)&&i*SEG>40){const K=TABS.length>0&&rnd()<0.45,H=(K?0.5:0.65)+rnd()*0.15,s0=i*SEG;TABS.push({s0:s0,H:H,K:K,L:K?3.8:10.2});FEAT.push({s:s0+(K?3.2:6.0),k:'j',a:1});}   // Table: Anfahrt, Plateau, Landung
-        else if(r<0.012*pd+0.004){const big=rnd()<0.3,a=big?1.5+rnd()*0.8:0.7+rnd()*0.6;FEAT.push({s:i*SEG,k:'e',a:a});   // Kante/Drop: quer liegende Steinplatte oder Absatz
+        else if(r<(0.012*pd+0.004)*(1+1.2*stp)){const big=rnd()<0.3,a=big?1.5+rnd()*0.8:0.7+rnd()*0.6;FEAT.push({s:i*SEG,k:'e',a:a});   // Kante/Drop: quer liegende Steinplatte oder Absatz
           const hh=HS[i],ox=(rnd()-0.5)*hw0(i)*0.5,x=PX[i]-Math.cos(hh)*ox,z=PZ[i]+Math.sin(hh)*ox;edges.push({x:x,y:gnd(x,z),z:z,h:hh,w:big?1.3:0.8});}
       }
-      const ns=Math.round(pr*(3+rnd()*6)*(1+0.5*stp));
+      const ns=Math.round(pr*(3+rnd()*6)*(1+1.6*stp));
+      if(stp>0.4&&rnd()<0.28*stp){   // Steinfeld: einzelne grosse Brocken in steilen Abfahrten
+        const hw=hw0(i),o=(rnd()*2-1)*hw*0.85,x=PX[i]+rx*o,z=PZ[i]+rz*o,w=0.2+rnd()*0.32,hh=w*(0.45+rnd()*0.35);
+        BUMPS.push({s:i*SEG,o0:o-w-0.2,o1:o+w+0.2,a:0.5+w*1.3});stones.push({x:x,y:gnd(x,z)+hh*(-0.25+rnd()*0.25),z:z,w:w,hh:hh,t:rnd()});
+      }
       for(let k=0;k<ns;k++){
         const hw=HW[i]*(ROUTE?[1,1.5,1.7][SURF[i]]:1.7),o=(rnd()*2-1)*hw*(rnd()<0.7?0.95:1.6),x=PX[i]+rx*o+Math.sin(h)*(rnd()-0.5)*SEG,z=PZ[i]+rz*o+Math.cos(h)*(rnd()-0.5)*SEG;
-        const w=0.05+Math.pow(rnd(),2.4)*0.17;
+        const w=0.05+Math.pow(rnd(),2.4)*0.17*(1+0.9*stp);
         if(w>0.07)BUMPS.push({s:i*SEG+(rnd()-0.5)*SEG*0.8,o0:o-0.3-w,o1:o+0.3+w,a:0.15+w*3});
         const hh=w*(0.35+rnd()*0.3);stones.push({x:x,y:gnd(x,z)+hh*(-0.4+rnd()*0.38),z:z,w:w*(0.8+rnd()*0.6),hh:hh,t:rnd()});   // etwa zur Haelfte im Boden eingegraben
         if(w>0.11&&rnd()<0.6){for(let q=0;q<1+(rnd()*2|0);q++){const ax=x+(rnd()-0.5)*0.5,az=z+(rnd()-0.5)*0.5,w2=w*(0.3+rnd()*0.4),h2=w2*(0.4+rnd()*0.3);stones.push({x:ax,y:gnd(ax,az)+h2*(-0.4+rnd()*0.3),z:az,w:w2,hh:h2,t:rnd()});}}   // kleine Begleitsteine
@@ -2221,7 +2225,7 @@ function update(dt){
   SHK.wv+=(-900*SHK.w-9*SHK.wv)*dt;SHK.w+=SHK.wv*dt;   // Lenker flattert nach Stoessen
   SHK.w=clamp(SHK.w,-8,8);SHK.wv=clamp(SHK.wv,-140,140);SHK.r=clamp(SHK.r,-0.3,0.3);SHK.vr=clamp(SHK.vr,-5,5);   // Grenzen: der Lenker dreht nie durch
   SHK.vy+=(-420*SHK.y-17*SHK.vy)*dt;SHK.y+=SHK.vy*dt;SHK.vr+=(-380*SHK.r-16*SHK.vr)*dt;SHK.r+=SHK.vr*dt;
-  const rough=(ROUTE?[0,0.4,1][SURF[i]]:(i>=iTrail?1:0.2))*(1+Math.max(0,-GR[i])*0.06)*Math.min(1,st.v/6);
+  const rough=(ROUTE?[0,0.4,1][SURF[i]]:(i>=iTrail?1:0.2))*(1+Math.max(0,-GR[i])*0.08)*Math.min(1,st.v/6);
   SHK.buzz=rough*(Math.sin(st.pos*9.3)+Math.sin(st.pos*17.9+1.3)*0.7+Math.sin(st.pos*31.7)*0.4);
   if(typeof sun!=='undefined'&&sun){   // Bei Regen scheint keine Sonne: direktes Licht und Schatten werden stark gedaempft
     if(WX!==2)window.__sunRef=sun.intensity;
