@@ -32,7 +32,7 @@ if (!layer) {
     const cap = await (await fetch(`${WMS}?REQUEST=GetCapabilities&SERVICE=WMS&VERSION=1.3.0`, { headers: UA })).text();
     const names = [...cap.matchAll(/<Layer[^>]*>\s*<Name>([^<]+)<\/Name>/g)].map(m => m[1]);
     console.log('Ebenen laut Dienst:', names.join(', ') || '(keine gefunden)');
-    layer = names.find(n => /rgb/i.test(n) && !/ir|cir/i.test(n)) || names.find(n => /dop/i.test(n) && !/ir|cir|dop_info|meta/i.test(n)) || names.find(n => !/info|meta/i.test(n)) || 'nw_dop_rgb';
+    layer = names.find(n => /^ni_dop20$/.test(n)) || names.find(n => /rgb/i.test(n) && !/ir|cir/i.test(n)) || names.find(n => /dop/i.test(n) && !/ir|cir|dop_info|meta/i.test(n)) || names.find(n => !/info|meta/i.test(n)) || 'nw_dop_rgb';
   } catch (e) { console.log('Capabilities nicht lesbar (' + e.message + '), nehme nw_dop_rgb'); layer = 'nw_dop_rgb'; }
 }
 console.log('Verwende Ebene:', layer);
