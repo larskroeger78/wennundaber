@@ -24,6 +24,8 @@
     "hagen": "npm run terrain -- hagen && npm run osm -- hagen && npm run surfaces -- hagen",
     "iserlohn": "npm run terrain -- iserlohn && npm run osm -- iserlohn && npm run surfaces -- iserlohn",
     "iserlohn2": "npm run surfaces -- iserlohn2",
+    "ibenstein": "npm run terrain -- ibenstein --ni && npm run osm -- ibenstein && npm run surfaces -- ibenstein && npm run objekte -- ibenstein",
+    "deikamm": "npm run terrain -- deikamm --ni --cell=6 && npm run osm -- deikamm && npm run surfaces -- deikamm && npm run objekte -- deikamm",
     "hemer": "npm run terrain -- hemer && npm run osm -- hemer && npm run surfaces -- hemer",
     "miworu": "npm run terrain -- miworu && npm run osm -- miworu && npm run surfaces -- miworu && npm run objekte -- miworu",
     "buellberg": "npm run terrain -- buellberg && npm run osm -- buellberg && npm run surfaces -- buellberg",

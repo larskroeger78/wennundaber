@@ -4,12 +4,14 @@
 import fs from 'node:fs';
 import { fromArrayBuffer } from 'geotiff';
 
-const NAME = process.argv[2] || 'mittwochsrunde';            // npm run terrain [-- wuppertal]
+const NAME = process.argv.slice(2).find(a => !a.startsWith('--')) || 'mittwochsrunde';            // npm run terrain [-- wuppertal]
 const MITT = JSON.parse(fs.readFileSync(new URL(`../src/routes/${NAME}.json`, import.meta.url), 'utf8'));
 const OUT = new URL(NAME === 'mittwochsrunde' ? '../src/routes/gelaende.json' : `../src/routes/${NAME}.gelaende.json`, import.meta.url);
-const WCS = 'https://www.wcs.nrw.de/geobasis/wcs_nw_dgm';
+// Niedersachsen: --ni (LGLN, DGM1 als WCS) oder eigener Dienst mit --wcs=URL. Standard: Geobasis NRW.
+const argv = process.argv.slice(2), argOf = k => (argv.find(a => a.startsWith(`--${k}=`)) || '').split('=').slice(1).join('=');
+const WCS = argOf('wcs') || (argv.includes('--ni') ? 'https://opendata.geoservices.lgln.niedersachsen.de/dgm_wcs' : 'https://www.wcs.nrw.de/geobasis/wcs_nw_dgm');
 const [LAT0, LON0] = MITT.origin;
-const CELL = 4;                         // Rastergröße im Spiel in Metern
+const CELL = +(process.argv.find(a => a.startsWith('--cell=')) || '--cell=4').split('=')[1];                         // Rastergröße im Spiel in Metern
 const NHN0 = MITT.nhn0 !== undefined ? MITT.nhn0 : 55.8;                      // gleicher Höhen-Nullpunkt wie im Spiel
 const KX = 111320 * Math.cos(LAT0 * Math.PI / 180), KY = 111320;
 
@@ -44,12 +46,12 @@ async function main() {
   for (const [x, z] of [[x0, z0], [x1, z0], [x0, z1], [x1, z1]]) { const [E, N] = utm32(...toLL(x, z)); eMin = Math.min(eMin, E); eMax = Math.max(eMax, E); nMin = Math.min(nMin, N); nMax = Math.max(nMax, N); }
   eMin = Math.floor(eMin / 10) * 10 - 10; eMax = Math.ceil(eMax / 10) * 10 + 10; nMin = Math.floor(nMin / 10) * 10 - 10; nMax = Math.ceil(nMax / 10) * 10 + 10;
 
-  console.log('Suche Höhenmodell beim Land NRW …');
+  console.log('Suche Höhenmodell …', WCS);
   const caps = await (await get(`${WCS}?SERVICE=WCS&REQUEST=GetCapabilities&VERSION=2.0.1`)).text();
-  const ids = [...caps.matchAll(/<wcs:CoverageId>([^<]+)<\/wcs:CoverageId>/g)].map(m => m[1]);
+  const ids = [...caps.matchAll(/<(?:\w+:)?CoverageId>([^<]+)<\/(?:\w+:)?CoverageId>/g)].map(m => m[1]);
   const id = ids.find(s => /dgm/i.test(s)) || ids[0];
   if (!id) throw new Error('Keine Coverage im Dienst gefunden.');
-  const formats = [...caps.matchAll(/<wcs:formatSupported>([^<]+)<\/wcs:formatSupported>/g)].map(m => m[1]);
+  const formats = [...caps.matchAll(/<(?:\w+:)?formatSupported>([^<]+)<\/(?:\w+:)?formatSupported>/g)].map(m => m[1]);
   console.log('Coverage', id, '· Formate:', formats.join(', ') || '(keine Angabe)');
   const desc = await (await get(`${WCS}?SERVICE=WCS&REQUEST=DescribeCoverage&VERSION=2.0.1&COVERAGEID=${id}`)).text();
   const labels = (desc.match(/axisLabels="([^"]+)"/) || [])[1] || 'x y';
