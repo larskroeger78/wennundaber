@@ -13,7 +13,7 @@ html,body{margin:0;height:100%;background:#0b0d0f;color:#fff;font-family:'Barlow
 #mini{left:20px;bottom:20px;width:180px;height:180px;border-radius:50%;border:3px solid rgba(255,255,255,.75);box-shadow:0 4px 14px rgba(0,0,0,.6)}
 #prof{left:50%;bottom:22px;transform:translateX(-50%);width:420px;height:64px;max-width:40vw}
 #off{left:50%;top:22%;transform:translateX(-50%);font-size:24px;font-weight:700;color:#ff8f7a;display:none}
-#overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:10vh 10vw;background:radial-gradient(ellipse at 50% 50%,rgba(0,0,0,.35) 0%,rgba(0,0,0,.72) 100%)}
+#overlay{position:absolute;inset:0;display:flex;align-items:flex-start;justify-content:center;box-sizing:border-box;padding:10vh 10vw;background:radial-gradient(ellipse at 50% 50%,rgba(0,0,0,.35) 0%,rgba(0,0,0,.72) 100%)}
 #overlay h1{margin:0;font-size:68px;font-weight:800;line-height:.92;text-transform:uppercase;letter-spacing:.01em}
 #overlay h1 em{font-style:normal;color:#f5a524}
 .tag{font-size:20px;letter-spacing:.14em;text-transform:uppercase;opacity:.85}
@@ -27,7 +27,7 @@ button:disabled{background:rgba(255,255,255,.08);color:#888;cursor:not-allowed}
 body.fpv #prof{bottom:auto;top:58px}
 
 /* Startscreen MIWORU */
-.intro{display:flex;align-items:center;gap:clamp(20px,3vw,48px);width:100%;justify-content:center}
+.intro{margin:auto 0;display:flex;align-items:center;gap:clamp(20px,3vw,48px);width:100%;justify-content:center}
 .poster{flex:0 0 auto;height:min(72vh,660px);max-width:38vw;aspect-ratio:361.42/547.35;filter:drop-shadow(0 10px 30px rgba(0,0,0,.6));transform:rotate(-1.6deg)}
 .poster img{display:block;width:100%;height:100%}
 .panel{display:flex;flex-direction:column;gap:9px;flex:1 1 0;min-width:0}
@@ -42,7 +42,7 @@ body.fpv #prof{bottom:auto;top:58px}
 .btns{display:flex;flex-wrap:wrap;gap:6px}
 .btns .bg{flex:1 1 100%;margin-top:5px;font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;opacity:.6;border-bottom:1px solid rgba(255,255,255,.18);padding-bottom:2px}
 .btns button{margin:0;font-size:15px;padding:9px 13px;letter-spacing:.05em}
-.btns button.main,button.main{background:#e14230;color:#fff;font-size:26px;padding:11px 24px;flex:1 1 100%}
+.btns button.main,button.main{background:#e14230;color:#fff;font-size:26px;padding:11px 24px;flex:1 1 0;min-width:0}
 .keys{font-size:13px;opacity:.85;margin-top:6px}
 .keys div{margin:3px 0}.keys .kh{font-weight:700;letter-spacing:.12em;text-transform:uppercase;opacity:.9}.keys .note{opacity:.7}
 .keys b{display:inline-block;min-width:16px;padding:0 4px;text-align:center;border:1px solid rgba(255,255,255,.5);border-radius:3px}
@@ -186,3 +186,7 @@ body.ebike #spd::before{content:'';display:inline-block;width:.31em;height:.5em;
 @keyframes ebp{0%,100%{opacity:.55;transform:scale(.92);filter:drop-shadow(0 0 0 rgba(47,140,255,0))}50%{opacity:1;transform:scale(1.08);filter:drop-shadow(0 0 6px rgba(47,140,255,.95))}}
 /* schmale Bildschirme (iPad hochkant, Handy): E-Bike- und Zeit-Knopf in der oberen Leiste ausblenden, damit sie nicht umbricht; beides bleibt im Menue und per Taste */
 @media (max-width:900px){#hint [data-act="e"],#hint [data-act="t"]{display:none!important}}
+/* Tablets (iPad alt und neu): weniger Rand, Menue bleibt von oben bis unten scrollbar, groessere Touch-Ziele */
+@media (max-width:1200px){#overlay{padding:4vh 5vw}}
+@media (pointer:coarse){.btns button.sec{padding:12px 15px}.mine button{padding:8px 13px}}
+#rst{font-size:20px;padding:11px 20px;flex:0 0 auto}   /* Weiterfahren und Neu starten in einer Zeile */
