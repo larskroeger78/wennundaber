@@ -13,7 +13,7 @@ html,body{margin:0;height:100%;background:#0b0d0f;color:#fff;font-family:'Barlow
 #mini{left:20px;bottom:20px;width:180px;height:180px;border-radius:50%;border:3px solid rgba(255,255,255,.75);box-shadow:0 4px 14px rgba(0,0,0,.6)}
 #prof{left:50%;bottom:22px;transform:translateX(-50%);width:420px;height:64px;max-width:40vw}
 #off{left:50%;top:22%;transform:translateX(-50%);font-size:24px;font-weight:700;color:#ff8f7a;display:none}
-#overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:3vh 4vw;background:radial-gradient(ellipse at 50% 50%,rgba(0,0,0,.35) 0%,rgba(0,0,0,.72) 100%)}
+#overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:10vh 10vw;background:radial-gradient(ellipse at 50% 50%,rgba(0,0,0,.35) 0%,rgba(0,0,0,.72) 100%)}
 #overlay h1{margin:0;font-size:68px;font-weight:800;line-height:.92;text-transform:uppercase;letter-spacing:.01em}
 #overlay h1 em{font-style:normal;color:#f5a524}
 .tag{font-size:20px;letter-spacing:.14em;text-transform:uppercase;opacity:.85}
@@ -27,10 +27,10 @@ button:disabled{background:rgba(255,255,255,.08);color:#888;cursor:not-allowed}
 body.fpv #prof{bottom:auto;top:58px}
 
 /* Startscreen MIWORU */
-.intro{display:flex;align-items:center;gap:clamp(20px,3vw,48px);max-width:1100px;width:100%;justify-content:center}
+.intro{display:flex;align-items:center;gap:clamp(20px,3vw,48px);width:100%;justify-content:center}
 .poster{flex:0 0 auto;height:min(72vh,660px);max-width:38vw;aspect-ratio:361.42/547.35;filter:drop-shadow(0 10px 30px rgba(0,0,0,.6));transform:rotate(-1.6deg)}
 .poster img{display:block;width:100%;height:100%}
-.panel{display:flex;flex-direction:column;gap:9px;max-width:640px;flex:1 1 0;min-width:0}
+.panel{display:flex;flex-direction:column;gap:9px;flex:1 1 0;min-width:0}
 .panel .by{font-size:17px;letter-spacing:.2em;text-transform:uppercase;color:#e14230;font-weight:700}
 .panel h1{margin:0;font-size:clamp(52px,6.5vw,92px);font-weight:800;line-height:.88;letter-spacing:.02em;text-transform:uppercase}
 .panel .res{font-size:24px;font-weight:700;color:#fff;background:#e14230;display:inline-block;padding:4px 12px;align-self:flex-start}
