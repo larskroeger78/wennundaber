@@ -263,10 +263,22 @@ export const AUDIO = (() => {
   function gear() { if (!ok) return; const t = ctx.currentTime; burst(t, 0.012, 'bandpass', 4200, 5, 0.1); burst(t + 0.06, 0.012, 'bandpass', 3000, 5, 0.08); }
   function cycleHub() { hubN = HUBS[(HUBS.indexOf(hubN) + 1) % HUBS.length]; try { localStorage.setItem('miworu_hub', hubN); } catch (e) {} init(); return hubN; }
   // Menue/Pause: Ton sofort ausblenden (update() laeuft in der Pause nicht), beim Weiterfahren wieder einblenden
+  function fly(dur) {   // Fliege: Surren wird beim Anflug lauter und hoeher, am Ende ein kurzes feuchtes Klatschen an der Brille
+    if (!ok || !on) return; const t = ctx.currentTime + 0.02;
+    const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(170, t); o.frequency.linearRampToValueAtTime(260, t + dur);
+    const am = ctx.createOscillator(), ag = ctx.createGain(); am.frequency.value = 68; ag.gain.value = 0.45; am.connect(ag);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.11, t + dur * 0.95); g.gain.setValueAtTime(0.0001, t + dur);
+    ag.connect(g.gain);
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 900; bp.Q.value = 1.2;
+    o.connect(bp); bp.connect(g);
+    let d = master; if (ctx.createStereoPanner) { const sp = ctx.createStereoPanner(); sp.pan.setValueAtTime(0.3, t); sp.pan.linearRampToValueAtTime(-0.5, t + dur); g.connect(sp); sp.connect(master); } else g.connect(master);
+    o.start(t); am.start(t); o.stop(t + dur + 0.02); am.stop(t + dur + 0.02);
+    burst(t + dur, 0.09, 'bandpass', 1400, 0.8, 0.22, master); thump(t + dur, 240, 90, 0.07, 0.12);
+  }
   function hold(b) { held = !!b; if (ctx && master) { master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setTargetAtTime(on && !held ? vol : 0, ctx.currentTime, held ? 0.05 : 0.15); } }
   function toggle() { on = !on; try { localStorage.setItem('miworu_snd', on ? '1' : '0'); } catch (e) {} init(); return on; }
   // Browser starten Audio erst nach einer Nutzergeste (Klick, Taste, Touch): beim ersten Mal Kontext anlegen bzw. fortsetzen
   const wake = () => { init(); if (ctx && ctx.state === 'suspended') ctx.resume(); };
   ['pointerdown', 'keydown', 'touchstart', 'click'].forEach(ev => window.addEventListener(ev, wake, { passive: true }));
-  return { call, cycleHub, get hub() { return hubN; }, splash, init, get suspended() { return !ctx || ctx.state !== 'running'; }, update, bump, takeoff, land, edge, gear, toggle, hold, get on() { return on; } };
+  return { call, cycleHub, get hub() { return hubN; }, splash, init, get suspended() { return !ctx || ctx.state !== 'running'; }, update, bump, fly, takeoff, land, edge, gear, toggle, hold, get on() { return on; } };
 })();
