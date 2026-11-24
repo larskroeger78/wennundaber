@@ -406,6 +406,8 @@ const SEA_CODE={
   fir:'float sN=sH(vSeed.xz*0.731+vSeed.y);'+SEA_SN+'diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.86,.9,.95),sn*(.4+.35*sN));',
   grs:SEA_SN+'float sL=dot(diffuseColor.rgb,vec3(.3,.55,.15));diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.62,.46,.2)*sL*2.0,uAut*.6);diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.76,.79,.84),sn*.85);',
   gnd:SEA_SN+'float sL=dot(diffuseColor.rgb,vec3(.3,.55,.15));diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.55,.36,.18)*sL*2.2,uAut*.35);diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.78,.82,.89),sn);',
+  asp:SEA_SN+'float sE=smoothstep(0.3,1.0,abs(vUv.x-0.5)*2.0);diffuseColor.rgb=mix(diffuseColor.rgb,mix(vec3(.74,.78,.85),vec3(.88,.91,.96),sE),sn*(0.13+0.8*sE));',   // Asphalt: leichter Schleier, Fahrspur bleibt dunkel, zum Rand hoeherer Schnee
+  gvl:SEA_SN+'float sE=smoothstep(0.25,0.95,abs(vUv.x-0.5)*2.0);diffuseColor.rgb=mix(diffuseColor.rgb,mix(vec3(.76,.8,.87),vec3(.88,.91,.96),sE),sn*(0.2+0.72*sE));',   // Feldweg: wie Asphalt, etwas mehr Schnee
   trl:SEA_SN+'diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.78,.82,.89),sn*(0.06+0.74*smoothstep(0.3,0.95,abs(vUv.x-0.5)*2.0)));'};   // Spur bleibt in der Mitte dunkel, nur zum Rand hin liegt Schnee
 function seaPatch(mat,kind,inst){
   mat.onBeforeCompile=function(s){
@@ -452,8 +454,8 @@ function applyQ(){
   resize();
 }
 applyQ();
-const qLabel=()=>quality===3&&FPSCAP===30?'Hoch · 30 fps':QN[quality];   // Stufe 4 = Hoch mit 30 Bildern/s (Akku sparen)
-function cycleQ(){if(quality===3&&FPSCAP!==30){FPSCAP=30;}else{FPSCAP=0;quality=quality%3+1;}try{localStorage.setItem('miworu_q',quality);localStorage.setItem('miworu_fps',String(FPSCAP));}catch(_){}applyQ();fxSetup();toastEl.textContent='Grafik: '+qLabel();toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}
+const qLabel=()=>quality===3?'Hoch · '+(FPSCAP===30?30:60)+' fps':QN[quality];   // Stufe 4 = Hoch mit 30 Bildern/s (Akku sparen)
+function cycleQ(){if(quality===3&&FPSCAP!==30){FPSCAP=30;}else{quality=quality%3+1;FPSCAP=quality===3?60:0;}try{localStorage.setItem('miworu_q',quality);localStorage.setItem('miworu_fps',String(FPSCAP));}catch(_){}applyQ();fxSetup();toastEl.textContent='Grafik: '+qLabel();toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}
 // Nachbearbeitung (nur Stufe "Hoch"): leichtes Bloom, Filmton, Vignette. ?fx=0 schaltet aus, ?fx=1 erzwingt.
 function fxWanted(){let f=null;try{f=new URLSearchParams(location.search).get('fx');}catch(e){}if(f==='0')return false;if(f==='1')return true;return quality===3&&(MW||BK);}
 function fxSetup(){
@@ -950,7 +952,7 @@ function ribbon(i0,i1,wScale,mat,vLen,lift){
   g.setIndex(idx);g.computeVertexNormals();
   const m=new THREE.Mesh(g,mat);m.receiveShadow=true;scene.add(m);return m;
 }
-const asphaltMat=new THREE.MeshStandardMaterial({map:texAsphalt,roughness:0.85,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+const asphaltMat=new THREE.MeshStandardMaterial({map:texAsphalt,roughness:0.85,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});seaPatch(asphaltMat,'asp',false);
 applyPhoto(asphaltMat,'asphalt_02',1,2,{arm:true,color:new THREE.Color(1.1,1.1,1.1)});
 if(!ROUTE)ribbon(0,Math.min(N,iTrail+4),1,asphaltMat,8,0.05);
 const trailMat=new THREE.MeshStandardMaterial({vertexColors:true,map:texDirt,roughness:1,side:THREE.DoubleSide,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3});seaPatch(trailMat,'trl',false);
@@ -959,7 +961,7 @@ applyPhoto(trailMat,'forest_ground_04',1,1.6,{arm:true,color:new THREE.Color(1.2
   trailMat.alphaMap.encoding=THREE.LinearEncoding;trailMat.needsUpdate=true;}});
 if(!ROUTE)ribbon(iTrail-2,N,1.7,trailMat,5,0.07);
 else{
-  const gravelMat=new THREE.MeshStandardMaterial({vertexColors:true,map:texDirt,roughness:1,side:THREE.DoubleSide,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3});seaPatch(gravelMat,'trl',false);
+  const gravelMat=new THREE.MeshStandardMaterial({vertexColors:true,map:texDirt,roughness:1,side:THREE.DoubleSide,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3});seaPatch(gravelMat,'gvl',false);
   applyPhoto(gravelMat,'forest_ground_04',1,1.6,{arm:true,color:new THREE.Color(1.65,1.58,1.45),onDiffuse:()=>{
     gravelMat.alphaMap=canvasTex(64,4,(g,w,h)=>{const ag=g.createLinearGradient(0,0,w,0);ag.addColorStop(0,'#000');ag.addColorStop(0.25,'#fff');ag.addColorStop(0.75,'#fff');ag.addColorStop(1,'#000');g.fillStyle=ag;g.fillRect(0,0,w,h);},true);
     gravelMat.alphaMap.encoding=THREE.LinearEncoding;gravelMat.needsUpdate=true;}});
@@ -2049,7 +2051,7 @@ const trainer=new Trainer(),click=new ClickPad();let paused=false,gear=0,bleMsg=
 let gearUsed=false,toastT=0;
 const DIFFN={1:'Leicht',2:'Normal',3:'Hardcore',4:'Eskalation'};
 let diff=1;try{const v=+localStorage.getItem('miworu_diff');if(v>=1&&v<=4)diff=v;}catch(e){}   // Schwierigkeit: 1 Leicht (Steigungen zählen 40 %), 2 Normal
-let FPSCAP=0;try{if(+localStorage.getItem('miworu_fps')===30&&quality===3)FPSCAP=30;}catch(e){}   // Bildrate: 0 = frei (Bildschirm-Takt), 60 oder 30
+let FPSCAP=quality===3?60:0;try{if(+localStorage.getItem('miworu_fps')===30&&quality===3)FPSCAP=30;}catch(e){}   // Bildrate: 0 = frei (Bildschirm-Takt), 60 oder 30
 let EBIKE=false;try{EBIKE=localStorage.getItem('miworu_ebike')==='1';}catch(e){}   // E-Bike: Motor schiebt bis 26 km/h an (nur beim Treten, bergauf begrenzt), bergab darf man schneller sein
 document.body.classList.toggle('ebike',EBIKE);
 function toggleEbike(){EBIKE=!EBIKE;try{localStorage.setItem('miworu_ebike',EBIKE?'1':'0');}catch(e){}document.body.classList.toggle('ebike',EBIKE);if(window.__ensureEbHint)window.__ensureEbHint();toastEl.textContent='E-Bike: '+(EBIKE?'an (Motor bis 26 km/h)':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1400);}
@@ -2098,6 +2100,14 @@ const CKH=document.createElement('div');CKH.id='ckgloves';   // nasse Handschuhe
       g.fillStyle='rgba('+(62+Math.random()*13|0)+','+(72+Math.random()*13|0)+','+(93+Math.random()*13|0)+','+(0.4+Math.random()*0.3).toFixed(2)+')';g.beginPath();g.ellipse(x/2,y/2,s,s*(0.8+Math.random()*0.7),Math.random()*3,0,6.3);g.fill();}});
     CKH.style.backgroundImage='url('+c.toDataURL()+')';};
   src.src='/assets/ui/cockpit2.png';}
+// Matschspritzer am Rand des Blickfelds: wachsen wie der Dreck am Rad (CKBD), zwei Schichten, nur aussen
+const CKE=[0,1].map(L=>{const d=document.createElement('div');d.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:2;opacity:0;background-size:100% 100%;background-repeat:no-repeat';
+  const W=640,H=360,c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d');
+  for(let k=0,n=0;k<6000&&n<(L?26:16);k++){const x=Math.random(),y=Math.random()*0.8,e=Math.max(Math.abs(x-0.5)*2,Math.abs(y-0.4)*2.5);   // e: 0 Mitte, 1 Rand
+    if(e<0.86||Math.random()>(e-0.8)*5)continue;n++;
+    const px=x*W,py=y*H,s=(2+Math.pow(Math.random(),2)*9)*(0.7+0.3*e),a=0.55+Math.random()*0.3;
+    for(let j=0;j<4;j++){const ox=(Math.random()-0.5)*s*1.6,oy=(Math.random()-0.5)*s*1.2,r=s*(0.35+Math.random()*0.5);g.fillStyle='rgba('+(40+Math.random()*14|0)+','+(31+Math.random()*10|0)+','+(22+Math.random()*8|0)+','+a.toFixed(2)+')';g.beginPath();g.ellipse(px+ox,py+oy,r,r*(0.7+Math.random()*0.5),Math.random()*3,0,6.3);g.fill();}}
+  d.style.backgroundImage='url('+c.toDataURL()+')';document.getElementById('wrap').appendChild(d);return d;});
 const FORK=document.createElement('img');FORK.id='cockfork';FORK.className='c2';FORK.src='/assets/ui/cockpit2.png';FORK.draggable=false;FORK.style.display='none';document.getElementById('cockpit').after(FORK);
 CKT.id='cktire';CKP.id='ckspray';CKG.id='ckgrain';CKM.id='ckmud';CKS.id='cksheen';CKD.id='ckdapple';
 {const c=document.createElement('canvas');c.width=20;c.height=14;const g=c.getContext('2d');   // Stollenmuster: dunkle Klotzchen mit heller Kante
@@ -2139,6 +2149,7 @@ function updateCockFx(now,deg){
   CKP.style.opacity=Math.min(1,CKSPR*1.1).toFixed(2);CKP.style.backgroundPosition=((CKPH*0.37)%64).toFixed(1)+'px '+(-(CKPH*1.6)%64).toFixed(1)+'px';
   CKBD=Math.min(0.1+0.7*Math.min(1,st.pos/TOTAL),CKBD+(CKENV.mud&&v>1?dt*0.046*Math.min(1.7,v/5)*(CKENV.gr<-1?1+Math.min(2,-CKENV.gr/4):(CKBD<0.2?(CKENV.gr>2?0.3:0.55):0)):0));CKBM=Math.max(CKBM,CKBD);   // Matsch sammelt sich an
   // Matsch am Rad geht nie wieder weg: nur mehr, bis zum Maximum; gegen Ende der Tour kommt eine zweite, dichtere Spritzerschicht dazu
+  CKE[0].style.opacity=Math.min(0.85,Math.max(0,CKBD-0.12)*1.4).toFixed(2);CKE[1].style.opacity=Math.min(0.85,Math.max(0,CKBD-0.4)*2).toFixed(2);
   CKB.style.opacity=Math.min(1,CKBD*1.15).toFixed(2);CKB2.style.opacity=Math.max(0,Math.min(0.9,(CKBD-0.55)*2.2)).toFixed(2);
   {const wt=WX===2?(WXFIX?0.75:1):0;if(CKENV.pud&&v>1)CKWET=Math.min(Math.max(wt,0.55),CKWET+dt*0.12*Math.min(1,v/6));CKWET+=(wt-CKWET)*Math.min(1,dt*(wt>CKWET?0.05:(WX===0?0.012:0.005)));CKH.style.opacity=Math.min(1,CKWET*1.6).toFixed(3);}   // Regen: nach etwa einer Minute sichtbar nass, trocknet langsam
   const k=Math.max(0.3,1-v/16);                 // bei hohem Tempo weichere, verwischte Stollen
@@ -2591,7 +2602,7 @@ function mkPts(n,tex,additive){
   const p=new THREE.Points(g,m);p.frustumCulled=false;p.visible=false;scene.add(p);
   return {p,g,pos,sz,al,col,n,m};}
 const T_LEAF=softTex('leaf'),T_SOFT=softTex('soft');
-const FALL=mkPts(380,T_LEAF,false),FALL_PH=new Float32Array(380).map(()=>Math.random()*6.283);
+const FALL=mkPts(1500,T_LEAF,false),FALL_PH=new Float32Array(1500).map(()=>Math.random()*6.283);
 const DUST=mkPts(110,T_SOFT,false),DUST_V=new Float32Array(110*3),DUST_L=new Float32Array(110),DUST_A=new Float32Array(110);let dustI=0,dustAcc=0;
 let SEAS=0,SPD=0;const SEAN=['Standard','Herbst','Winter'];
 function seasonSet(m){
@@ -2599,10 +2610,11 @@ function seasonSet(m){
   SEA.aut.value=m===1?1:0;SEA.win.value=m===2?1:0;
   let mn=1e9,mx=-1e9;for(let i=0;i<=N;i+=4){mn=Math.min(mn,PY[i]);mx=Math.max(mx,PY[i]);}
   SEA.snowY.value=(RT&&RT.alp)?mn+(mx-mn)*0.3:-1e5;SEA.snowK.value=(RT&&RT.alp)?1:0.56;   // ausserhalb der Alpen liegt nur leichter Schnee
-  FALL.p.visible=m===2||(m===1&&SPEC!=='fir'&&!(RT&&RT.alp));   // Nadelwald (Tannen) und Alpen: kein Laubfall im HerbstFALL.m.uniforms.map.value=m===1?T_LEAF:T_SOFT;
+  FALL.p.visible=m===2||(m===1&&SPEC!=='fir'&&!(RT&&RT.alp));   // Nadelwald (Tannen) und Alpen: kein Laubfall im Herbst
+  FALL.m.uniforms.map.value=m===1?T_LEAF:T_SOFT;
   const c=camera.position;for(let i=0;i<FALL.n;i++){FALL.pos[i*3]=c.x+(Math.random()-0.5)*32;FALL.pos[i*3+1]=c.y-4+Math.random()*16;FALL.pos[i*3+2]=c.z+(Math.random()-0.5)*32;
-    const k=Math.random();if(m===1){const a=k<0.3?[1,.62,.14]:k<0.58?[.95,.42,.08]:k<0.8?[.72,.17,.07]:[.86,.78,.22];FALL.col.set(a,i*3);}else FALL.col.set([.95,.97,1],i*3);FALL.al[i]=m===1?0.92:0.8;FALL.sz[i]=m===1?0.15:0.065;}
-  FALL.g.attributes.aCol.needsUpdate=true;FALL.g.attributes.aAlpha.needsUpdate=true;
+    const k=Math.random();if(m===1){const a=k<0.3?[1,.62,.14]:k<0.58?[.95,.42,.08]:k<0.8?[.72,.17,.07]:[.86,.78,.22];FALL.col.set(a,i*3);}else FALL.col.set([.95,.97,1],i*3);FALL.al[i]=m===1?(i<380?0.92:0):0.85;FALL.sz[i]=m===1?0.15:0.07+Math.random()*0.05;}   // Winter: viel mehr Flocken (1500), Herbst weiter 380 Blaetter
+  FALL.g.attributes.aCol.needsUpdate=true;FALL.g.attributes.aAlpha.needsUpdate=true;FALL.g.attributes.aSize.needsUpdate=true;
   if(BK)applySun(true);
 }
 function sunAltAt(utc){const d=new Date(),doy=Math.floor((Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate())-Date.UTC(d.getUTCFullYear(),0,0))/864e5);
@@ -3405,7 +3417,8 @@ function updateGroup(dt){
 }
 let last=performance.now(),drsAcc=0,drsN=0;
 function drsTick(dt){if(!running||paused){drsAcc=drsN=0;return;}drsAcc+=dt;drsN++;if(drsAcc<2.5)return;const ft=drsAcc/drsN;drsAcc=drsN=0;
-  if(ft>0.029&&DRS>0.7){DRS=Math.max(0.7,+(DRS-0.1).toFixed(2));applyQ();}else if(ft<0.0185&&DRS<1){DRS=Math.min(1,+(DRS+0.05).toFixed(2));applyQ();}}
+  const slow=FPSCAP===30;   // bei 30-fps-Limit liegt die Frame-Zeit ohnehin bei ~33 ms
+  if(ft>(slow?0.042:0.029)&&DRS>0.7){DRS=Math.max(0.7,+(DRS-0.1).toFixed(2));applyQ();}else if(ft<(slow?0.0365:0.0185)&&DRS<1){DRS=Math.min(1,+(DRS+0.05).toFixed(2));applyQ();}}
 function loop(now){
   if(FPSCAP&&now-last<1000/FPSCAP-3){requestAnimationFrame(loop);return;}   // Bildrate begrenzen (spart Akku und Waerme)
   const dt=clamp((now-last)/1000,0,0.05);last=now;
