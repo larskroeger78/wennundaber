@@ -2463,7 +2463,7 @@ function showStory(){   // kleines Fenster ueber dem Support-Fenster: Foto und p
   const c=()=>d.remove();d.querySelector('.sx').onclick=c;d.querySelector('.sok').onclick=c;d.onclick=e=>{if(e.target===d)c();};
 }
 function menu(title,sub){
-  helpOpen=false;lastMenu=[title,sub];menuBtn.style.display='none';
+  helpOpen=false;lastMenu=[title,sub];menuBtn.style.display='none';AUDIO.hold(true);
   ov.style.display='flex';hudBox.style.display=sub?'block':'none';
   const km=(TOTAL/1000).toFixed(1).replace('.',',');
   ov.innerHTML='<div class="intro">'+
@@ -2499,13 +2499,13 @@ function menu(title,sub){
 function pauseGame(){if(!running)return;running=false;paused=true;trainer.setGrade(0,0.005,true);offEl.style.display='none';menu('Weiterfahren','Pause · '+(st.pos/1000).toFixed(2)+' km · '+fmtT(st.t));}
 const menuBtn=document.getElementById('menuBtn');menuBtn.onclick=pauseGame;
 hintEl.onclick=e=>{const b=e.target.closest('[data-act]');if(!b)return;const a=b.getAttribute('data-act');if(a==='d1')setDiff(1);else if(a==='d2')setDiff(2);else if(a==='d3')setDiff(3);else if(a==='d4')setDiff(4);else if(a==='v')toggleFS();else if(a==='q')cycleQ();else if(a==='n'){AUDIO.toggle();toastEl.textContent='Sound: '+(AUDIO.on?'an':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}else if(a==='w')cycleWX();else if(a==='l')toggleNight();else if(a==='f'){const h=AUDIO.cycleHub();hintHud.k=null;toastEl.textContent='Freilauf: '+(h?h+' Zähne':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1200);}};
-function resume(){if(GRP_CODE&&!GRP.peer)grpJoin();menuBtn.style.display='';paused=false;running=true;ov.style.display='none';hudBox.style.display='block';}
+function resume(){if(GRP_CODE&&!GRP.peer)grpJoin();menuBtn.style.display='';paused=false;running=true;AUDIO.hold(false);ov.style.display='none';hudBox.style.display='block';}
 const PK='miworu_prog2_'+RKEY;let SAVED=null;   // prog2: alte Fortschritte gehoerten zu anderen Strecken
 try{const o=JSON.parse(localStorage.getItem(PK)||'null');if(o&&o.pos>50&&Date.now()-o.ts<864e5)SAVED=o;}catch(e){}
 setInterval(()=>{if(running&&st.pos>50&&!st.done)try{localStorage.setItem(PK,JSON.stringify({pos:st.pos,t:st.t,ts:Date.now()}));}catch(e){}},2000);
 function clearProg(){SAVED=null;try{localStorage.removeItem(PK);}catch(e){}}
 function startSaved(){const o=SAVED;start();if(o){st.pos=o.pos;st.t=o.t;}}
-function start(){AUDIO.init();if(GRP_CODE&&!GRP.peer)grpJoin();menuBtn.style.display='';clearProg();paused=false;reset();if(trainer.connected)trainer.setGrade(0,0.005,true);running=true;lastSec=-1;ov.style.display='none';hudBox.style.display='block';}
+function start(){AUDIO.init();if(GRP_CODE&&!GRP.peer)grpJoin();menuBtn.style.display='';clearProg();paused=false;reset();if(trainer.connected)trainer.setGrade(0,0.005,true);running=true;AUDIO.hold(false);lastSec=-1;ov.style.display='none';hudBox.style.display='block';}
 
 // ================= Kamera & Render =================
 const smp={x:0,y:0,z:0,h:0},smp2={x:0,y:0,z:0,h:0};

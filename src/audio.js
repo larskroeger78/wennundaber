@@ -1,7 +1,7 @@
 // Prozeduraler Fahrsound (WebAudio, keine Dateien): Reifen je Untergrund, Freilauf, Wind, Voegel, Stoesse, Sprung, Bremse, Regen.
 // Alles wird aus Rauschen und kurzen Impulsen erzeugt; AUDIO.init() muss aus einer Nutzergeste kommen (Start-Knopf).
 export const AUDIO = (() => {
-  let ctx = null, master = null, noise = null, on = true, vol = 0.8, ok = false;
+  let ctx = null, master = null, noise = null, on = true, vol = 0.8, ok = false, held = true;   // held: Menue/Pause offen -> alles stumm
   const N = {};              // Dauer-Klaenge: Name -> {g: GainNode, f: BiquadFilter}
   let rough = 0, tyreBuf = null, hubBuf = null, splashBuf = null, deerBuf = null, boarBuf = null, doeBuf = null, doeT = 120 + Math.random() * 120, wildT = 50 + Math.random() * 60, uhuT = 20 + Math.random() * 40, kitzT = 15 + Math.random() * 40, specT = 25 + Math.random() * 50, birdT = 3, clickAcc = 0, stoneAcc = 0, rainAcc = 0, lastSurf = 0, brakeG = null;
   let hubN = 72; const HUBS = [0, 16, 32, 56, 72];   // Freilauf: aus oder Zaehnezahl der Sperrklinken-Zahnscheibe (weniger Zaehne = gröber, klickernder)
@@ -140,7 +140,7 @@ export const AUDIO = (() => {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
     try {
       const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
-      ctx = new AC(); master = ctx.createGain(); master.gain.value = on ? vol : 0;
+      ctx = new AC(); master = ctx.createGain(); master.gain.value = on && !held ? vol : 0;
       const comp = ctx.createDynamicsCompressor(); master.connect(comp); comp.connect(ctx.destination);
       noise = mkNoise();
       N.wind = loop('lowpass', 500, 0.5);       // Fahrtwind
@@ -190,7 +190,7 @@ export const AUDIO = (() => {
   function update(dt, s) {
     if (!ok || !ctx) return;
     const t = ctx.currentTime, v = s.running ? s.v : 0, sp = Math.min(1, v / 14);
-    master.gain.value += ((on ? vol : 0) - master.gain.value) * Math.min(1, dt * 5);
+    master.gain.value += ((on && !held ? vol : 0) - master.gain.value) * Math.min(1, dt * 5);
     const surf = s.surf;
     if (N.motor) { const mk = s.running ? (window.__motor || 0) : 0; N.motor.g.gain.setTargetAtTime(0.0238 * mk, t, 0.4); const f = 92 + 30 * sp; N.motor.o.frequency.setTargetAtTime(f, t, 0.4); N.motor.o2.frequency.setTargetAtTime(f * 1.012, t, 0.4); }
     // Wind: quadratisch mit Tempo, heller bei hoher Geschwindigkeit
@@ -260,9 +260,11 @@ export const AUDIO = (() => {
   function edge(a) { if (!ok) return; const t = ctx.currentTime, k = Math.min(1, a / 1.5); thump(t, 80, 40, 0.18, 0.22 * k + 0.05); burst(t, 0.1, 'lowpass', 300, 0.7, 0.14 * k); }
   function gear() { if (!ok) return; const t = ctx.currentTime; burst(t, 0.012, 'bandpass', 4200, 5, 0.1); burst(t + 0.06, 0.012, 'bandpass', 3000, 5, 0.08); }
   function cycleHub() { hubN = HUBS[(HUBS.indexOf(hubN) + 1) % HUBS.length]; try { localStorage.setItem('miworu_hub', hubN); } catch (e) {} init(); return hubN; }
+  // Menue/Pause: Ton sofort ausblenden (update() laeuft in der Pause nicht), beim Weiterfahren wieder einblenden
+  function hold(b) { held = !!b; if (ctx && master) { master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setTargetAtTime(on && !held ? vol : 0, ctx.currentTime, held ? 0.05 : 0.15); } }
   function toggle() { on = !on; try { localStorage.setItem('miworu_snd', on ? '1' : '0'); } catch (e) {} init(); return on; }
   // Browser starten Audio erst nach einer Nutzergeste (Klick, Taste, Touch): beim ersten Mal Kontext anlegen bzw. fortsetzen
   const wake = () => { init(); if (ctx && ctx.state === 'suspended') ctx.resume(); };
   ['pointerdown', 'keydown', 'touchstart', 'click'].forEach(ev => window.addEventListener(ev, wake, { passive: true }));
-  return { call, cycleHub, get hub() { return hubN; }, splash, init, get suspended() { return !ctx || ctx.state !== 'running'; }, update, bump, takeoff, land, edge, gear, toggle, get on() { return on; } };
+  return { call, cycleHub, get hub() { return hubN; }, splash, init, get suspended() { return !ctx || ctx.state !== 'running'; }, update, bump, takeoff, land, edge, gear, toggle, hold, get on() { return on; } };
 })();
