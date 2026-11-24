@@ -36,6 +36,8 @@ if(LOCKED.indexOf(RKEY)>=0&&!(await checkPass())){PAYWALL=RKEY;RKEY=null;}
 const GPX_ID=null,CUSTOM=null;   // eigene GPX-Strecken gibt es nicht mehr
 const RT=RKEY==='halde'?null:(ROUTES[RKEY]||ROUTES.tour2);   // Standard: die Tour vom 5.10.2022; andere Strecken nur noch per URL (?route=halde|mittwoch) für Entwicklung
 const ROUTE=!!RT,MITT=RT?RT.data:MITT1;
+const WILD=(['tour2','mittwoch','halde','dortmund','hagen'].indexOf(RKEY)>=0||RKEY==null)?'root':RKEY==='hemer'?'stone':'mix';   // Charakter der Abfahrten: Wurzelstrecke (Halde, Dortmund, Hagen), Steinstrecke (Hemer), sonst gemischt
+const W_ROOT=WILD==='root'?1.8:WILD==='stone'?0.85:1.15,W_STONE=WILD==='root'?0.4:WILD==='stone'?1.6:1;
 const MW=!!RT&&!RT.custom&&!!RT.dem;   // feste Strecken mit Geländedaten: Feinschliff (Unterwuchs, Wegzustand, Fassaden, Autos, Nightride, Nachbearbeitung)
 // Echtes Geländemodell (DGM1 NRW, per npm run terrain erzeugt): Höhenraster in Dezimetern
 const TERR=[];   // Gelaendekacheln (fuer die Bodenhoehe der Autos)
@@ -1231,7 +1233,11 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
       if(ROUTE&&SURF[i]===0)continue;
       const dn=-GR[i];if(dn<2)continue;
       const stp=STEEP[i],pr=clamp((dn-2)/7,0,1)*(ROUTE&&SURF[i]===1?0.85:1),h=HS[i],rx=-Math.cos(h),rz=Math.sin(h);
-      for(let wq=0,nw=1+(stp>0.35&&rnd()<stp*0.9?1:0)+(stp>0.7&&rnd()<0.5?1:0);wq<nw;wq++)if(rnd()<Math.min(1,pr*(0.8+1.0*stp))){
+      if(WILD==='root'&&rnd()<Math.min(1,pr*(0.35+0.5*stp))){   // Laengswurzel: zieht sich ein paar Meter am/auf dem Weg entlang
+        const hw=hw0(i),o=(rnd()*2-1)*hw*0.8,x=PX[i]+rx*o,z=PZ[i]+rz*o,rr=0.035+rnd()*0.05+stp*0.03,L=2+rnd()*3.2;
+        BUMPS.push({s:i*SEG,o0:o-0.25,o1:o+0.25,a:0.25+rr*2});roots.push({x:x,y:gnd(x,z)+rr*0.4,z:z,L:L,r:rr,a:Math.atan2(-rz,rx)+Math.PI/2+(rnd()-0.5)*0.35,t:rnd()});
+      }
+      for(let wq=0,nw=1+(stp>0.35&&rnd()<stp*0.9?1:0)+(stp>0.7&&rnd()<0.5?1:0)+(W_ROOT>1.5&&rnd()<0.45?1:0);wq<nw;wq++)if(rnd()<Math.min(1,pr*(0.8+1.0*stp)*W_ROOT)){
         const hw=HW[i]*(ROUTE?[1,1.5,1.7][SURF[i]]:1.7)*0.9,o0=-hw*(0.7+rnd()*0.3),o1=hw*(0.7+rnd()*0.3),Lf=o1-o0,L=Lf*(0.45+rnd()*0.5),oc=rnd()<0.5?o0+L/2:o1-L/2,sk=(rnd()-0.5)*0.9;
         const x=PX[i]+rx*oc,z=PZ[i]+rz*oc;
         const rr=0.04+rnd()*0.05+stp*(0.03+rnd()*0.07);BUMPS.push({s:i*SEG,o0:o0-0.1,o1:o1+0.1,a:0.45+rnd()*0.35+rr*1.5});roots.push({x:x,y:gnd(x,z)+rr*0.4,z:z,L:L/Math.cos(sk),r:rr,a:Math.atan2(-rz,rx)+sk,t:rnd()});
@@ -1241,12 +1247,12 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
           roots.push({x:x3,y:gnd(x3,z3)+rb*0.4,z:z3,L:0.5+rnd()*1.1,r:rb,a:Math.atan2(-rz,rx)+Math.PI/2+(rnd()-0.5)*1.1,t:rnd()});
         }
       }
-      if(rnd()<pr*(0.55+1.0*stp)){   // duenne Wurzelstraenge und ab und zu eine dicke Wurzel zusaetzlich zu den Querwurzeln
+      if(rnd()<pr*(0.55+1.0*stp)*W_ROOT){   // duenne Wurzelstraenge und ab und zu eine dicke Wurzel zusaetzlich zu den Querwurzeln
         const hw=hw0(i);
         for(let q=0,nq=1+(rnd()*3|0)+Math.round(stp*2);q<nq;q++){const o=(rnd()*2-1)*hw*1.15,x=PX[i]+rx*o,z=PZ[i]+rz*o,rr=0.010+rnd()*0.02;roots.push({x:x,y:gnd(x,z)+rr*0.3,z:z,L:0.7+rnd()*1.9,r:rr,a:Math.atan2(-rz,rx)+(rnd()-0.5)*2.6,t:rnd()});}
         if(rnd()<0.2+0.55*stp){const o=(rnd()*2-1)*hw*0.8,x=PX[i]+rx*o,z=PZ[i]+rz*o,rr=0.075+rnd()*0.07+stp*0.07;BUMPS.push({s:i*SEG,o0:o-0.9,o1:o+0.9,a:0.55+rnd()*0.3});roots.push({x:x,y:gnd(x,z)+rr*0.35,z:z,L:1.0+rnd()*1.5,r:rr,a:Math.atan2(-rz,rx)+(rnd()-0.5)*1.0,t:rnd()});}
       }
-      if(dn>=3.5&&rnd()<0.012*Math.min(1,dn/10)*(1+2.5*stp)){   // Absprungstein: schraege, halb eingegrabene Felsplatte, die wie eine kleine Rampe nach oben zeigt
+      if(dn>=3.5&&rnd()<0.012*Math.min(1,dn/10)*(1+2.5*stp)*W_STONE){   // Absprungstein: schraege, halb eingegrabene Felsplatte, die wie eine kleine Rampe nach oben zeigt
         const hw=hw0(i),o=(rnd()*2-1)*hw*0.55,x=PX[i]+rx*o,z=PZ[i]+rz*o,w=0.4+rnd()*0.4+stp*0.25,hh=0.12+rnd()*0.1+stp*0.08;
         BUMPS.push({s:i*SEG,o0:o-w-0.1,o1:o+w+0.1,a:0.6+rnd()*0.3});
         stones.push({x:x,y:gnd(x,z)+hh*(-0.1+rnd()*0.2),z:z,w:w,hh:hh,zl:0.7+rnd()*0.5,t:0.55+rnd()*0.4,k:{p:Math.atan(dn/100)-(0.28+rnd()*0.2),y:h,r:(rnd()-0.5)*0.2}});
@@ -1258,8 +1264,8 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
         else if(r<(0.012*pd+0.004)*(1+1.2*stp)){const big=rnd()<0.3,a=big?1.5+rnd()*0.8:0.7+rnd()*0.6;FEAT.push({s:i*SEG,k:'e',a:a});   // Kante/Drop: quer liegende Steinplatte oder Absatz
           const hh=HS[i],ox=(rnd()-0.5)*hw0(i)*0.5,x=PX[i]-Math.cos(hh)*ox,z=PZ[i]+Math.sin(hh)*ox;edges.push({x:x,y:gnd(x,z),z:z,h:hh,w:big?1.3:0.8});}
       }
-      const ns=Math.round(pr*(3+rnd()*6)*(1+1.6*stp));
-      if(stp>0.4&&rnd()<0.28*stp){   // Steinfeld: einzelne grosse Brocken in steilen Abfahrten
+      const ns=Math.round(pr*(3+rnd()*6)*(1+1.6*stp)*W_STONE);
+      if(stp>0.3&&rnd()<0.28*stp*W_STONE){   // Steinfeld: einzelne grosse Brocken in steilen Abfahrten
         const hw=hw0(i),o=(rnd()*2-1)*hw*0.85,x=PX[i]+rx*o,z=PZ[i]+rz*o,w=0.2+rnd()*0.32,hh=w*(0.45+rnd()*0.35);
         BUMPS.push({s:i*SEG,o0:o-w-0.2,o1:o+w+0.2,a:0.5+w*1.3});stones.push({x:x,y:gnd(x,z)+hh*(-0.25+rnd()*0.25),z:z,w:w,hh:hh,t:rnd()});
       }
@@ -1272,17 +1278,17 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
       }
     }
     const rm=new THREE.InstancedMesh(rootG,new THREE.MeshStandardMaterial({roughness:1,color:0xffffff,map:barkTex,side:THREE.DoubleSide}),Math.max(1,roots.length));rm.count=roots.length;
-    roots.forEach((r,i)=>{DUM.rotation.set(0,r.a,0);DUM.position.set(r.x,r.y,r.z);DUM.scale.set(r.L,r.r,r.r);DUM.updateMatrix();rm.setMatrixAt(i,DUM.matrix);rm.setColorAt(i,TC.setRGB(0.36+r.t*0.4,0.32+r.t*0.32,0.28+r.t*0.24));});
+    roots.forEach((r,i)=>{DUM.rotation.set(0,r.a,0);DUM.position.set(r.x,r.y,r.z);DUM.scale.set(r.L,r.r*1.3,r.r*1.3);DUM.updateMatrix();rm.setMatrixAt(i,DUM.matrix);rm.setColorAt(i,TC.setRGB(0.36+r.t*0.4,0.32+r.t*0.32,0.28+r.t*0.24));});
     rm.castShadow=false;rm.receiveShadow=true;rm.frustumCulled=false;scene.add(rm);
     const sm=new THREE.InstancedMesh(stoneG,new THREE.MeshStandardMaterial({roughness:0.95,color:0xffffff,flatShading:true}),Math.max(1,stones.length));sm.count=stones.length;
-    stones.forEach((r,i)=>{if(r.k){DUM.rotation.order='YXZ';DUM.rotation.set(r.k.p,r.k.y,r.k.r);}else{DUM.rotation.order='XYZ';DUM.rotation.set((rnd()-0.5)*0.5,rnd()*6.283,(rnd()-0.5)*0.5);}DUM.position.set(r.x,r.y,r.z);DUM.scale.set(r.w,r.hh,r.zl||r.w*(0.6+rnd()*0.6));DUM.updateMatrix();sm.setMatrixAt(i,DUM.matrix);const c=0.10+r.t*0.15,q=(r.t*977)%1;DUM.rotation.order='XYZ';sm.setColorAt(i,q<0.32?TC.setRGB(c*0.7,c*0.95,c*0.5):q<0.45?TC.setRGB(c*1.15,c*0.95,c*0.72):TC.setRGB(c*1.05,c*1.02,c*0.95));});
+    stones.forEach((r,i)=>{if(r.k){DUM.rotation.order='YXZ';DUM.rotation.set(r.k.p,r.k.y,r.k.r);}else{DUM.rotation.order='XYZ';DUM.rotation.set((rnd()-0.5)*0.5,rnd()*6.283,(rnd()-0.5)*0.5);}DUM.position.set(r.x,r.y,r.z);DUM.scale.set(r.w,r.hh,r.zl||r.w*(0.6+rnd()*0.6));DUM.updateMatrix();sm.setMatrixAt(i,DUM.matrix);const q=(r.t*977)%1,c=0.12+Math.pow(r.t,1.3)*0.34;DUM.rotation.order='XYZ';sm.setColorAt(i,q<0.3?TC.setRGB(c*0.97,c*0.98,c*1.04):q<0.55?TC.setRGB(c*1.03,c*1.0,c*0.96):TC.setRGB(c,c,c));});   // Steine grau, jeder in einem anderen Grauton
     sm.castShadow=true;sm.receiveShadow=true;sm.frustumCulled=false;scene.add(sm);
     {   // Feingut auf und neben dem Weg: kleine Steine, Tannennadeln, Zweige, Zapfen (ueberall, wo der Untergrund Erde/Waldweg ist)
       const pebs=[],ndl=[],twg=[],cns=[],conifer=(SPEC==='fir'||CAN);
       for(let i=(ROUTE?0:iTrail);i<N;i++){
         if(ROUTE&&SURF[i]===0)continue;
         const h=HS[i],rx=-Math.cos(h),rz=Math.sin(h),hw=hw0(i),dn=Math.max(0,-GR[i]),fd=forestD(PX[i],PZ[i]),at=()=>{const o=(rnd()*2-1)*hw*(rnd()<0.75?1.1:1.9),al=(rnd()-0.5)*SEG;return [PX[i]+rx*o+Math.sin(h)*al,PZ[i]+rz*o+Math.cos(h)*al];};
-        const np=Math.round((2+dn*0.9)*(0.6+rnd()*0.8)*(SURF[i]>=2?1.3:1));
+        const np=Math.round((2+dn*0.9)*(0.6+rnd()*0.8)*(SURF[i]>=2?1.3:1)*(0.6+0.4*W_STONE));
         for(let k=0;k<np;k++){const q=at(),w=0.012+Math.pow(rnd(),2)*0.03;pebs.push({x:q[0],y:gnd(q[0],q[1])+w*(-0.2+rnd()*0.3),z:q[1],w:w,t:rnd()});}
         if(fd>0.25){
           for(let k=0,n=2+(rnd()*3|0);k<n;k++){const q=at();ndl.push({x:q[0],z:q[1],s:0.25+rnd()*0.5,r:rnd()*6.283,t:rnd()});}
@@ -1291,7 +1297,7 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
         }
       }
       const pm=new THREE.InstancedMesh(stoneG,new THREE.MeshStandardMaterial({roughness:0.95,color:0xffffff,flatShading:true}),Math.max(1,pebs.length));pm.count=pebs.length;
-      pebs.forEach((r,i)=>{DUM.rotation.set(rnd()*6.283,rnd()*6.283,rnd()*6.283);DUM.position.set(r.x,r.y,r.z);DUM.scale.set(r.w,r.w*(0.55+rnd()*0.3),r.w*(0.8+rnd()*0.4));DUM.updateMatrix();pm.setMatrixAt(i,DUM.matrix);const c=0.11+r.t*0.2,q=(r.t*613)%1;pm.setColorAt(i,q<0.35?TC.setRGB(c*1.1,c*0.95,c*0.75):TC.setRGB(c,c*0.98,c*0.94));});
+      pebs.forEach((r,i)=>{DUM.rotation.set(rnd()*6.283,rnd()*6.283,rnd()*6.283);DUM.position.set(r.x,r.y,r.z);DUM.scale.set(r.w,r.w*(0.55+rnd()*0.3),r.w*(0.8+rnd()*0.4));DUM.updateMatrix();pm.setMatrixAt(i,DUM.matrix);const c=0.13+r.t*0.3,q=(r.t*613)%1;pm.setColorAt(i,q<0.35?TC.setRGB(c*1.03,c*1.0,c*0.96):TC.setRGB(c,c,c*1.02));});
       pm.receiveShadow=true;pm.frustumCulled=false;scene.add(pm);
       const nt=canvasTex(64,64,(g,w,h)=>{g.clearRect(0,0,w,h);for(let i=0;i<150;i++){const x=rnd()*w,y=rnd()*h,a=rnd()*3.14,l=5+rnd()*8;g.strokeStyle='hsl('+(22+rnd()*14)+','+(35+rnd()*25)+'%,'+(22+rnd()*22)+'%)';g.lineWidth=1;g.beginPath();g.moveTo(x,y);g.lineTo(x+Math.cos(a)*l,y+Math.sin(a)*l);g.stroke();}},true);
       const ng=new THREE.PlaneGeometry(1,1);ng.rotateX(-Math.PI/2);
@@ -1320,7 +1326,7 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
       const tg=new THREE.BufferGeometry();tg.setAttribute('position',new THREE.Float32BufferAttribute(P,3));tg.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));tg.setIndex(I);tg.computeVertexNormals();
       const tm2=new THREE.Mesh(tg,new THREE.MeshStandardMaterial({map:texGround,color:0x5a4430,roughness:1,side:THREE.DoubleSide}));tm2.receiveShadow=true;tm2.castShadow=false;tm2.frustumCulled=false;scene.add(tm2);
     }
-    if(edges.length){const em=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({roughness:0.95,color:0x4f4b43}),edges.length);   // Steinplatte/Absatz quer zum Weg
+    if(edges.length){const em=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({roughness:0.95,color:0x5a5a5c}),edges.length);   // Steinplatte/Absatz quer zum Weg
       edges.forEach((e,i)=>{DUM.rotation.set((rnd()-0.5)*0.12,e.h+Math.PI/2+(rnd()-0.5)*0.4,(rnd()-0.5)*0.12);DUM.position.set(e.x,e.y+0.02,e.z);DUM.scale.set(0.5+rnd()*0.3,0.09+rnd()*0.07,e.w);DUM.updateMatrix();em.setMatrixAt(i,DUM.matrix);});em.receiveShadow=true;em.castShadow=true;em.frustumCulled=false;scene.add(em);}
     window.__rs=Object.assign(window.__rs||{},{roots:roots.length,stones:stones.length});
   }
