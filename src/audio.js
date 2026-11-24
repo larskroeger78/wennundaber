@@ -254,7 +254,9 @@ export const AUDIO = (() => {
     if (birdT <= 0) { birdT = 5 + Math.random() * 10; if (s.forest > 0.35) bird(t + Math.random() * 0.3); }
   }
   // Einmalige Ereignisse
-  function bump(a, surf) { rough = Math.min(1.4, rough + 0.9); if (!ok || !on) return; const t = ctx.currentTime, k = Math.min(1, a / 0.3); thump(t, 85, 45, 0.1, 0.14 * k); burst(t, 0.06, 'lowpass', 320, 0.7, 0.16 * k); }
+  let lastBump = 0;
+  // Wurzeln/Steine: leises, kurzes Klacken statt tiefem Pochen (klang sonst wie Galopp); Mindestabstand und wechselnde Tonhoehe gegen den Rhythmus
+  function bump(a, surf) { rough = Math.min(1.4, rough + 0.9); if (!ok || !on) return; const t = ctx.currentTime; if (t - lastBump < 0.16) return; lastBump = t; const k = Math.min(1, a / 0.3), r = Math.random(); thump(t, 110 + r * 60, 62 + r * 14, 0.06, 0.05 * k); burst(t, 0.05, 'bandpass', 500 + r * 700, 1.1, 0.07 * k); }
   function takeoff() { if (!ok) return; const t = ctx.currentTime; burst(t, 0.12, 'lowpass', 320, 0.7, 0.14); thump(t, 80, 48, 0.14, 0.14); }
   function land(h) { if (!ok) return; const t = ctx.currentTime, k = Math.min(1, h / 0.4); thump(t, 85, 36, 0.24, 0.4 * k + 0.1); burst(t, 0.18, 'lowpass', 360, 0.7, 0.22 * k + 0.05); }
   function edge(a) { if (!ok) return; const t = ctx.currentTime, k = Math.min(1, a / 1.5); thump(t, 80, 40, 0.18, 0.22 * k + 0.05); burst(t, 0.1, 'lowpass', 300, 0.7, 0.14 * k); }
