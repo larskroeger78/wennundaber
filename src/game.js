@@ -2089,10 +2089,15 @@ const CKB=document.createElement('div');CKB.id='ckbike';
 const CKB2=document.createElement('div');CKB2.id='ckbike2';
 const CKH=document.createElement('div');CKH.id='ckgloves';   // nasse Handschuhe: Handruecken werden dunkler
 [CKT,CKM,CKP,CKB,CKB2,CKH,CKS,CKG].forEach(d=>{d.className='ckc';CKW.appendChild(d);});
-{const W=720,H=176,c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d');   // nasse Handschuhe: nur dunkle Tropfen auf dem Handruecken, der Handschuh bleibt erkennbar
-  [[0.126,0.24],[0.836,0.33]].forEach(([hx,hy])=>{for(let k=0;k<170;k++){const a=Math.random()*6.283,r=Math.sqrt(Math.random()),x=hx*W+Math.cos(a)*r*0.085*W,y=hy*H+Math.sin(a)*r*0.30*H,s=0.9+Math.pow(Math.random(),2.2)*3.2;
-    g.fillStyle='rgba('+(78+Math.random()*16|0)+','+(90+Math.random()*16|0)+','+(116+Math.random()*16|0)+','+(0.4+Math.random()*0.3).toFixed(2)+')';g.beginPath();g.ellipse(x,y,s,s*(0.8+Math.random()*0.7),Math.random()*3,0,6.3);g.fill();}});
-  CKH.style.backgroundImage='url('+c.toDataURL()+')';}
+{// nasse Handschuhe: nur kleine dunkle Tropfen auf dem Handruecken (helle Handschuhflaeche im Lenkerbild), nicht auf Jacke, Unterseite oder Lenker
+  const src=new Image();src.onload=()=>{const W=1500,H=364,t=document.createElement('canvas');t.width=W;t.height=H;const tg=t.getContext('2d');tg.drawImage(src,0,0,W,H);const px=tg.getImageData(0,0,W,H).data;
+    const c=document.createElement('canvas');c.width=750;c.height=182;const g=c.getContext('2d');
+    [[128,268,36,152],[1196,1332,58,186]].forEach(([x0,x1,y0,y1])=>{for(let k=0,n=0;k<4000&&n<150;k++){const x=x0+Math.random()*(x1-x0),y=y0+Math.random()*(y1-y0),i=((y|0)*W+(x|0))*4;
+      if(px[i+3]<230||(px[i]+px[i+1]+px[i+2])/3<92)continue;   // nur auf der hellen Handschuh-Oberflaeche
+      n++;const s=0.45+Math.pow(Math.random(),2.2)*1.7;
+      g.fillStyle='rgba('+(62+Math.random()*13|0)+','+(72+Math.random()*13|0)+','+(93+Math.random()*13|0)+','+(0.4+Math.random()*0.3).toFixed(2)+')';g.beginPath();g.ellipse(x/2,y/2,s,s*(0.8+Math.random()*0.7),Math.random()*3,0,6.3);g.fill();}});
+    CKH.style.backgroundImage='url('+c.toDataURL()+')';};
+  src.src='/assets/ui/cockpit2.png';}
 const FORK=document.createElement('img');FORK.id='cockfork';FORK.className='c2';FORK.src='/assets/ui/cockpit2.png';FORK.draggable=false;FORK.style.display='none';document.getElementById('cockpit').after(FORK);
 CKT.id='cktire';CKP.id='ckspray';CKG.id='ckgrain';CKM.id='ckmud';CKS.id='cksheen';CKD.id='ckdapple';
 {const c=document.createElement('canvas');c.width=20;c.height=14;const g=c.getContext('2d');   // Stollenmuster: dunkle Klotzchen mit heller Kante
