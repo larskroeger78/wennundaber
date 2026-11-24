@@ -2091,7 +2091,7 @@ const CKH=document.createElement('div');CKH.id='ckgloves';   // nasse Handschuhe
 [CKT,CKM,CKP,CKB,CKB2,CKH,CKS,CKG].forEach(d=>{d.className='ckc';CKW.appendChild(d);});
 {const W=720,H=176,c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d');   // nasse Handschuhe: nur dunkle Tropfen auf dem Handruecken, der Handschuh bleibt erkennbar
   [[0.126,0.24],[0.836,0.33]].forEach(([hx,hy])=>{for(let k=0;k<170;k++){const a=Math.random()*6.283,r=Math.sqrt(Math.random()),x=hx*W+Math.cos(a)*r*0.085*W,y=hy*H+Math.sin(a)*r*0.30*H,s=0.9+Math.pow(Math.random(),2.2)*3.2;
-    g.fillStyle='rgba('+(14+Math.random()*10|0)+','+(22+Math.random()*10|0)+','+(40+Math.random()*12|0)+','+(0.5+Math.random()*0.4).toFixed(2)+')';g.beginPath();g.ellipse(x,y,s,s*(0.8+Math.random()*0.7),Math.random()*3,0,6.3);g.fill();}});
+    g.fillStyle='rgba('+(78+Math.random()*16|0)+','+(90+Math.random()*16|0)+','+(116+Math.random()*16|0)+','+(0.4+Math.random()*0.3).toFixed(2)+')';g.beginPath();g.ellipse(x,y,s,s*(0.8+Math.random()*0.7),Math.random()*3,0,6.3);g.fill();}});
   CKH.style.backgroundImage='url('+c.toDataURL()+')';}
 const FORK=document.createElement('img');FORK.id='cockfork';FORK.className='c2';FORK.src='/assets/ui/cockpit2.png';FORK.draggable=false;FORK.style.display='none';document.getElementById('cockpit').after(FORK);
 CKT.id='cktire';CKP.id='ckspray';CKG.id='ckgrain';CKM.id='ckmud';CKS.id='cksheen';CKD.id='ckdapple';
