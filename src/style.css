@@ -40,6 +40,7 @@ body.fpv #prof{bottom:auto;top:58px}
 .stats b{font-size:44px;font-weight:800;line-height:1}
 .stats i{font-style:normal;font-size:15px;letter-spacing:.14em;text-transform:uppercase;opacity:.8;margin-left:8px}
 .btns{display:flex;flex-wrap:wrap;gap:6px}
+.btns .bg{flex:1 1 100%;margin-top:5px;font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;opacity:.6;border-bottom:1px solid rgba(255,255,255,.18);padding-bottom:2px}
 .btns button{margin:0;font-size:15px;padding:9px 13px;letter-spacing:.05em}
 .btns button.main,button.main{background:#e14230;color:#fff;font-size:26px;padding:11px 24px;flex:1 1 100%}
 .keys{font-size:13px;opacity:.85;margin-top:6px}
