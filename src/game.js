@@ -1506,16 +1506,19 @@ if(!ROUTE)(function(){
   scene.add(pp);
 })();
 // Start-/Zielbogen, Trail-Schild
-function arch(i,txt,bg){
+function arch(i,img){
   const g=new THREE.Group();g.position.set(PX[i],PY[i],PZ[i]);g.rotation.y=HS[i];
   const w=HW[i]+0.9,mat=new THREE.MeshStandardMaterial({color:C(0x222428),roughness:0.6});
   [-1,1].forEach(s=>{const p=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,4.4,8),mat);p.position.set(s*w,2.2,0);p.castShadow=true;g.add(p);});
-  const b=new THREE.Mesh(new THREE.PlaneGeometry(w*2,w*0.5),new THREE.MeshLambertMaterial({map:textTex(txt,bg,'#111'),side:THREE.DoubleSide}));
-  b.position.y=4.4-w*0.25;b.rotation.y=Math.PI;b.castShadow=true;g.add(b);
+  // Holzschild mit eingefräster Schrift (Bild), beidseitig lesbar
+  const bw=w*2+0.2,bh=bw*(img==='schild-start'?251/1312:273/1322);
+  const tex=TL.load(ASSETS+'ui/'+img+'.webp');tex.encoding=THREE.sRGBEncoding;tex.anisotropy=8;
+  const bm=new THREE.MeshLambertMaterial({map:tex,transparent:true,alphaTest:0.5});
+  [0,Math.PI].forEach(ry=>{const b=new THREE.Mesh(new THREE.PlaneGeometry(bw,bh),bm);b.position.set(0,4.3-bh*0.5,ry?-0.02:0.02);b.rotation.y=ry;b.castShadow=ry===0;g.add(b);});
   scene.add(g);
 }
-arch(6,'START','#f5a524');
-arch(N-8,'ZIEL','#f5a524');
+arch(6,'schild-start');
+arch(N-8,'schild-ziel');
 if(!ROUTE)(function(){
   const i=iTrail+3,h=HS[i],rx=-Math.cos(h),rz=Math.sin(h);
   const g=new THREE.Group();g.position.set(PX[i]+rx*2.4,PY[i],PZ[i]+rz*2.4);g.rotation.y=h;
