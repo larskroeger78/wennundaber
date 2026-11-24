@@ -2112,31 +2112,6 @@ const CKE=[0,1].map(L=>{const d=document.createElement('div');d.style.cssText='p
     const px=x*W,py=y*H,s=(2+Math.pow(Math.random(),2)*9)*(0.7+0.3*e),a=0.55+Math.random()*0.3;
     for(let j=0;j<4;j++){const ox=(Math.random()-0.5)*s*1.6,oy=(Math.random()-0.5)*s*1.2,r=s*(0.35+Math.random()*0.5);g.fillStyle='rgba('+(40+Math.random()*14|0)+','+(31+Math.random()*10|0)+','+(22+Math.random()*8|0)+','+a.toFixed(2)+')';g.beginPath();g.ellipse(px+ox,py+oy,r,r*(0.7+Math.random()*0.5),Math.random()*3,0,6.3);g.fill();}}
   d.style.backgroundImage='url('+c.toDataURL()+')';document.getElementById('wrap').appendChild(d);return d;});
-// Sommer-Gag (MIWORU): auf einem Downhill in der Streckenmitte fliegt eine Fliege auf den Fahrer zu und zerschellt an der Brille (Fleck oben links)
-const FLY={s:0,t:0};
-const FLYD=document.createElement('div'),FLYS=document.createElement('div');
-FLYD.style.cssText='position:absolute;width:0;height:0;pointer-events:none;z-index:3;display:none';FLYS.style.cssText='position:absolute;left:5.5%;top:6%;width:9vw;height:9vw;pointer-events:none;z-index:3;opacity:0;background-size:100% 100%;background-repeat:no-repeat';
-{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');   // Fliege: dunkler Koerper, helle Fluegel
-  g.fillStyle='rgba(210,220,230,0.55)';[[-1,0],[1,0]].forEach(([d])=>{g.save();g.translate(32+d*7,27);g.rotate(d*0.7);g.beginPath();g.ellipse(0,-6,5,12,0,0,6.3);g.fill();g.restore();});
-  g.fillStyle='#17140f';g.beginPath();g.ellipse(32,34,6,9,0,0,6.3);g.fill();g.beginPath();g.arc(32,23,4.5,0,6.3);g.fill();
-  FLYD.dataset.img=c.toDataURL();}
-{const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d');   // Fliegenfleck: Kern, Schmierer, kleine Spritzer
-  const blob=(x,y,r,a)=>{const gr=g.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,'rgba(58,48,24,'+a+')');gr.addColorStop(0.6,'rgba(70,62,34,'+(a*0.75)+')');gr.addColorStop(1,'rgba(70,62,34,0)');g.fillStyle=gr;g.beginPath();g.arc(x,y,r,0,6.3);g.fill();};
-  blob(62,64,17,0.85);blob(52,58,9,0.7);blob(74,72,10,0.7);for(let k=0;k<14;k++){const a=Math.random()*6.283,d=22+Math.random()*30;blob(64+Math.cos(a)*d,64+Math.sin(a)*d*0.8,1.5+Math.random()*4,0.7);}
-  g.strokeStyle='rgba(235,235,225,0.35)';g.lineWidth=2;g.beginPath();g.ellipse(48,52,6,3,-0.6,0,6.3);g.stroke();   // Fluegelrest
-  FLYS.style.backgroundImage='url('+c.toDataURL()+')';}
-FLYD.style.backgroundImage='url('+FLYD.dataset.img+')';FLYD.style.backgroundSize='100% 100%';
-document.getElementById('wrap').appendChild(FLYD);document.getElementById('wrap').appendChild(FLYS);
-function flyFx(dt,v){
-  if(!MW)return;const pr=st.pos/TOTAL;
-  if(FLY.s===3&&pr<0.1){FLY.s=0;FLYS.style.opacity=0;}
-  if(FLY.s===0&&running&&!paused&&!NIGHT&&SEAS===0&&WX===0&&pr>0.35&&pr<0.7&&CKENV.gr<-4&&v>6){FLY.s=1;FLY.t=0;FLYD.style.display='block';AUDIO.fly(1.3);}
-  if(FLY.s===1){FLY.t+=dt;const p=Math.min(1,FLY.t/1.3),e=p*p,s=(3+30*e)*(window.innerWidth/1280);
-    const x=52-39*e+Math.sin(FLY.t*23)*(1-p)*2.2,y=46-31*e+Math.cos(FLY.t*29)*(1-p)*1.6;
-    FLYD.style.cssText+=';left:'+x.toFixed(2)+'%;top:'+y.toFixed(2)+'%;width:'+s.toFixed(1)+'px;height:'+s.toFixed(1)+'px;margin:'+(-s/2).toFixed(1)+'px 0 0 '+(-s/2).toFixed(1)+'px;transform:rotate('+(Math.sin(FLY.t*17)*12).toFixed(1)+'deg)';
-    if(p>=1){FLY.s=2;FLY.t=0;FLYD.style.display='none';FLYS.style.opacity=1;}}
-  else if(FLY.s===2){FLY.t+=dt;FLYS.style.opacity=FLY.t<45?1:Math.max(0,1-(FLY.t-45)/30);if(FLY.t>75)FLY.s=3;}
-}
 const FORK=document.createElement('img');FORK.id='cockfork';FORK.className='c2';FORK.src='/assets/ui/cockpit2.png';FORK.draggable=false;FORK.style.display='none';document.getElementById('cockpit').after(FORK);
 CKT.id='cktire';CKP.id='ckspray';CKG.id='ckgrain';CKM.id='ckmud';CKS.id='cksheen';CKD.id='ckdapple';
 {const c=document.createElement('canvas');c.width=20;c.height=14;const g=c.getContext('2d');   // Stollenmuster: dunkle Klotzchen mit heller Kante
@@ -2178,7 +2153,7 @@ function updateCockFx(now,deg){
   CKP.style.opacity=Math.min(1,CKSPR*1.1).toFixed(2);CKP.style.backgroundPosition=((CKPH*0.37)%64).toFixed(1)+'px '+(-(CKPH*1.6)%64).toFixed(1)+'px';
   CKBD=Math.min(0.1+0.7*Math.min(1,st.pos/TOTAL),CKBD+(CKENV.mud&&v>1?dt*0.046*Math.min(1.7,v/5)*(CKENV.gr<-1?1+Math.min(2,-CKENV.gr/4):(CKBD<0.2?(CKENV.gr>2?0.3:0.55):0)):0));CKBM=Math.max(CKBM,CKBD);   // Matsch sammelt sich an
   // Matsch am Rad geht nie wieder weg: nur mehr, bis zum Maximum; gegen Ende der Tour kommt eine zweite, dichtere Spritzerschicht dazu
-  flyFx(dt,v);CKE[0].style.opacity=Math.min(0.85,Math.max(0,CKBD-0.12)*1.4).toFixed(2);CKE[1].style.opacity=Math.min(0.85,Math.max(0,CKBD-0.4)*2).toFixed(2);
+  CKE[0].style.opacity=Math.min(0.85,Math.max(0,CKBD-0.12)*1.4).toFixed(2);CKE[1].style.opacity=Math.min(0.85,Math.max(0,CKBD-0.4)*2).toFixed(2);
   CKB.style.opacity=Math.min(1,CKBD*1.15).toFixed(2);CKB2.style.opacity=Math.max(0,Math.min(0.9,(CKBD-0.55)*2.2)).toFixed(2);
   {const wt=WX===2?(WXFIX?0.75:1):0;if(CKENV.pud&&v>1)CKWET=Math.min(Math.max(wt,0.55),CKWET+dt*0.12*Math.min(1,v/6));CKWET+=(wt-CKWET)*Math.min(1,dt*(wt>CKWET?0.05:(WX===0?0.012:0.005)));CKH.style.opacity=Math.min(1,CKWET*1.6).toFixed(3);}   // Regen: nach etwa einer Minute sichtbar nass, trocknet langsam
   const k=Math.max(0.3,1-v/16);                 // bei hohem Tempo weichere, verwischte Stollen
