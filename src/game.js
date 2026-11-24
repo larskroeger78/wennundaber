@@ -1001,7 +1001,7 @@ const trunkMat=new THREE.MeshLambertMaterial({color:C(0x6a5f52)});
 applyPhoto(trunkMat,'tree_bark_03',2,7,{normal:false,color:new THREE.Color(0.75,0.72,0.7)});
 const DUM=new THREE.Object3D(),TC=new THREE.Color();
 // Baumart je Strecke: Wuppertal/Hagen/Iserlohn dichte Fichten (Nadelwald), Bergkamen Birken; andere Strecken wie bisher
-const SPEC=(RT&&['wuppertal','hagen','iserlohn','hemer'].indexOf(RT.dem)>=0)?'fir':(RT===ROUTES.tour2?'birch':null);
+const SPEC=(RT&&['wuppertal','hagen','iserlohn','hemer','alpen'].indexOf(RT.dem)>=0)?'fir':(RT===ROUTES.tour2?'birch':null);
 const firGeo=(function(){   // dichte Tanne: 8 ueberlappende, unten ausgefranste Aststockwerke plus geschlossener Kern, keine Luecken zwischen den Stockwerken
   const pos=[],nrm=[],uv=[],S=9,T=8;
   const tri=(P,U,N)=>{for(let q=0;q<3;q++){pos.push(P[q][0],P[q][1],P[q][2]);uv.push(U[q][0],U[q][1]);const l=Math.hypot(N[q][0],N[q][1],N[q][2]);nrm.push(N[q][0]/l,N[q][1]/l,N[q][2]/l);}};
@@ -1043,9 +1043,11 @@ const birchTrunkMat=new THREE.MeshLambertMaterial({map:texBirch});
     return nD>lim;
   }
   function addTree(x,z,scale){
+    let alpK=1;if(RT&&RT.alp){const el=NHN0+gnd(x,z);if(el>2260)return;alpK=1-0.55*sstep(1750,2250,el);}   // Alpen: Baumgrenze bei rund 2250 m, darunter werden die Nadelbaeume (Fichte/Zirbe) mit der Hoehe kleiner
     let H=(7+rnd()*7)*scale,cw=(3.6+rnd()*3.4)*scale,ch=H*(0.5+rnd()*0.18);
     if(SPEC==='fir'){H=(15+rnd()*11)*scale;cw=(3.2+rnd()*2.0)*scale;ch=Math.max(H*0.25,Math.min(H*(0.84+rnd()*0.08),H-8.3));}   // Nadeln erst ab ca. 8 m Hoehe: man faehrt weit unter den Aesten durch
     else if(SPEC==='birch'){H=(9+rnd()*6)*scale;cw=(2.8+rnd()*2.2)*scale;ch=H*(0.5+rnd()*0.15);}
+    if(alpK<1){H*=alpK;cw*=0.65+0.35*alpK;ch=Math.max(H*0.25,Math.min(ch,H-Math.min(8.3,H*0.6)));}
     if(SPEC==='fir'&&nearest(allHash,x,z)&&nD<10)cw*=0.7;
     if(nearest(allHash,x,z)&&(ROUTE?SURF[nI]===2:nI>=iTrail-3)&&nD<8){H=Math.max(H,9+rnd()*3);ch=Math.min(ch,H-(SPEC==='fir'?8.8:4.8));}
     trees.push({x:x,y:gnd(x,z)-0.2,z:z,H:H,cw:cw,ch:ch,rad:(SPEC==='birch'?0.07+rnd()*0.07:SPEC==='fir'?0.16+rnd()*0.12:0.11+rnd()*0.14),rot:rnd()*6.283});
@@ -2062,8 +2064,8 @@ function shift(d){
   toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),900);
 }
 function hintHud(){
-  const key=diff+'|'+quality+'|'+FPSCAP+'|'+WX+'|'+WXLIVE+'|'+WXLIVEOK+'|'+AUDIO.on+'|'+AUDIO.hub+'|'+NIGHT;if(hintHud.k===key)return;hintHud.k=key;
-  hintEl.innerHTML=[1,2,3,4].map(n=>'<button type="button" data-act="d'+n+'"'+(diff===n?' class="on"':'')+'><b>'+n+'</b>'+DIFFN[n]+'</button>').join('')+'<button type="button" data-act="q"><b>Q</b>Grafik '+qLabel()+'</button><button type="button" data-act="n"><b>N</b>Sound '+(AUDIO.on?'an':'aus')+'</button><button type="button" data-act="w"><b>W</b>Wetter '+WXL()+'</button><button type="button" data-act="v"><b>V</b>Vollbild</button><button type="button" data-act="f"><b>F</b>Freilauf '+(AUDIO.hub?AUDIO.hub:'aus')+'</button>'+(MW?'<button type="button" data-act="l"'+(NIGHT?' class="on"':'')+'><b>L</b>Nightride'+(NIGHT?' an':'')+'</button>':'');
+  const key=diff+'|'+quality+'|'+FPSCAP+'|'+WX+'|'+WXLIVE+'|'+WXLIVEOK+'|'+AUDIO.on+'|'+AUDIO.hub+'|'+NIGHT+'|'+SEAS+'|'+WXSNOWM+'|'+WXLSNOW;if(hintHud.k===key)return;hintHud.k=key;
+  hintEl.innerHTML=[1,2,3,4].map(n=>'<button type="button" data-act="d'+n+'"'+(diff===n?' class="on"':'')+'><b>'+n+'</b>'+DIFFN[n]+'</button>').join('')+'<button type="button" data-act="q"><b>Q</b>Grafik '+qLabel()+'</button><button type="button" data-act="n"><b>N</b>Sound '+(AUDIO.on?'an':'aus')+'</button><button type="button" data-act="w"><b>W</b>Wetter '+WXL()+'</button><button type="button" data-act="j"><b>J</b>'+SEAN[SEAS]+'</button><button type="button" data-act="v"><b>V</b>Vollbild</button><button type="button" data-act="f"><b>F</b>Freilauf '+(AUDIO.hub?AUDIO.hub:'aus')+'</button>'+(MW?'<button type="button" data-act="l"'+(NIGHT?' class="on"':'')+'><b>L</b>Nightride'+(NIGHT?' an':'')+'</button>':'');
 }
 function gearHud(){
   hintHud();
@@ -2087,6 +2089,10 @@ const CKB=document.createElement('div');CKB.id='ckbike';
 const CKB2=document.createElement('div');CKB2.id='ckbike2';
 const CKH=document.createElement('div');CKH.id='ckgloves';   // nasse Handschuhe: Handruecken werden dunkler
 [CKT,CKM,CKP,CKB,CKB2,CKH,CKS,CKG].forEach(d=>{d.className='ckc';CKW.appendChild(d);});
+{const W=720,H=176,c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d');   // nasse Handschuhe: nur dunkle Tropfen auf dem Handruecken, der Handschuh bleibt erkennbar
+  [[0.126,0.24],[0.836,0.33]].forEach(([hx,hy])=>{for(let k=0;k<170;k++){const a=Math.random()*6.283,r=Math.sqrt(Math.random()),x=hx*W+Math.cos(a)*r*0.085*W,y=hy*H+Math.sin(a)*r*0.30*H,s=0.9+Math.pow(Math.random(),2.2)*3.2;
+    g.fillStyle='rgba('+(14+Math.random()*10|0)+','+(22+Math.random()*10|0)+','+(40+Math.random()*12|0)+','+(0.5+Math.random()*0.4).toFixed(2)+')';g.beginPath();g.ellipse(x,y,s,s*(0.8+Math.random()*0.7),Math.random()*3,0,6.3);g.fill();}});
+  CKH.style.backgroundImage='url('+c.toDataURL()+')';}
 const FORK=document.createElement('img');FORK.id='cockfork';FORK.className='c2';FORK.src='/assets/ui/cockpit2.png';FORK.draggable=false;FORK.style.display='none';document.getElementById('cockpit').after(FORK);
 CKT.id='cktire';CKP.id='ckspray';CKG.id='ckgrain';CKM.id='ckmud';CKS.id='cksheen';CKD.id='ckdapple';
 {const c=document.createElement('canvas');c.width=20;c.height=14;const g=c.getContext('2d');   // Stollenmuster: dunkle Klotzchen mit heller Kante
@@ -2129,7 +2135,7 @@ function updateCockFx(now,deg){
   CKBD=Math.min(0.1+0.7*Math.min(1,st.pos/TOTAL),CKBD+(CKENV.mud&&v>1?dt*0.046*Math.min(1.7,v/5)*(CKENV.gr<-1?1+Math.min(2,-CKENV.gr/4):(CKBD<0.2?(CKENV.gr>2?0.3:0.55):0)):0));CKBM=Math.max(CKBM,CKBD);   // Matsch sammelt sich an
   // Matsch am Rad geht nie wieder weg: nur mehr, bis zum Maximum; gegen Ende der Tour kommt eine zweite, dichtere Spritzerschicht dazu
   CKB.style.opacity=Math.min(1,CKBD*1.15).toFixed(2);CKB2.style.opacity=Math.max(0,Math.min(0.9,(CKBD-0.55)*2.2)).toFixed(2);
-  {const wt=WX===2?(WXFIX?0.75:1):0;if(CKENV.pud&&v>1)CKWET=Math.min(Math.max(wt,0.55),CKWET+dt*0.12*Math.min(1,v/6));CKWET+=(wt-CKWET)*Math.min(1,dt*(wt>CKWET?0.05:(WX===0?0.012:0.005)));CKH.style.opacity=Math.min(1,CKWET*2.2).toFixed(3);CKH.style.setProperty('--wu',Math.max(0,Math.min(1,(CKWET-0.45)/0.5)).toFixed(3));}   // Regen: nach etwa einer Minute sichtbar nass, trocknet langsam
+  {const wt=WX===2?(WXFIX?0.75:1):0;if(CKENV.pud&&v>1)CKWET=Math.min(Math.max(wt,0.55),CKWET+dt*0.12*Math.min(1,v/6));CKWET+=(wt-CKWET)*Math.min(1,dt*(wt>CKWET?0.05:(WX===0?0.012:0.005)));CKH.style.opacity=Math.min(1,CKWET*1.6).toFixed(3);}   // Regen: nach etwa einer Minute sichtbar nass, trocknet langsam
   const k=Math.max(0.3,1-v/16);                 // bei hohem Tempo weichere, verwischte Stollen
   const bgp='0 '+(-(CKPH%14)*0.11).toFixed(3)+'vw';
   CKW.style.transform=tf;CKW.style.display='block';
@@ -2172,7 +2178,7 @@ window.addEventListener('keydown',e=>{
   if(e.key==='w'||e.key==='W')cycleWX();
   if(e.key==='e'||e.key==='E')toggleEbike();
   if(e.key==='t'||e.key==='T'){todSet((TODM+1)%5);toastMsg('Tageszeit: '+TODN[TODM]);}
-  if(e.key==='j'||e.key==='J'){seasonSet((SEAS+1)%3);toastMsg('Jahreszeit: '+SEAN[SEAS]);}
+  if(e.key==='j'||e.key==='J')seasonCycle();
   if(e.key==='l'||e.key==='L')toggleNight();
   if(e.key==='f'||e.key==='F'){const h=AUDIO.cycleHub();hintHud.k=null;toastEl.textContent='Freilauf: '+(h?h+' Zähne':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1200);}
   if(e.key==='s'||e.key==='S')setDiff(diff%4+1);
@@ -2489,7 +2495,7 @@ function menu(title,sub){
       (sub?'<div class="res">'+sub+'</div>':'')+
       '<div class="route">'+(ROUTE?RT.label:TRACK_NAME)+'</div>'+
       '<div class="stats"><div><b>'+km+'</b><i>km</i></div><div><b>'+HM+'</b><i>Höhenmeter</i></div></div>'+
-      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused||SAVED?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="fsb" class="sec">'+(isFS()?'Vollbild beenden (V)':'Vollbild (V)')+'</button><button id="trn" class="sec"><i class="dot'+(trainer.connected?' on':'')+'"></i>'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec"><i class="dot'+(click.connected?(click.devs.filter(x=>!x.lost).length>=2?' on':' mid'):'')+'"></i>'+(()=>{const n=click.devs.filter(x=>!x.lost).length;return n>=2?'Zwift Click: beide Hälften ✓':n===1&&click.connected?'Zwift Click ✓ · zweite Hälfte koppeln (stabiler)':(click.devs.length?'Zwift Click: getrennt – neu koppeln':'Zwift Click koppeln');})()+'</button>'+'<button id="dif" class="sec">Schwierigkeit (S): '+DIFFN[diff]+'</button><button id="qual" class="sec">Grafik (Q): '+qLabel()+'</button><button id="snd" class="sec">Sound: '+(AUDIO.on?'an':'aus')+'</button><button id="wxb" class="sec">Wetter: '+WXL()+'</button><button id="ebb" class="sec">E-Bike (E): '+(EBIKE?'an':'aus')+'</button><button id="nghb" class="sec" style="display:'+(MW?'':'none')+'">Nightride: '+(NIGHT?'an':'aus')+'</button><button id="hubb" class="sec">Freilauf: '+(AUDIO.hub?AUDIO.hub+' Zähne':'aus')+'</button><button id="grpb" class="sec">'+(GRP_CODE?'Groupride: '+GRP_CODE:'Groupride')+'</button><button id="hlp" class="sec">So fährst du · Problem melden</button></div>'+mineHtml()+
+      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused||SAVED?'<button id="rst" class="sec">Neu starten</button>':'')+'<button id="fsb" class="sec">'+(isFS()?'Vollbild beenden (V)':'Vollbild (V)')+'</button><button id="trn" class="sec"><i class="dot'+(trainer.connected?' on':'')+'"></i>'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec"><i class="dot'+(click.connected?(click.devs.filter(x=>!x.lost).length>=2?' on':' mid'):'')+'"></i>'+(()=>{const n=click.devs.filter(x=>!x.lost).length;return n>=2?'Zwift Click: beide Hälften ✓':n===1&&click.connected?'Zwift Click ✓ · zweite Hälfte koppeln (stabiler)':(click.devs.length?'Zwift Click: getrennt – neu koppeln':'Zwift Click koppeln');})()+'</button>'+'<button id="dif" class="sec">Schwierigkeit (S): '+DIFFN[diff]+'</button><button id="qual" class="sec">Grafik (Q): '+qLabel()+'</button><button id="snd" class="sec">Sound: '+(AUDIO.on?'an':'aus')+'</button><button id="wxb" class="sec">Wetter: '+WXL()+'</button><button id="seab" class="sec">Jahreszeit (J): '+SEAN[SEAS]+'</button><button id="ebb" class="sec">E-Bike (E): '+(EBIKE?'an':'aus')+'</button><button id="nghb" class="sec" style="display:'+(MW?'':'none')+'">Nightride: '+(NIGHT?'an':'aus')+'</button><button id="hubb" class="sec">Freilauf: '+(AUDIO.hub?AUDIO.hub+' Zähne':'aus')+'</button><button id="grpb" class="sec">'+(GRP_CODE?'Groupride: '+GRP_CODE:'Groupride')+'</button><button id="hlp" class="sec">So fährst du · Problem melden</button></div>'+mineHtml()+
       '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?(IOS?'iPad: Seite in der App Bluefy öffnen (Safari kann kein Bluetooth).':'Bluetooth nur in Chrome/Edge (nicht Safari).'):'D100 oder KICKR einschalten, dann „Trainer koppeln“.')+(bleMsg?'<br>'+bleMsg:'')+''+(click.connected?'<br>'+click.name+' verbunden'+'<br>Click: kurz drücken = schwerer · gedrückt halten = leichter':(click.devs.length?'<br><b>'+click.name+': nicht verbunden</b> – Click einmal drücken oder neu koppeln':''))+'</div>'+
     '<div class="help" style="font-size:11px;opacity:.6">© 2026 Lars Kröger. Alle Rechte vorbehalten. Kopieren oder Weiterverwenden ohne Genehmigung untersagt.<br>© OpenStreetMap-Mitwirkende · © Geobasis NRW · Datenquelle: Land Tirol - data.tirol.gv.at (CC BY 4.0) · <a href="/rechtliches.html" target="_blank" rel="noopener" style="color:inherit">Rechtliches</a> · <a href="mailto:post@kroeger-grafikdesign.de" style="color:inherit">post@kroeger-grafikdesign.de</a></div>'+
     '</div></div>';
@@ -2497,6 +2503,7 @@ function menu(title,sub){
   document.getElementById('qual').onclick=()=>{cycleQ();menu(title,sub);};
   document.getElementById('snd').onclick=()=>{AUDIO.toggle();menu(title,sub);};
   document.getElementById('wxb').onclick=()=>{cycleWX();menu(title,sub);};
+  document.getElementById('seab').onclick=()=>{seasonCycle();menu(title,sub);};
   document.getElementById('ebb').onclick=()=>{toggleEbike();menu(title,sub);};
   document.getElementById('nghb').onclick=()=>{toggleNight();menu(title,sub);};
   document.getElementById('hubb').onclick=()=>{AUDIO.cycleHub();menu(title,sub);};
@@ -2513,7 +2520,7 @@ function menu(title,sub){
 // Pause + Hauptmenue (Esc oder Menue-Knopf oben rechts, z. B. fuer iPad ohne Tastatur)
 function pauseGame(){if(!running)return;running=false;paused=true;trainer.setGrade(0,0.005,true);offEl.style.display='none';menu('Weiterfahren','Pause · '+(st.pos/1000).toFixed(2)+' km · '+fmtT(st.t));}
 const menuBtn=document.getElementById('menuBtn');menuBtn.onclick=pauseGame;
-hintEl.onclick=e=>{const b=e.target.closest('[data-act]');if(!b)return;const a=b.getAttribute('data-act');if(a==='d1')setDiff(1);else if(a==='d2')setDiff(2);else if(a==='d3')setDiff(3);else if(a==='d4')setDiff(4);else if(a==='v')toggleFS();else if(a==='q')cycleQ();else if(a==='n'){AUDIO.toggle();toastEl.textContent='Sound: '+(AUDIO.on?'an':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}else if(a==='w')cycleWX();else if(a==='l')toggleNight();else if(a==='f'){const h=AUDIO.cycleHub();hintHud.k=null;toastEl.textContent='Freilauf: '+(h?h+' Zähne':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1200);}};
+hintEl.onclick=e=>{const b=e.target.closest('[data-act]');if(!b)return;const a=b.getAttribute('data-act');if(a==='d1')setDiff(1);else if(a==='d2')setDiff(2);else if(a==='d3')setDiff(3);else if(a==='d4')setDiff(4);else if(a==='v')toggleFS();else if(a==='q')cycleQ();else if(a==='n'){AUDIO.toggle();toastEl.textContent='Sound: '+(AUDIO.on?'an':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}else if(a==='w')cycleWX();else if(a==='j')seasonCycle();else if(a==='l')toggleNight();else if(a==='f'){const h=AUDIO.cycleHub();hintHud.k=null;toastEl.textContent='Freilauf: '+(h?h+' Zähne':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1200);}};
 function resume(){if(GRP_CODE&&!GRP.peer)grpJoin();menuBtn.style.display='';paused=false;running=true;AUDIO.hold(false);ov.style.display='none';hudBox.style.display='block';}
 const PK='miworu_prog2_'+RKEY;let SAVED=null;   // prog2: alte Fortschritte gehoerten zu anderen Strecken
 try{const o=JSON.parse(localStorage.getItem(PK)||'null');if(o&&o.pos>50&&Date.now()-o.ts<864e5)SAVED=o;}catch(e){}
@@ -2590,12 +2597,13 @@ function seasonSet(m){
   SEA.aut.value=m===1?1:0;SEA.win.value=m===2?1:0;
   let mn=1e9,mx=-1e9;for(let i=0;i<=N;i+=4){mn=Math.min(mn,PY[i]);mx=Math.max(mx,PY[i]);}
   SEA.snowY.value=(RT&&RT.alp)?mn+(mx-mn)*0.3:-1e5;SEA.snowK.value=(RT&&RT.alp)?1:0.56;   // ausserhalb der Alpen liegt nur leichter Schnee
-  FALL.p.visible=m>0;FALL.m.uniforms.map.value=m===1?T_LEAF:T_SOFT;
+  FALL.p.visible=m===2||(m===1&&SPEC!=='fir'&&!(RT&&RT.alp));   // Nadelwald (Tannen) und Alpen: kein Laubfall im HerbstFALL.m.uniforms.map.value=m===1?T_LEAF:T_SOFT;
   const c=camera.position;for(let i=0;i<FALL.n;i++){FALL.pos[i*3]=c.x+(Math.random()-0.5)*32;FALL.pos[i*3+1]=c.y-4+Math.random()*16;FALL.pos[i*3+2]=c.z+(Math.random()-0.5)*32;
     const k=Math.random();if(m===1){const a=k<0.3?[1,.62,.14]:k<0.58?[.95,.42,.08]:k<0.8?[.72,.17,.07]:[.86,.78,.22];FALL.col.set(a,i*3);}else FALL.col.set([.95,.97,1],i*3);FALL.al[i]=m===1?0.92:0.8;FALL.sz[i]=m===1?0.15:0.065;}
   FALL.g.attributes.aCol.needsUpdate=true;FALL.g.attributes.aAlpha.needsUpdate=true;
   if(BK)applySun(true);
 }
+function seasonCycle(){WXSNOWM=false;WXLSNOW=false;try{localStorage.setItem('miworu_wxsnow','0');}catch(_){}seasonSet((SEAS+1)%3);hintHud.k=null;toastMsg('Jahreszeit: '+SEAN[SEAS]);}   // Standard -> Herbst -> Winter (Taste J, Menue, Leiste oben)
 function sunAltAt(utc){const d=new Date(),doy=Math.floor((Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate())-Date.UTC(d.getUTCFullYear(),0,0))/864e5);
   const phi=51.6*Math.PI/180,dec=23.44*Math.PI/180*Math.sin(2*Math.PI*(284+doy)/365),H=(((utc+7.6/15)%24+24)%24-12)*15*Math.PI/180;
   return Math.asin(clamp(Math.sin(phi)*Math.sin(dec)+Math.cos(phi)*Math.cos(dec)*Math.cos(H),-1,1))*180/Math.PI;}
