@@ -79,6 +79,46 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const cs = [[x0, z0], [x1, z0], [x0, z1], [x1, z1]].map(([x, z]) => toUTM(LAT0 - z / KY, LON0 + x / KX));
   const Ek = [Math.floor(Math.min(...cs.map(c => c[0])) / 1000), Math.floor(Math.max(...cs.map(c => c[0])) / 1000)];
   const Nk = [Math.floor(Math.min(...cs.map(c => c[1])) / 1000), Math.floor(Math.max(...cs.map(c => c[1])) / 1000)];
+  if (process.argv.includes('--ni')) {   // Niedersachsen: Kacheln ueber den STAC-Katalog des LGLN suchen (CityGML, UTM 32, 1 x 1 km)
+    const STAC = 'https://lod.stac.lgln.niedersachsen.de';
+    const ll = [[x0, z0], [x1, z1]].map(([x, z]) => [LAT0 - z / KY, LON0 + x / KX]);
+    const bbox = [Math.min(ll[0][1], ll[1][1]), Math.min(ll[0][0], ll[1][0]), Math.max(ll[0][1], ll[1][1]), Math.max(ll[0][0], ll[1][0])].map(v => v.toFixed(5)).join(',');
+    console.log('Suche Kacheln im STAC-Katalog …', STAC);
+    let items = [], url = `${STAC}/search?bbox=${bbox}&limit=100`;
+    for (let page = 0; url && page < 20; page++) {
+      const r = await fetch(url, { headers: { 'User-Agent': 'miworu-lod2/1.0', Accept: 'application/geo+json, application/json' } });
+      if (!r.ok) { console.log('STAC-Fehler HTTP ' + r.status + ': ' + (await r.text()).slice(0, 400)); process.exit(1); }
+      const j = await r.json(); items.push(...(j.features || []));
+      const nx = (j.links || []).find(l => l.rel === 'next'); url = nx ? nx.href : null;
+    }
+    console.log(items.length + ' Eintraege gefunden.');
+    if (!items.length) { console.log('Keine Kacheln im Katalog. Schick mir diese Ausgabe.'); process.exit(1); }
+    const { execSync } = await import('node:child_process');
+    const all = []; let probed = false;
+    for (const it of items) {
+      const assets = Object.entries(it.assets || {});
+      const pick = assets.find(([, a]) => /\.(gml|xml)(\?|$)/i.test(a.href)) || assets.find(([, a]) => /\.zip(\?|$)/i.test(a.href)) || assets.find(([, a]) => /\.gz(\?|$)/i.test(a.href));
+      if (!pick) { console.log('  ' + it.id + ': kein passendes Asset: ' + assets.map(([k, a]) => k + '=' + a.href).join(' ')); continue; }
+      const href = pick[1].href; process.stdout.write('  ' + it.id + ' … ');
+      let xml = null;
+      for (let t = 1; t <= 3 && xml === null; t++) {
+        try {
+          const r = await fetch(href, { headers: { 'User-Agent': 'miworu-lod2/1.0' } }); if (!r.ok) throw new Error('HTTP ' + r.status);
+          const buf = Buffer.from(await r.arrayBuffer());
+          if (/\.zip(\?|$)/i.test(href)) { const tmp = new URL('./lod2-tmp.zip', import.meta.url); fs.writeFileSync(tmp, buf); xml = execSync('unzip -p "' + tmp.pathname + '"', { maxBuffer: 1e9 }).toString('utf8'); fs.unlinkSync(tmp); }
+          else if (/\.gz(\?|$)/i.test(href)) xml = (await import('node:zlib')).gunzipSync(buf).toString('utf8');
+          else xml = buf.toString('utf8');
+        } catch (err) { console.log(`Fehler (${err.message}), Versuch ${t}`); await new Promise(r => setTimeout(r, 2000 * t)); }
+      }
+      if (!xml) { console.log('uebersprungen'); continue; }
+      if (!probed) { fs.writeFileSync(PROBE, xml.slice(0, 6000) + '\n…\n' + (/<(?:\w+:)?Building[\s\S]{0,3500}/.exec(xml) || [''])[0]); probed = true; }
+      const b = parseGML(xml, toLocal, inside); console.log(`${(xml.length / 1e6).toFixed(1)} MB, ${b.length} Gebaeude im Gebiet`); all.push(...b);
+    }
+    if (!all.length) { console.log('\nKeine Gebaeude gelesen. Schick mir scripts/lod2-probe-' + NAME + '.txt und diese Ausgabe.'); process.exit(1); }
+    fs.writeFileSync(OUT, JSON.stringify({ name: NAME, origin: ROUTE.origin, b: all }));
+    console.log(`\nFertig: ${all.length} Gebaeude → src/routes/${NAME}.lod2.json (${(fs.statSync(OUT).size / 1e6).toFixed(1)} MB)`);
+    process.exit(0);
+  }
   const tiles = []; for (let e = Ek[0]; e <= Ek[1]; e++) for (let n = Nk[0]; n <= Nk[1]; n++) tiles.push([e, n]);
   console.log(`Gebiet ${NAME}: ${tiles.length} Kachel(n) a 1 km`);
   const all = []; let probed = false;

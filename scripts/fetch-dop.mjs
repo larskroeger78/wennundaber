@@ -6,13 +6,14 @@ import { toUTM } from './fetch-lod2.mjs';
 
 const args = process.argv.slice(2);
 const NAME = args.find(a => !a.startsWith('--')) || 'miworu';
-const opt = k => (args.find(a => a.startsWith('--' + k + '=')) || '').split('=')[1];
+const opt = k => (args.find(a => a.startsWith('--' + k + '=')) || '').split('=').slice(1).join('=');
 const RES = +(opt('res') || 1);            // Meter pro Pixel
 const rd = f => JSON.parse(fs.readFileSync(new URL(`../src/routes/${f}`, import.meta.url), 'utf8'));
 const ROUTE = rd(`${NAME}.json`), GEL = rd(`${NAME}.gelaende.json`);
 const [LAT0, LON0] = ROUTE.origin;
 const KX = 111320 * Math.cos(LAT0 * Math.PI / 180), KY = 111320;
-const WMS = 'https://www.wms.nrw.de/geobasis/wms_nw_dop';
+// Niedersachsen: --ni (LGLN, DOP20 als WMS) oder eigener Dienst mit --wms=URL. Standard: Geobasis NRW.
+const WMS = opt('wms') || (args.includes('--ni') ? 'https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms' : 'https://www.wms.nrw.de/geobasis/wms_nw_dop');
 const UA = { 'User-Agent': 'miworu-dop/1.0' };
 
 // Spielkoordinaten (x Ost, z = -Nord, Meter) -> UTM, linear um den Ursprung (auf 2 km weit unter 0,1 m genau)
