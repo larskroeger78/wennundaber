@@ -23,7 +23,6 @@
     "wuppertal": "npm run terrain -- wuppertal && npm run osm -- wuppertal && npm run surfaces -- wuppertal",
     "hagen": "npm run terrain -- hagen && npm run osm -- hagen && npm run surfaces -- hagen",
     "iserlohn": "npm run terrain -- iserlohn && npm run osm -- iserlohn && npm run surfaces -- iserlohn",
-    "iserlohn2": "npm run surfaces -- iserlohn2",
     "ibenstein": "npm run terrain -- ibenstein --ni && npm run osm -- ibenstein && npm run surfaces -- ibenstein && npm run objekte -- ibenstein",
     "ibenstein-neu": "npm run dop -- ibenstein --ni && npm run lod2 -- ibenstein --ni",
     "deikamm-neu": "npm run dop -- deikamm --ni --res=2 && npm run lod2 -- deikamm --ni",
