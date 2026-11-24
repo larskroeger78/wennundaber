@@ -401,20 +401,24 @@ const SEA={aut:{value:0},win:{value:0},snowY:{value:-1e5},snowK:{value:1}};   //
   THREE.Material.prototype.onBeforeCompile=function(s){s.uniforms.uGF=GF;};
 })();
 const SEA_SN='float sn=clamp(uWin*smoothstep(uSnowY-60.0,uSnowY+40.0,vWP.y)*(0.8+0.2*sin(vWP.x*0.31)*sin(vWP.z*0.37)),0.0,1.0)*uSnowK;';
+// Wege im Winter: Schnee liegt fleckig (mal bedeckt, mal frei), am Rand dichter; zwei duenne braune Fahrspuren und dunkle Matschpfuetzen bleiben frei
+const SEA_PATH=(e0,cv,pdk)=>SEA_SN+'float cx=abs(vUv.x-0.5)*2.0,sE=smoothstep('+e0+',0.95,cx),n1=sNz(vWP.xz*0.55)*0.65+sNz(vWP.xz*1.7)*0.35,pd=smoothstep(0.68,0.77,sNz(vWP.xz*0.8+7.0))*'+pdk.toFixed(2)+',rut=smoothstep(0.1,0.0,abs(cx-0.4+(sNz(vWP.xz*0.3)-0.5)*0.1));'
+  +'float cov=min(1.0,sn*1.5)*mix(smoothstep(0.4,0.62,n1)*'+cv.toFixed(2)+',0.9,sE)*(1.0-rut*0.85)*(1.0-pd*(1.0-sE));'
+  +'diffuseColor.rgb*=1.0-uWin*(0.4*pd*(1.0-sE)+0.18*rut);diffuseColor.rgb=mix(diffuseColor.rgb,mix(vec3(.77,.81,.88),vec3(.9,.93,.97),sE),cov);';
 const SEA_CODE={
   leaf:'float sN=sH(vSeed.xz*0.731+vSeed.y);float sL=dot(diffuseColor.rgb,vec3(.3,.55,.15));vec3 sA=sN<.3?vec3(1.0,.64,.14):(sN<.58?vec3(.95,.42,.08):(sN<.8?vec3(.72,.17,.07):vec3(.86,.78,.22)));diffuseColor.rgb=mix(diffuseColor.rgb,sA*sL*1.9,uAut);if(uWin>0.0&&sN<uWin*.88)discard;diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.8,.85,.9),uWin*.4);',
   fir:'float sN=sH(vSeed.xz*0.731+vSeed.y);'+SEA_SN+'diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.86,.9,.95),sn*(.4+.35*sN));',
   grs:SEA_SN+'float sL=dot(diffuseColor.rgb,vec3(.3,.55,.15));diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.62,.46,.2)*sL*2.0,uAut*.6);diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.76,.79,.84),sn*.85);',
   gnd:SEA_SN+'float sL=dot(diffuseColor.rgb,vec3(.3,.55,.15));diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.55,.36,.18)*sL*2.2,uAut*.35);diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.78,.82,.89),sn);',
-  asp:SEA_SN+'float sE=smoothstep(0.3,1.0,abs(vUv.x-0.5)*2.0);diffuseColor.rgb=mix(diffuseColor.rgb,mix(vec3(.74,.78,.85),vec3(.88,.91,.96),sE),sn*(0.13+0.8*sE));',   // Asphalt: leichter Schleier, Fahrspur bleibt dunkel, zum Rand hoeherer Schnee
-  gvl:SEA_SN+'float sE=smoothstep(0.25,0.95,abs(vUv.x-0.5)*2.0);diffuseColor.rgb=mix(diffuseColor.rgb,mix(vec3(.76,.8,.87),vec3(.88,.91,.96),sE),sn*(0.2+0.72*sE));',   // Feldweg: wie Asphalt, etwas mehr Schnee
-  trl:SEA_SN+'diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.78,.82,.89),sn*(0.06+0.74*smoothstep(0.3,0.95,abs(vUv.x-0.5)*2.0)));'};   // Spur bleibt in der Mitte dunkel, nur zum Rand hin liegt Schnee
+  asp:SEA_PATH(0.3,0.85,0.25),
+  gvl:SEA_PATH(0.25,0.8,0.7),
+  trl:SEA_PATH(0.3,0.65,1.0)};
 function seaPatch(mat,kind,inst){
   mat.onBeforeCompile=function(s){
     s.uniforms.uGF=GF;s.uniforms.uAut=SEA.aut;s.uniforms.uWin=SEA.win;s.uniforms.uSnowY=SEA.snowY;s.uniforms.uSnowK=SEA.snowK;
     s.vertexShader=s.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vSeed;varying vec3 vWP;')
       .replace('#include <begin_vertex>','#include <begin_vertex>\nvSeed='+(inst?'instanceMatrix[3].xyz':'vec3(0.0)')+';vWP=(modelMatrix*'+(inst?'instanceMatrix*':'')+'vec4(transformed,1.0)).xyz;');
-    const pre='#include <common>\nuniform float uAut,uWin,uSnowY,uSnowK;varying vec3 vSeed;varying vec3 vWP;\nfloat sH(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}';
+    const pre='#include <common>\nuniform float uAut,uWin,uSnowY,uSnowK;varying vec3 vSeed;varying vec3 vWP;\nfloat sH(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}\nfloat sNz(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(sH(i),sH(i+vec2(1.0,0.0)),f.x),mix(sH(i+vec2(0.0,1.0)),sH(i+vec2(1.0)),f.x),f.y);}';
     if(kind==='dep')s.fragmentShader=s.fragmentShader.replace('#include <common>',pre).replace('#include <alphatest_fragment>','if(uWin>0.0&&sH(vSeed.xz*0.731+vSeed.y)<uWin*.88)discard;\n#include <alphatest_fragment>');
     else s.fragmentShader=s.fragmentShader.replace('#include <common>',pre).replace('#include <color_fragment>','#include <color_fragment>\n'+SEA_CODE[kind]);
   };
