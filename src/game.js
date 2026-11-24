@@ -406,7 +406,7 @@ const SEA_CODE={
   fir:'float sN=sH(vSeed.xz*0.731+vSeed.y);'+SEA_SN+'diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.86,.9,.95),sn*(.4+.35*sN));',
   grs:SEA_SN+'float sL=dot(diffuseColor.rgb,vec3(.3,.55,.15));diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.62,.46,.2)*sL*2.0,uAut*.6);diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.76,.79,.84),sn*.85);',
   gnd:SEA_SN+'float sL=dot(diffuseColor.rgb,vec3(.3,.55,.15));diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.55,.36,.18)*sL*2.2,uAut*.35);diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.78,.82,.89),sn);',
-  trl:SEA_SN+'diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.78,.82,.89),sn*.5);'};
+  trl:SEA_SN+'diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.78,.82,.89),sn*(0.06+0.74*smoothstep(0.3,0.95,abs(vUv.x-0.5)*2.0)));'};   // Spur bleibt in der Mitte dunkel, nur zum Rand hin liegt Schnee
 function seaPatch(mat,kind,inst){
   mat.onBeforeCompile=function(s){
     s.uniforms.uGF=GF;s.uniforms.uAut=SEA.aut;s.uniforms.uWin=SEA.win;s.uniforms.uSnowY=SEA.snowY;s.uniforms.uSnowK=SEA.snowK;
@@ -445,8 +445,8 @@ const QE=()=>quality>1?3:1;   // Mittel und Hoch teilen die Aufloesung/Sichtweit
 function applyQ(){
   const dpr=window.devicePixelRatio||1;
   renderer.setPixelRatio([0,Math.min(dpr,0.7),Math.min(dpr,1.25),Math.max(Math.min(dpr,2),1.5)][QE()]*DRS);   // Niedrig bewusst weich, Hoch mit Supersampling
-  scene.fog.density=[0,0.0009,0.00055,0.0004][QE()]*[1,5,2.2][WX]*(NIGHT?1.35:1)*((RT&&RT.alp)?0.32:1);                                                        // Niedrig: naeher Dunst, spart Fernsicht
-  sun.castShadow=quality>1&&!NIGHT;if(NT.lamp)NT.lamp.castShadow=NIGHT&&quality>1;if(GRS)GRS.visible=quality>1;                                                       // Niedrig: keine Schatten, kein Gras
+  scene.fog.density=[0,0.0009,0.00055,0.0004][QE()]*[1,5,2.2][WX]*(NIGHT?1.35:1)*((RT&&RT.alp)?0.32:1)*(1+SEA.win.value*0.7);                                  // Niedrig: naeher Dunst, spart Fernsicht
+  sun.castShadow=quality>1&&!NIGHT&&WX!==2;if(NT.lamp)NT.lamp.castShadow=NIGHT&&quality>1;if(GRS)GRS.visible=quality>1;                                                       // Niedrig: keine Schatten, kein Gras
   const sz=[0,1024,2048,4096][QE()];
   if(sun.shadow.mapSize.x!==sz){sun.shadow.mapSize.set(sz,sz);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null;}}
   resize();
@@ -497,7 +497,7 @@ const sky=new THREE.Mesh(new THREE.SphereGeometry((RT&&RT.alp)?16000:4500,32,16)
   ' vec3 zen=zenCol,hor=horCol;',
   ' vec3 col=mix(hor,zen,pow(h,0.45));',
   ' float sd=max(dot(d,sunDir),0.0);',
-  ' col+=sunCol*(pow(sd,350.0)*6.0+pow(sd,12.0)*0.25);',
+  ' col+=sunCol*(pow(sd,350.0)*6.0+pow(sd,12.0)*0.25+pow(sd,4.0)*0.3*pow(1.0-h,3.0));',
   ' vec2 uv=d.xz/(h+0.12)*0.9+vec2(time*0.004,0.0);',
   ' float c=fbm(uv*1.2);float cov=smoothstep(0.46,0.72,c);',
   ' float sh=fbm(uv*1.2+sunDir.xz*0.15);',
@@ -582,18 +582,18 @@ function applySun(force){
   const phi=51.6*Math.PI/180,dec=23.44*Math.PI/180*Math.sin(2*Math.PI*(284+doy)/365),H=((utc+7.6/15)%24-12)*15*Math.PI/180;
   const sa=Math.sin(phi)*Math.sin(dec)+Math.cos(phi)*Math.cos(dec)*Math.cos(H),alt=Math.asin(clamp(sa,-1,1));
   let A=Math.acos(clamp((Math.sin(dec)-Math.sin(phi)*sa)/(Math.cos(phi)*Math.cos(alt)+1e-6),-1,1));if(H>0)A=2*Math.PI-A;   // Azimut ab Nord, im Uhrzeigersinn
-  const altE=Math.max(alt,5*Math.PI/180),ca=Math.cos(altE);
+  const altE=Math.max(alt,2.5*Math.PI/180),ca=Math.cos(altE);
   SUN.set(ca*Math.sin(A),Math.sin(altE),-ca*Math.cos(A)).normalize();
-  const deg=alt*180/Math.PI,low=1-sstep(6,32,deg),tw=sstep(-4,5,deg);   // low: tiefe Sonne (warm), tw: 1 = Tag, 0 = Daemmerung
+  const deg=alt*180/Math.PI,low=1-sstep(8,40,deg),tw=sstep(-6,9,deg);   // low: tiefe Sonne (warm), tw: 1 = Tag, 0 = Daemmerung
   const mixc=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
-  let sc=mixc([1.0,0.9,0.78],[1.0,0.58,0.34],low);sc=mixc([0.62,0.52,0.7],sc,tw);
+  let sc=mixc([1.0,0.9,0.78],[1.0,0.46,0.2],low);sc=mixc([0.7,0.4,0.55],sc,tw);
   const inten=(0.95+1.55*sstep(4,30,deg))*(0.72+0.28*tw);
-  sun.color.setRGB(sc[0],sc[1],sc[2]);sun.intensity=Math.max(1.35,inten);
+  sun.color.setRGB(sc[0],sc[1],sc[2]);sun.intensity=Math.max(0.85+0.5*tw,inten);
   let hs=mixc([0.72,0.84,1.0],[0.88,0.72,0.66],low*0.7);hs=mixc([0.46,0.52,0.78],hs,tw);
-  hemi.color.setRGB(hs[0],hs[1],hs[2]);hemi.groundColor.setRGB(0.34-0.1*(1-tw),0.31-0.1*(1-tw),0.22-0.02*(1-tw));hemi.intensity=0.8*(0.86+0.14*tw);
+  hemi.color.setRGB(hs[0],hs[1],hs[2]);hemi.groundColor.setRGB(0.34-0.1*(1-tw),0.31-0.1*(1-tw),0.22-0.02*(1-tw));hemi.intensity=0.8*(0.74+0.26*tw);
   renderer.toneMappingExposure=0.95*(1.0+0.12*(1-tw));
-  let hor=mixc([0.62,0.74,0.86],[0.9,0.64,0.5],low*0.8);hor=mixc([0.42,0.45,0.66],hor,tw);
-  let zen=mixc([0.10,0.27,0.60],[0.14,0.25,0.52],low);zen=mixc([0.12,0.15,0.36],zen,tw);
+  let hor=mixc([0.62,0.74,0.86],[0.96,0.54,0.36],low*0.95);hor=mixc([0.52,0.38,0.6],hor,tw);
+  let zen=mixc([0.10,0.27,0.60],[0.14,0.25,0.52],low);zen=mixc([0.10,0.12,0.34],zen,tw);
   const u=sky.material.uniforms;u.horCol.value.set(hor[0],hor[1],hor[2]);u.zenCol.value.set(zen[0],zen[1],zen[2]);u.sunCol.value.set(sc[0],sc[1]*0.95,sc[2]*0.85);
   const ct=mixc([1,0.82,0.7],[1,1,1],1-low);u.cloudTint.value.set(ct[0]*(0.75+0.25*tw),ct[1]*(0.78+0.22*tw),ct[2]*(0.85+0.15*tw));
   scene.fog.color.setRGB(hor[0],hor[1],hor[2]);scene.background=scene.background&&scene.background.isColor?new THREE.Color(hor[0],hor[1],hor[2]):scene.background;
@@ -602,12 +602,20 @@ function applySun(force){
   if(WX){const g=WX===1?0.74:0.5,k=WX===1?0.75:0.85,gr=[g*(0.9+0.1*tw),g*(0.92+0.08*tw),g*(0.96+0.04*tw)];
     const gm=(c)=>[c[0]+(gr[0]-c[0])*k,c[1]+(gr[1]-c[1])*k,c[2]+(gr[2]-c[2])*k];
     const h2=gm(hor),z2=gm(WX===1?[gr[0]*0.95,gr[1]*0.97,gr[2]]:[gr[0]*0.7,gr[1]*0.72,gr[2]*0.78]);
-    u.horCol.value.set(h2[0],h2[1],h2[2]);u.zenCol.value.set(z2[0],z2[1],z2[2]);u.cloudTint.value.set(gr[0],gr[1],gr[2]);u.sunCol.value.set(gr[0],gr[1],gr[2]);
+    u.horCol.value.set(h2[0],h2[1],h2[2]);u.zenCol.value.set(z2[0],z2[1],z2[2]);u.cloudTint.value.set(gr[0],gr[1],gr[2]);if(WX===2)u.sunCol.value.set(0,0,0);else u.sunCol.value.set(gr[0],gr[1],gr[2]);   // Regen: keine Sonnenscheibe, kein Himmelsglimmen
     scene.fog.color.setRGB(h2[0],h2[1],h2[2]);scene.background=new THREE.Color(h2[0],h2[1],h2[2]);
-    sun.intensity*=WX===1?0.42:0.3;hemi.intensity*=WX===1?1.15:0.95;
+    if(WX===2){sun.color.setRGB(gr[0],gr[1],gr[2]);sun.intensity=0.1;hemi.intensity=hemi.intensity*1.18+0.1;sun.castShadow=false;}   // Regen: keine Sonne, keine Schatten, nur diffuses Licht
+    else{sun.intensity*=0.42;hemi.intensity*=1.15;}
+  }
+  if(WX!==2&&!NIGHT)sun.castShadow=quality>1;
+  if(SEA.win.value&&WX===0){   // Winter/Schneefall: gedaempftes, weissgraues Licht, Himmel verwaschen
+    const wk=SEA.win.value*0.55,wh=mixc(hor,[0.80,0.84,0.90],wk),wz=mixc(zen,[0.52,0.58,0.70],wk*0.9);
+    u.horCol.value.set(wh[0],wh[1],wh[2]);u.zenCol.value.set(wz[0],wz[1],wz[2]);u.sunCol.value.multiplyScalar(0.5);u.cloudTint.value.set(0.92,0.94,0.98);
+    scene.fog.color.setRGB(wh[0],wh[1],wh[2]);scene.background=scene.background&&scene.background.isColor?new THREE.Color(wh[0],wh[1],wh[2]):scene.background;
+    sun.intensity*=0.62;hemi.intensity*=1.12;
   }
   if(MW)nightSky(u);
-  scene.fog.density=[0,0.0009,0.00055,0.0004][QE()]*[1,5,2.2][WX]*(NIGHT?1.35:1)*((RT&&RT.alp)?0.32:1);
+  scene.fog.density=[0,0.0009,0.00055,0.0004][QE()]*[1,5,2.2][WX]*(NIGHT?1.35:1)*((RT&&RT.alp)?0.32:1)*(1+SEA.win.value*0.7);
   {let mn=1e9,mx=-1e9;for(let i=0;i<=N;i+=4){mn=Math.min(mn,PY[i]);mx=Math.max(mx,PY[i]);}GF.value.y=mn+(mx-mn)*0.35+5;GF.value.z=20;
    GF.value.x=((NIGHT?0.2:(H<0?0.85:0.3)*(1-sstep(2,22,deg)))*(TODM===2?0:1))*(WX===1?0.4:1)+SEA.win.value*0.12;}
   window.__sun={alt:deg,az:A*180/Math.PI,utc:utc};
@@ -1998,29 +2006,36 @@ function applyWXOther(){   // Strecken ohne Sonnenstand-Modell: Himmel/Dunst gra
   if(BK)return;
   if(WXB.sun===undefined){WXB.sun=sun.intensity;WXB.hemi=hemi.intensity;WXB.fog=scene.fog.color.clone();}
   WXS.rain=WX===2?(WXFIX?0.35:1):0;
-  if(WX){const g=WX===1?0.72:0.5,c=new THREE.Color(g,g*1.01,g*1.04);scene.background=c;scene.fog.color.copy(c);sky.visible=false;sun.intensity=WXB.sun*(WX===1?0.42:0.3);hemi.intensity=WXB.hemi*(WX===1?1.15:0.95);}
-  else{scene.background=HDRTEX||HORIZON;scene.fog.color.copy(WXB.fog);sky.visible=!HDRTEX;sun.intensity=WXB.sun;hemi.intensity=WXB.hemi;}
+  if(WX){const g=WX===1?0.72:0.5,c=new THREE.Color(g,g*1.01,g*1.04);scene.background=c;scene.fog.color.copy(c);sky.visible=false;sun.intensity=WX===2?0.1:WXB.sun*0.42;hemi.intensity=WX===2?WXB.hemi*1.18+0.1:WXB.hemi*1.15;sun.castShadow=false;}
+  else{scene.background=HDRTEX||HORIZON;scene.fog.color.copy(WXB.fog);sky.visible=!HDRTEX;sun.intensity=WXB.sun;hemi.intensity=WXB.hemi;sun.castShadow=quality>1&&!NIGHT;}
   scene.fog.density=[0,0.0009,0.00055,0.0004][QE()]*[1,5,2.2][WX];
 }
 const WXPOS={miworu:[51.62,7.62],hagen:[51.34,7.45],buellberg:[51.38,7.32],dortmund:[51.42,7.47],hemer:[51.36,7.79],iserlohn:[51.36,7.69],ibenstein:[52.17,8.04],deikamm:[52.26,9.47],wuppertal:[51.22,7.11]};
 var WXFIX=(()=>{try{return localStorage.getItem('miworu_wxfix')==='1';}catch(_){return false;}})();   // "Schlecht": fester, leichter Nieselregen
-const WXL=()=>WXFIX?'Schlecht':WXLIVE?'Live'+(WXLIVEOK?' · '+WXN[WX]:' …'):'Aus';
+let WXSNOWM=false,WXLSNOW=false;try{WXSNOWM=localStorage.getItem('miworu_wxsnow')==='1';}catch(_){}   // Wetter "Schnee": Winterlook mit leichtem Schneefall; WXLSNOW: Live-Wetter meldet gerade Schnee
+const WXL=()=>WXSNOWM?'Schnee':WXFIX?'Schlecht':WXLIVE?'Live'+(WXLIVEOK?(WXLSNOW?' · Schnee':' · '+WXN[WX]):' …'):'Aus';
 function wxApply(){if(BK)applySun(true);else applyWXOther();applyQ();}
 async function wxFetch(){
   if(!WXLIVE)return;
   const pos=WXPOS[RT&&RT.dem]||[51.5,7.5];
   try{const r=await fetch('https://api.open-meteo.com/v1/forecast?latitude='+pos[0]+'&longitude='+pos[1]+'&current=weather_code,precipitation',{cache:'no-store'});if(!r.ok)throw 0;const j=await r.json(),c=j.current||{},wc=c.weather_code|0,pr=+c.precipitation||0;
     // WMO-Code: 45/48 Nebel; 51-67 Niesel/Regen; 80-82 Schauer; 95-99 Gewitter; 71-77 Schnee (als Nebel/Dunst); sonst klar
-    let w=0;if(wc===45||wc===48||(wc>=71&&wc<=77)||wc===85||wc===86)w=1;if((wc>=51&&wc<=67)||(wc>=80&&wc<=82)||wc>=95||pr>=0.1)w=2;
-    if(!WXLIVE)return;WX=w;WXLIVEOK=true;wxApply();hintHud.k=null;}
+    const snow=(wc>=71&&wc<=77)||wc===85||wc===86;
+    let w=0;if(wc===45||wc===48)w=1;if(!snow&&((wc>=51&&wc<=67)||(wc>=80&&wc<=82)||wc>=95||pr>=0.1))w=2;
+    if(!WXLIVE)return;WX=w;WXLIVEOK=true;
+    if(snow!==WXLSNOW){WXLSNOW=snow;if(snow)seasonSet(2);else if(SEAS===2)seasonSet(0);}   // echter Schneefall: Winterlook, danach wieder zurueck
+    wxApply();hintHud.k=null;}
   catch(e){if(WXLIVE){WX=0;WXLIVEOK=false;wxApply();hintHud.k=null;}}
 }
 setInterval(()=>{if(WXLIVE)wxFetch();},15*60*1000);
-function cycleWX(){   // Aus -> Live -> Schlecht (leichter, dauerhafter Nieselregen) -> Aus
-  if(!WXLIVE&&!WXFIX){WXLIVE=true;}else if(WXLIVE){WXLIVE=false;WXFIX=true;}else{WXFIX=false;}
-  try{localStorage.setItem('miworu_wxl',WXLIVE?'1':'0');localStorage.setItem('miworu_wxfix',WXFIX?'1':'0');}catch(_){}
-  if(WXLIVE){WXLIVEOK=false;wxFetch();}else if(WXFIX){WX=2;WXLIVEOK=false;wxApply();}else{WX=0;WXLIVEOK=false;wxApply();}
-  hintHud.k=null;toastEl.textContent='Wetter: '+(WXFIX?'Schlecht (leichter Regen)':WXLIVE?'Live (wird geladen …)':'Aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1400);
+function cycleWX(){   // Aus -> Live -> Schlecht (leichter, dauerhafter Nieselregen) -> Schnee (Winterlook, leichter Schneefall) -> Aus
+  const wasSnow=WXSNOWM||WXLSNOW;
+  if(WXSNOWM){WXSNOWM=false;}else if(!WXLIVE&&!WXFIX){WXLIVE=true;}else if(WXLIVE){WXLIVE=false;WXFIX=true;}else{WXFIX=false;WXSNOWM=true;}
+  WXLSNOW=false;
+  try{localStorage.setItem('miworu_wxl',WXLIVE?'1':'0');localStorage.setItem('miworu_wxfix',WXFIX?'1':'0');localStorage.setItem('miworu_wxsnow',WXSNOWM?'1':'0');}catch(_){}
+  if(WXSNOWM){WX=0;WXLIVEOK=false;seasonSet(2);wxApply();}else if(wasSnow&&SEAS===2)seasonSet(0);
+  if(WXSNOWM){}else if(WXLIVE){WXLIVEOK=false;wxFetch();}else if(WXFIX){WX=2;WXLIVEOK=false;wxApply();}else{WX=0;WXLIVEOK=false;wxApply();}
+  hintHud.k=null;toastEl.textContent='Wetter: '+(WXSNOWM?'Schnee (leichter Schneefall)':WXFIX?'Schlecht (leichter Regen)':WXLIVE?'Live (wird geladen …)':'Aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1400);
   if(WXLIVE)setTimeout(()=>{if(WXLIVEOK){toastEl.textContent='Wetter live: '+WXN[WX];toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1600);}},1500);}
 if(WXLIVE)setTimeout(wxFetch,600);else if(WXFIX){WX=2;setTimeout(wxApply,600);}
 
@@ -2114,7 +2129,7 @@ function updateCockFx(now,deg){
   CKBD=Math.min(0.1+0.7*Math.min(1,st.pos/TOTAL),CKBD+(CKENV.mud&&v>1?dt*0.046*Math.min(1.7,v/5)*(CKENV.gr<-1?1+Math.min(2,-CKENV.gr/4):(CKBD<0.2?(CKENV.gr>2?0.3:0.55):0)):0));CKBM=Math.max(CKBM,CKBD);   // Matsch sammelt sich an
   // Matsch am Rad geht nie wieder weg: nur mehr, bis zum Maximum; gegen Ende der Tour kommt eine zweite, dichtere Spritzerschicht dazu
   CKB.style.opacity=Math.min(1,CKBD*1.15).toFixed(2);CKB2.style.opacity=Math.max(0,Math.min(0.9,(CKBD-0.55)*2.2)).toFixed(2);
-  {const wt=WX===2?(WXFIX?0.75:1):0;if(CKENV.pud&&v>1)CKWET=Math.min(Math.max(wt,0.55),CKWET+dt*0.12*Math.min(1,v/6));CKWET+=(wt-CKWET)*Math.min(1,dt*(wt>CKWET?0.03:(WX===0?0.012:0.005)));CKH.style.opacity=CKWET.toFixed(3);}   // Regen: nach etwa einer Minute sichtbar nass, trocknet langsam
+  {const wt=WX===2?(WXFIX?0.75:1):0;if(CKENV.pud&&v>1)CKWET=Math.min(Math.max(wt,0.55),CKWET+dt*0.12*Math.min(1,v/6));CKWET+=(wt-CKWET)*Math.min(1,dt*(wt>CKWET?0.05:(WX===0?0.012:0.005)));CKH.style.opacity=Math.min(1,CKWET*2.2).toFixed(3);CKH.style.setProperty('--wu',Math.max(0,Math.min(1,(CKWET-0.45)/0.5)).toFixed(3));}   // Regen: nach etwa einer Minute sichtbar nass, trocknet langsam
   const k=Math.max(0.3,1-v/16);                 // bei hohem Tempo weichere, verwischte Stollen
   const bgp='0 '+(-(CKPH%14)*0.11).toFixed(3)+'vw';
   CKW.style.transform=tf;CKW.style.display='block';
@@ -2574,7 +2589,7 @@ function seasonSet(m){
   SEAS=m;try{localStorage.setItem('miworu_sea',m);}catch(e){}
   SEA.aut.value=m===1?1:0;SEA.win.value=m===2?1:0;
   let mn=1e9,mx=-1e9;for(let i=0;i<=N;i+=4){mn=Math.min(mn,PY[i]);mx=Math.max(mx,PY[i]);}
-  SEA.snowY.value=(RT&&RT.alp)?mn+(mx-mn)*0.3:-1e5;
+  SEA.snowY.value=(RT&&RT.alp)?mn+(mx-mn)*0.3:-1e5;SEA.snowK.value=(RT&&RT.alp)?1:0.56;   // ausserhalb der Alpen liegt nur leichter Schnee
   FALL.p.visible=m>0;FALL.m.uniforms.map.value=m===1?T_LEAF:T_SOFT;
   const c=camera.position;for(let i=0;i<FALL.n;i++){FALL.pos[i*3]=c.x+(Math.random()-0.5)*32;FALL.pos[i*3+1]=c.y-4+Math.random()*16;FALL.pos[i*3+2]=c.z+(Math.random()-0.5)*32;
     const k=Math.random();if(m===1){const a=k<0.3?[1,.62,.14]:k<0.58?[.95,.42,.08]:k<0.8?[.72,.17,.07]:[.86,.78,.22];FALL.col.set(a,i*3);}else FALL.col.set([.95,.97,1],i*3);FALL.al[i]=m===1?0.92:0.8;FALL.sz[i]=m===1?0.15:0.065;}
@@ -2701,7 +2716,7 @@ function render(dt,now){
     b.L.rotation.z=flap;b.R.rotation.z=-flap;});}
   {   // Sonnenglanz (Lens-Glow) nur wenn man Richtung Sonne schaut
     camera.getWorldDirection(_cd);const fc=_cd.dot(SUN);
-    if(fc>0.55){_sv.copy(camera.position).addScaledVector(SUN,1000).project(camera);
+    if(fc>0.55&&!WX){_sv.copy(camera.position).addScaledVector(SUN,1000).project(camera);
       const o=clamp((fc-0.55)/0.4,0,1);glowEl.style.opacity=(o*0.85).toFixed(3);
       glowEl.style.background='radial-gradient(circle at '+((_sv.x*0.5+0.5)*100).toFixed(1)+'% '+((-_sv.y*0.5+0.5)*100).toFixed(1)+'%, rgba(255,226,170,.75) 0, rgba(255,190,110,.28) 9%, rgba(255,170,90,.10) 24%, transparent 48%)';
     }else glowEl.style.opacity=0;

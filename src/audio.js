@@ -236,7 +236,7 @@ export const AUDIO = (() => {
     // Regen
     set(N.rain, 0.00756 * s.rain, dt, 1.5); set(N.rain2, 0.00678 * s.rain, dt, 1.5);   // Regen: 40 % leiser
     // Voegel: nur im Wald und nur am Tag
-    birdT -= dt * (s.forest > 0.35 ? 0.4 + 0.6 * s.forest : 0) * s.day * (1 - 0.8 * s.rain);
+    birdT -= dt * (s.forest > 0.35 ? 0.4 + 0.6 * s.forest : 0) * s.day * (1 - 0.95 * s.rain);
     // Wild: ab und zu Wildschwein-Grunzen, Rehbock-Schrecken oder Kitz-Fiepen (selten, nur im Wald, am Tag und Abend)
     wildT -= dt * (s.forest > 0.35 && s.day > 0.25 && s.rain < 0.6 ? 1 : 0);
     if (wildT <= 0) { wildT = 70 + Math.random() * 110; wildlife(t + 0.1); }
