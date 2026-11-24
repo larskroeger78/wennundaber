@@ -1,6 +1,6 @@
 // Freischaltung der Strecken (alles ausser MIWORU): Token vom Server, lokal gemerkt.
 // Die Pruefung geschieht auf dem Server (api/verify); hier liegt nur die Anbindung.
-export const LOCKED = ['wuppertal2', 'hagen', 'iserlohn', 'hemer', 'buellberg', 'dortmund', 'alpen'];
+export const LOCKED = ['wuppertal2', 'hagen', 'iserlohn', 'iserlohn2', 'ibenstein', 'deikamm', 'hemer', 'buellberg', 'dortmund', 'alpen'];
 const K = 'miworu_unlock', KV = 'miworu_unlock_ok', DAYS30 = 30 * 864e5;
 
 const ls = {

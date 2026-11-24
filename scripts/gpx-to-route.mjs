@@ -8,7 +8,10 @@ if (!gpx || !name) { console.log('Aufruf: node scripts/gpx-to-route.mjs datei.gp
 const t = fs.readFileSync(gpx, 'utf8');
 let ORIGIN = JSON.parse(fs.readFileSync(new URL('../src/routes/mittwochsrunde.json', import.meta.url), 'utf8')).origin;
 let NHN0 = null;
-if (own) {
+if (own && own.startsWith('wie:')) {   // gleiches Kartengebiet wie eine vorhandene Strecke (Ursprung und Hoehen-Null uebernehmen), z. B. wie:iserlohn
+  const R = JSON.parse(fs.readFileSync(new URL(`../src/routes/${own.slice(4)}.json`, import.meta.url), 'utf8'));
+  ORIGIN = R.origin; NHN0 = R.nhn0 !== undefined ? R.nhn0 : null;
+} else if (own) {
   const ll = [...t.matchAll(/<trkpt lat="([\d.\-]+)" lon="([\d.\-]+)">\s*<ele>([\d.\-]+)/g)].map(m => [+m[1], +m[2], +m[3]]);
   const la = ll.map(p => p[0]), lo = ll.map(p => p[1]);
   ORIGIN = [+((Math.min(...la) + Math.max(...la)) / 2).toFixed(5), +((Math.min(...lo) + Math.max(...lo)) / 2).toFixed(5)];

@@ -24,10 +24,13 @@ import HEM from './routes/hemer.json';
 import HAG from './routes/hagen.json';
 import DOR from './routes/dortmund.json';
 import ALP from './routes/alpen.json';
+import ISE2 from './routes/iserlohn2.json';
+import IBE from './routes/ibenstein.json';
+import DEI from './routes/deikamm.json';
 import { LOCKED, hasPass, checkPass, redeem, payConfig, loadPayPal, payCreate, payCapture } from './unlock.js';
 const SURF_FILES=import.meta.glob('./routes/*.surf.json');   // Streckendaten werden pro Strecke nachgeladen (nicht mehr alle im Startpaket)
 // Strecke: Standard ist die Tour vom 5.10.2022 (komoot-GPX); ?route=mittwoch bzw. ?route=halde nur zum Entwickeln
-const ROUTES={mittwoch:{data:MITT1,label:'Mittwochsrunde',surf:'mittwochsrunde',btn:'Mittwochsrunde'},tour2:{data:MIW,label:'MIWORU',surf:'miworu',btn:'MIWORU',nhn0:MIW.nhn0,place:'Bergkamen',dem:'miworu'},wuppertal2:{data:WUP2,label:'Whopperthal',surf:'wuppertal2',btn:'Whopperthal',nhn0:WUP2.nhn0,place:'Whopperthal',dem:'wuppertal'},hagen:{data:HAG,label:'Hagmoor',surf:'hagen',btn:'Hagmoor',nhn0:HAG.nhn0,place:'Hagmoor',dem:'hagen'},iserlohn:{data:ISE,label:'Isehorst',surf:'iserlohn',btn:'Isehorst',nhn0:ISE.nhn0,place:'Isehorst',dem:'iserlohn'},hemer:{data:HEM,label:'Hemstein',surf:'hemer',btn:'Hemstein',nhn0:HEM.nhn0,place:'Hemstein',dem:'hemer'},buellberg:{data:BUE,label:'Bölkamp',surf:'buellberg',btn:'Bölkamp',nhn0:BUE.nhn0,place:'Bölkamp',dem:'buellberg'},dortmund:{data:DOR,label:'Dorbach',surf:'dortmund',btn:'Dorbach',nhn0:DOR.nhn0,place:'Dorbach',dem:'dortmund'},alpen:{data:ALP,label:'Sölden',surf:'alpen',btn:'Sölden',nhn0:ALP.nhn0,place:'Sölden',dem:'alpen',alp:true}};
+const ROUTES={mittwoch:{data:MITT1,label:'Mittwochsrunde',surf:'mittwochsrunde',btn:'Mittwochsrunde'},tour2:{data:MIW,label:'MIWORU',surf:'miworu',btn:'MIWORU',nhn0:MIW.nhn0,place:'Bergkamen',dem:'miworu'},wuppertal2:{data:WUP2,label:'Whopperthal',surf:'wuppertal2',btn:'Whopperthal',nhn0:WUP2.nhn0,place:'Whopperthal',dem:'wuppertal'},hagen:{data:HAG,label:'Hagmoor',surf:'hagen',btn:'Hagmoor',nhn0:HAG.nhn0,place:'Hagmoor',dem:'hagen'},iserlohn:{data:ISE,label:'Isehorst',surf:'iserlohn',btn:'Isehorst',nhn0:ISE.nhn0,place:'Isehorst',dem:'iserlohn'},iserlohn2:{data:ISE2,label:'Isebrink',surf:'iserlohn2',btn:'Isebrink',nhn0:ISE2.nhn0,place:'Isebrink',dem:'iserlohn'},ibenstein:{data:IBE,label:'Bad Ibenstein',surf:'ibenstein',btn:'Bad Ibenstein',nhn0:IBE.nhn0,place:'Bad Ibenstein',dem:'ibenstein'},deikamm:{data:DEI,label:'Deikamm',surf:'deikamm',btn:'Deikamm',nhn0:DEI.nhn0,place:'Deikamm',dem:'deikamm'},hemer:{data:HEM,label:'Hemstein',surf:'hemer',btn:'Hemstein',nhn0:HEM.nhn0,place:'Hemstein',dem:'hemer'},buellberg:{data:BUE,label:'Bölkamp',surf:'buellberg',btn:'Bölkamp',nhn0:BUE.nhn0,place:'Bölkamp',dem:'buellberg'},dortmund:{data:DOR,label:'Dorbach',surf:'dortmund',btn:'Dorbach',nhn0:DOR.nhn0,place:'Dorbach',dem:'dortmund'},alpen:{data:ALP,label:'Sölden',surf:'alpen',btn:'Sölden',nhn0:ALP.nhn0,place:'Sölden',dem:'alpen',alp:true}};
 let RKEY=new URLSearchParams(location.search).get('route');
 let PAYWALL=null;   // gewuenschte, noch gesperrte Strecke: es startet MIWORU und das Freischalt-Fenster oeffnet sich
 if(LOCKED.indexOf(RKEY)>=0&&!(await checkPass())){PAYWALL=RKEY;RKEY=null;}
@@ -1987,7 +1990,7 @@ function applyWXOther(){   // Strecken ohne Sonnenstand-Modell: Himmel/Dunst gra
   else{scene.background=HDRTEX||HORIZON;scene.fog.color.copy(WXB.fog);sky.visible=!HDRTEX;sun.intensity=WXB.sun;hemi.intensity=WXB.hemi;}
   scene.fog.density=[0,0.0009,0.00055,0.0004][QE()]*[1,5,2.2][WX];
 }
-const WXPOS={miworu:[51.62,7.62],hagen:[51.34,7.45],buellberg:[51.38,7.32],dortmund:[51.42,7.47],hemer:[51.36,7.79],iserlohn:[51.36,7.69],wuppertal:[51.22,7.11]};
+const WXPOS={miworu:[51.62,7.62],hagen:[51.34,7.45],buellberg:[51.38,7.32],dortmund:[51.42,7.47],hemer:[51.36,7.79],iserlohn:[51.36,7.69],ibenstein:[52.17,8.04],deikamm:[52.26,9.47],wuppertal:[51.22,7.11]};
 var WXFIX=(()=>{try{return localStorage.getItem('miworu_wxfix')==='1';}catch(_){return false;}})();   // "Schlecht": fester, leichter Nieselregen
 const WXL=()=>WXFIX?'Schlecht':WXLIVE?'Live'+(WXLIVEOK?' · '+WXN[WX]:' …'):'Aus';
 function wxApply(){if(BK)applySun(true);else applyWXOther();applyQ();}
@@ -2332,7 +2335,7 @@ function routeBtns(){return '';}   // nur eine Strecke im Spiel
 function mineHtml(){   // Streckenliste: feste Strecken + eigene GPX-Strecken (Zusatzstrecken)
   const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const cur=GPX_ID?'gpx_'+GPX_ID:(!ROUTE?'halde':(ROUTES[RKEY]&&!ROUTES[RKEY].custom?RKEY:'tour2'));
-  const base=[['tour2','MIWORU'],['wuppertal2','Whopperthal'],['hagen','Hagmoor'],['iserlohn','Isehorst'],['hemer','Hemstein'],['buellberg','Bölkamp'],['dortmund','Dorbach'],['alpen','Sölden']];
+  const base=[['tour2','MIWORU'],['wuppertal2','Whopperthal'],['hagen','Hagmoor'],['iserlohn','Isehorst'],['iserlohn2','Isebrink'],['ibenstein','Bad Ibenstein'],['deikamm','Deikamm'],['hemer','Hemstein'],['buellberg','Bölkamp'],['dortmund','Dorbach'],['alpen','Sölden']];
   let h='<div class="mine"><div class="mh">Strecken</div>'+(hasPass()?'':'<div class="mr" style="grid-column:1/-1"><span class="mn">Weitere Strecken<small>mit einem kleinen Support ab 1 € · oder Community-Code</small></span><button class="main" data-unlock="">Supporten</button></div>')+base.map(b=>'<div class="mr'+(b[0]===cur?' cur':'')+'"><span class="mn">'+b[1]+'</span>'+(b[0]===cur?'<span class="act">aktiv</span>':(LOCKED.indexOf(b[0])>=0&&!hasPass()?'<button class="sec" data-unlock="'+b[0]+'">🔒 Supporten</button>':'<button class="sec" data-route="'+b[0]+'">Fahren</button>'))+'</div>').join('');
   return h+'</div>';
 }
@@ -2402,7 +2405,7 @@ function showUnlock(want){   // Support-Fenster: Betrag ab 1 EUR, kurze Geschich
   const wname=want&&ROUTES[want]?ROUTES[want].label:'';
   ov.innerHTML='<div class="intro"><div class="panel unlock">'+
     '<div class="by">by Wenn &amp; Aber Bike Crew</div><h1>Support &amp; weitere Strecken</h1>'+
-    '<div class="help">'+(wname?'<b>'+wname+'</b> gehört zu den weiteren Strecken. ':'')+'MIWORU bleibt kostenlos. Wer weitere Strecken fahren möchte, kann mich gern mit einem kleinen Betrag supporten: <b>ab 1 €</b>, den Betrag bestimmst du selbst. Damit sind Whopperthal, Hagmoor, Isehorst, Hemstein, Bölkamp, Dorbach und Sölden in diesem Browser freigeschaltet.</div>'+
+    '<div class="help">'+(wname?'<b>'+wname+'</b> gehört zu den weiteren Strecken. ':'')+'MIWORU bleibt kostenlos. Wer weitere Strecken fahren möchte, kann mich gern mit einem kleinen Betrag supporten: <b>ab 1 €</b>, den Betrag bestimmst du selbst. Damit sind Whopperthal, Hagmoor, Isehorst, Isebrink, Bad Ibenstein, Deikamm, Hemstein, Bölkamp, Dorbach und Sölden in diesem Browser freigeschaltet.</div>'+
     '<div class="ucode"><div class="uh">Betrag</div><div class="urow"><input id="uamt" type="text" inputmode="decimal" autocomplete="off" value="5" aria-label="Betrag in Euro"><span class="ueur">€</span><button id="ubuy" class="main">Supporten</button></div><div id="upp"></div></div>'+
     '<div class="help" id="umsg"></div>'+
     '<div class="ucode"><div class="uh">Community-Code</div><div class="urow"><input id="ucode" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Code eingeben"><button id="ucodeb" class="sec">Einlösen</button></div></div>'+
