@@ -2220,7 +2220,7 @@ function update(dt){
   // Ruppeln: Wurzeln und Steine unter dem Rad geben Stöße, Schotter/Trail rauschen leicht
   while(SHK.i<BUMPS.length&&BUMPS[SHK.i].s<st.pos){
     const b=BUMPS[SHK.i++];
-    if(b.s>=p0-0.01&&st.x>b.o0&&st.x<b.o1&&st.v>0.8){const f=0.5+0.5*Math.min(1,st.v/7);SHK.vy+=b.a*f*(rnd()<0.5?1:0.7);if(b.a>0.04)AUDIO.bump(b.a*f,SURF[i]);SHK.vr+=(rnd()-0.5)*b.a*f*5;}
+    if(b.s>=p0-0.01&&st.x>b.o0&&st.x<b.o1&&st.v>0.8&&Math.random()<(b.a>0.6?0.7:0.45)){const f=0.5+0.5*Math.min(1,st.v/7);SHK.vy+=b.a*f*0.75*(rnd()<0.5?1:0.7);if(b.a>0.04)AUDIO.bump(b.a*f,SURF[i]);SHK.vr+=(rnd()-0.5)*b.a*f*4;}   // nur etwa jeder zweite Stein/jede zweite Wurzel gibt einen spuerbaren Stoss, das Fahrwerk schluckt den Rest
   }
   while(SHK.fi<FEAT.length&&FEAT[SHK.fi].s<st.pos){   // Kanten, Drops und Sprung
     const f=FEAT[SHK.fi++];if(!(f.s>=p0-0.01&&st.v>1.8))continue;
