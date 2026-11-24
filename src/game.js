@@ -765,13 +765,13 @@ function forestD(x,z){
         c=mix3(c,cField,sstep(RBASE+170,RBASE+260,r));
       }
       if(found){
-        if(SURF[i]===2)c=mix3(c,cDirt,(1-sstep(HW[i],HW[i]+2.2,d))*0.9);
+        if(SURF[i]===2)c=mix3(c,cDirt,(1-sstep(HW[i]*0.9,HW[i]+0.9,d))*0.9);   // Trail: schmale Spur (rund 1,5 m)
         else if(ROUTE&&SURF[i]===1)c=mix3(c,cDirt,(1-sstep(HW[i],HW[i]+2.2,d))*0.8);
         else c=mix3(c,cGravel,(1-sstep(HW[i]+0.4,HW[i]+2.8,d))*0.9);
       }
-      if(found&&ROUTE&&GR[i]<-12){c=mix3(c,cDirt,(1-sstep(HW[i]+0.5,HW[i]+3.4,d))*0.9);M[vi]=Math.min(M[vi],0.12);}   // steile Abfahrt: Weg/Boeschung immer als Erde, nie als gruene Flaeche
+      if(found&&ROUTE&&GR[i]<-12){c=mix3(c,cDirt,(1-sstep(SURF[i]===2?HW[i]*0.9:HW[i]+0.5,SURF[i]===2?HW[i]+0.9:HW[i]+3.4,d))*0.9);M[vi]=Math.min(M[vi],0.12);}   // steile Abfahrt: Weg/Boeschung immer als Erde, nie als gruene Flaeche
       if(found&&STEEP[i]>0.02){   // steile Abfahrt: Laubstreu, nackte Erde, Steinflecken statt einheitlich dunkel
-        const wR=STEEP[i]*(1-sstep(HW[i]*0.9,HW[i]+3.4,d));
+        const wR=STEEP[i]*(1-sstep(HW[i]*(SURF[i]===2?0.8:0.9),HW[i]+(SURF[i]===2?1.0:3.4),d));
         const n1=fbm(x/0.8+5,z/0.8),n2=fbm(x/2.4,z/2.4+7),n3=fbm(x/0.35,z/0.35);
         let b=mix3(cLitter,cSoil,sstep(0.35,0.62,n2));
         b=mix3(b,cStoneG,sstep(0.52,0.68,n1)*0.85);
@@ -947,7 +947,7 @@ applyPhoto(asphaltMat,'asphalt_02',1,2,{arm:true,color:new THREE.Color(1.1,1.1,1
 if(!ROUTE)ribbon(0,Math.min(N,iTrail+4),1,asphaltMat,8,0.05);
 const trailMat=new THREE.MeshStandardMaterial({vertexColors:true,map:texDirt,roughness:1,side:THREE.DoubleSide,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3});seaPatch(trailMat,'trl',false);
 applyPhoto(trailMat,'forest_ground_04',1,1.6,{arm:true,color:new THREE.Color(1.25,1.2,1.15),onDiffuse:()=>{
-  trailMat.alphaMap=canvasTex(64,4,(g,w,h)=>{const ag=g.createLinearGradient(0,0,w,0);ag.addColorStop(0,'#000');ag.addColorStop(0.3,'#fff');ag.addColorStop(0.7,'#fff');ag.addColorStop(1,'#000');g.fillStyle=ag;g.fillRect(0,0,w,h);},true);
+  trailMat.alphaMap=canvasTex(64,4,(g,w,h)=>{const ag=g.createLinearGradient(0,0,w,0);ag.addColorStop(0,'#000');ag.addColorStop(0.2,'#fff');ag.addColorStop(0.8,'#fff');ag.addColorStop(1,'#000');g.fillStyle=ag;g.fillRect(0,0,w,h);},true);
   trailMat.alphaMap.encoding=THREE.LinearEncoding;trailMat.needsUpdate=true;}});
 if(!ROUTE)ribbon(iTrail-2,N,1.7,trailMat,5,0.07);
 else{
@@ -955,7 +955,7 @@ else{
   applyPhoto(gravelMat,'forest_ground_04',1,1.6,{arm:true,color:new THREE.Color(1.65,1.58,1.45),onDiffuse:()=>{
     gravelMat.alphaMap=canvasTex(64,4,(g,w,h)=>{const ag=g.createLinearGradient(0,0,w,0);ag.addColorStop(0,'#000');ag.addColorStop(0.25,'#fff');ag.addColorStop(0.75,'#fff');ag.addColorStop(1,'#000');g.fillStyle=ag;g.fillRect(0,0,w,h);},true);
     gravelMat.alphaMap.encoding=THREE.LinearEncoding;gravelMat.needsUpdate=true;}});
-  surfRuns((sf,a,b)=>{ribbon(Math.max(0,a-2),Math.min(N,b+2),sf===0?1:(sf===1?1.5:1.7),sf===0?asphaltMat:(sf===1?gravelMat:trailMat),sf===0?8:5,sf===0?0.05:0.07);});
+  surfRuns((sf,a,b)=>{ribbon(Math.max(0,a-2),Math.min(N,b+2),sf===0?1:(sf===1?1.5:1.3),sf===0?asphaltMat:(sf===1?gravelMat:trailMat),sf===0?8:5,sf===0?0.05:0.07);});
 }
 
 await BOOT('Pflanze Bäume und Büsche …',40);
