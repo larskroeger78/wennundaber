@@ -2054,13 +2054,14 @@ async function wxFetch(){
 }
 setInterval(()=>{if(WXLIVE)wxFetch();},15*60*1000);
 function cycleWX(){   // Aus -> Live -> Schlecht (leichter, dauerhafter Nieselregen) -> Schnee (Winterlook, leichter Schneefall) -> Aus
-  const wasSeason=WXSNOWM||WXAUTM||WXLSNOW;
+  const wasSeason=WXSNOWM||WXAUTM||WXLSNOW,hadNight=NIGHT;
   if(WXSNOWM){WXSNOWM=false;}else if(WXAUTM){WXAUTM=false;WXSNOWM=true;}else if(!WXLIVE&&!WXFIX&&!WXSTORM){WXLIVE=true;}else if(WXLIVE){WXLIVE=false;WXFIX=true;}else if(WXFIX){WXFIX=false;WXSTORM=true;}else{WXSTORM=false;WXAUTM=true;}
   WXLSNOW=false;WXLSTORM=false;
   try{localStorage.setItem('miworu_wxl',WXLIVE?'1':'0');localStorage.setItem('miworu_wxfix',WXFIX?'1':'0');localStorage.setItem('miworu_wxstorm',WXSTORM?'1':'0');localStorage.setItem('miworu_wxsnow',WXSNOWM?'1':'0');localStorage.setItem('miworu_wxaut',WXAUTM?'1':'0');}catch(_){}
   AMB_SUNNY=!(WXLIVE||WXFIX||WXSTORM||WXSNOWM||WXAUTM);
   if(WXSNOWM){WX=0;WXLIVEOK=false;seasonSet(2);wxApply();}else if(WXAUTM){WX=0;WXLIVEOK=false;seasonSet(1);wxApply();}else if(wasSeason&&SEAS!==0)seasonSet(0);
   if(WXSNOWM||WXAUTM){}else if(WXLIVE){WXLIVEOK=false;wxFetch();}else if(WXFIX||WXSTORM){WX=2;WXLIVEOK=false;wxApply();}else{WX=0;WXLIVEOK=false;wxApply();}
+  if(hadNight&&!NIGHT&&MW)setTimeout(()=>{if(window.confirm('Ambiente gewechselt: Nightride läuft nicht mehr.\n\nOK = Nightride wieder anschalten\nAbbrechen = ohne Nightride weiterfahren')){NIGHT_MAN=true;NIGHT_SUP=false;NIGHT=true;try{localStorage.setItem('miworu_night','1');}catch(_){}nightApply();}},60);   // beim Wechsel aus der Nacht heraus: nachfragen, ob Nightride bleiben soll
   hintHud.k=null;toastEl.textContent='Ambiente: '+(WXSNOWM?'Schnee (leichter Schneefall)':WXAUTM?'Herbst (Laubfarben, fallendes Laub)':WXSTORM?'Gewitter (Sturm, Starkregen, Blitze, Böen mit Laub)':WXFIX?'Regen (leichter Regen)':WXLIVE?'Live (wird geladen …)':'Sonnig (Sonne scheint, je nach Tageszeit)');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1400);
   if(WXLIVE)setTimeout(()=>{if(WXLIVEOK){toastEl.textContent='Wetter live: '+WXN[WX];toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1600);}},1500);}
 if(WXLIVE)setTimeout(wxFetch,600);else if(WXFIX||WXSTORM){WX=2;setTimeout(wxApply,600);}
