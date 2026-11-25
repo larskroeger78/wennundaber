@@ -182,8 +182,6 @@ export const AUDIO = (() => {
       fetch('/assets/audio/freilauf.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => {   // echte Freilauf-Aufnahme (16 Zaehne), als Loop; mehr Zaehne = schneller abgespielt
         const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true; src.loopStart = 0.04; src.loopEnd = buf.duration - 0.04;
         const g = ctx.createGain(); g.gain.value = 0; src.connect(g); g.connect(master); src.start(); N.hubS = { src, g }; hubBuf = buf; }).catch(() => {});
-      fetch('/assets/audio/donner.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => { thunderBuf = buf; }).catch(() => {});   // echtes Donnergrollen (57 s), Ausschnitte je Blitz
-      fetch('/assets/audio/blitz.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => { blitzBuf = buf; }).catch(() => {});   // echter Blitzeinschlag (7 s), nur bei nahen Blitzen
       fetch('/assets/audio/pfuetze.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => { splashBuf = buf; }).catch(() => {});   // echte Pfuetzen-Aufnahme
     } catch (e) { ok = false; }
   }
@@ -269,7 +267,13 @@ export const AUDIO = (() => {
   function cycleHub() { hubN = HUBS[(HUBS.indexOf(hubN) + 1) % HUBS.length]; try { localStorage.setItem('miworu_hub', hubN); } catch (e) {} init(); return hubN; }
   // Menue/Pause: Ton sofort ausblenden (update() laeuft in der Pause nicht), beim Weiterfahren wieder einblenden
   let windK = 0, stormOn = false;
-  function setWind(k, on) { windK = k; stormOn = !!on; }   // Gewitter: Boeenstaerke 0..1, Sturm an/aus
+  let stormLoaded = false;
+  function loadStorm() {   // Donner und Blitz erst laden, wenn ein Gewitter laeuft (schont den Speicher beim Start, vor allem am iPad)
+    if (stormLoaded || !ok || !ctx) return; stormLoaded = true;
+    fetch('/assets/audio/donner.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => { thunderBuf = buf; }).catch(() => {});   // echtes Donnergrollen, Ausschnitte je Blitz
+    fetch('/assets/audio/blitz.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => { blitzBuf = buf; }).catch(() => {});   // echter Blitzeinschlag, nur bei nahen Blitzen
+  }
+  function setWind(k, on) { windK = k; stormOn = !!on; if (on) loadStorm(); }   // Gewitter: Boeenstaerke 0..1, Sturm an/aus
   function thunder(dist, heavy) {   // Donner: Knall + langes Grollen; weiter weg = leiser und dumpfer; heavy = naher Einschlag, sehr laut mit Nachbeben
     if (!ok || !on) return; const t = ctx.currentTime + 0.02, k = 1 - Math.min(1, dist || 0) * 0.65, h = heavy ? 2.2 : 1;
     if (!thunderBuf) {   // nur als Notbehelf, solange die Aufnahme nicht geladen ist
