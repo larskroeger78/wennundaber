@@ -531,7 +531,7 @@ if(MW){
   {const P=[],C=[];for(let c=0;c<26;c++){const az=rr()*6.2832,sp=0.012+rr()*0.07,cnt=40+(rr()*160|0),warm=rr();for(let i=0;i<cnt;i++){const a=az+(rr()+rr()+rr()-1.5)*sp,el=0.0012+Math.pow(rr(),1.8)*0.014,r=Math.cos(el),k=4300;P.push(Math.sin(a)*r*k,Math.sin(el)*k,Math.cos(a)*r*k);const b=0.5+0.5*rr();C.push(b,b*(0.68+0.25*warm),b*(0.4+0.3*warm));}}
     const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('color',new THREE.Float32BufferAttribute(C,3));
     NT.city=new THREE.Points(g,new THREE.PointsMaterial({size:2.2,sizeAttenuation:false,vertexColors:true,transparent:true,opacity:1,depthWrite:false,fog:false,blending:THREE.AdditiveBlending}));NT.city.frustumCulled=false;NT.city.visible=false;scene.add(NT.city);}
-  NT.moon=new THREE.Mesh(new THREE.CircleGeometry(95,40),new THREE.MeshBasicMaterial({color:0xf3f1e4,fog:false,depthWrite:false}));NT.moon.visible=false;NT.moon.frustumCulled=false;scene.add(NT.moon);
+  NT.moon=new THREE.Mesh(new THREE.CircleGeometry(95,40),new THREE.MeshBasicMaterial({color:0xf3f1e4,fog:false,depthWrite:false,depthTest:false}));NT.moon.renderOrder=-20;NT.moon.visible=false;NT.moon.frustumCulled=false;scene.add(NT.moon);
   NT.halo=new THREE.Mesh(new THREE.PlaneGeometry(1100,1100),new THREE.MeshBasicMaterial({map:radTex('rgba(190,205,255,0.5)'),transparent:true,depthWrite:false,fog:false,blending:THREE.AdditiveBlending}));NT.halo.visible=false;NT.halo.frustumCulled=false;scene.add(NT.halo);
   NT.lamp=new THREE.SpotLight(0xfff4e2,22,88,0.3,0.6,1);NT.lamp.visible=false;NT.lamp.shadow.mapSize.set(1024,1024);NT.lamp.shadow.camera.near=0.6;NT.lamp.shadow.camera.far=110;NT.lamp.shadow.bias=-0.0006;scene.add(NT.lamp);NT.lampT=new THREE.Object3D();scene.add(NT.lampT);NT.lamp.target=NT.lampT;
   NT.flood=new THREE.SpotLight(0xffecd0,3.4,30,0.9,0.8,1.2);NT.flood.visible=false;scene.add(NT.flood);NT.floodT=new THREE.Object3D();scene.add(NT.floodT);NT.flood.target=NT.floodT;
@@ -540,7 +540,7 @@ function nightSky(u){   // wird am Ende von applySun aufgerufen: Nacht ueberschr
   if(!MW)return;
   if(scene.environment)NT.env=scene.environment;
   if(!NIGHT){if(NT.env&&scene.environment!==NT.env)scene.environment=NT.env;return;}
-  SUN.set(-0.35,0.62,0.7).normalize();
+  SUN.set(-0.3,0.78,0.6).normalize();
   sun.color.setRGB(0.5,0.6,0.95);sun.intensity=0.2;
   hemi.color.setRGB(0.1,0.13,0.26);hemi.groundColor.setRGB(0.035,0.04,0.06);hemi.intensity=0.55;
   renderer.toneMappingExposure=1.15;
@@ -2643,7 +2643,7 @@ let SEAS=0,SPD=0;const SEAN=['Standard','Herbst','Winter'];
 const WIND={k:0,g:0,x:0,z:0,dir:0,gt:0,dur:3,pk:1,next:2,lt:5};
 const FLASH=document.createElement('div');FLASH.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:4;background:#e2e8ff;opacity:0;transition:opacity .07s linear';document.getElementById('wrap').appendChild(FLASH);
 function stormSync(){   // schaltet die Laub-Partikel zwischen Sturm und Jahreszeit um
-  const on=STORM();if(on===STORMFX)return;STORMFX=on;WIND.next=1.5;WIND.lt=20+Math.random()*30;WIND.gt=0;
+  const on=STORM();if(on===STORMFX)return;STORMFX=on;WIND.next=1.5;WIND.lt=10+Math.random()*15;WIND.gt=0;
   if(on){FALL.p.visible=false;const c=camera.position;   // Gewitter ohne fliegendes Laub
     for(let i=0;i<FALL.n;i++){FALL.pos[i*3]=c.x+(Math.random()-0.5)*18;FALL.pos[i*3+1]=c.y-4+Math.random()*16;FALL.pos[i*3+2]=c.z+(Math.random()-0.5)*18;
       const k=Math.random();FALL.col.set(k<0.3?[.62,.78,.28]:k<0.55?[.95,.8,.28]:k<0.8?[1,.58,.16]:[.85,.3,.1],i*3);FALL.al[i]=1;FALL.sz[i]=0.12+Math.random()*0.08;}
