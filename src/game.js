@@ -3505,7 +3505,8 @@ requestAnimationFrame(()=>{const b=document.getElementById('boot');if(b){b.class
  ['fullscreenchange','webkitfullscreenchange'].forEach(ev=>document.addEventListener(ev,show));}
 
 // Nach dem Neuladen: zuletzt gekoppelten Trainer und Click automatisch wieder verbinden (ohne Auswahlfenster, wenn der Browser es erlaubt)
-setTimeout(()=>{trainer.reconnect();click.reconnect();hrm.reconnect();},1500);
+setTimeout(()=>{trainer.reconnect();click.reconnect();},1500);
+setTimeout(()=>{hrm.reconnect();},9000);   // Brustgurt erst nach Trainer und Click verbinden, damit sich die Bluetooth-Suchen nicht gegenseitig stoeren
 
 // E-Bike-Schalter auch in der oberen Leiste (neben Nightride): Kopie des Nightride-Knopfes, wird nach jedem Neuaufbau der Leiste ergaenzt
 {const one=(act,key,text,on)=>{   // Knopf als Kopie des Nightride-Knopfes anlegen bzw. Beschriftung aktualisieren
