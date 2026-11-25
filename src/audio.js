@@ -3,7 +3,7 @@
 export const AUDIO = (() => {
   let ctx = null, master = null, noise = null, on = true, vol = 0.8, ok = false, held = true;   // held: Menue/Pause offen -> alles stumm
   const N = {};              // Dauer-Klaenge: Name -> {g: GainNode, f: BiquadFilter}
-  let rough = 0, thunderBuf = null, tyreBuf = null, hubBuf = null, splashBuf = null, deerBuf = null, boarBuf = null, doeBuf = null, doeT = 120 + Math.random() * 120, wildT = 50 + Math.random() * 60, uhuT = 20 + Math.random() * 40, kitzT = 15 + Math.random() * 40, specT = 25 + Math.random() * 50, birdT = 3, clickAcc = 0, stoneAcc = 0, rainAcc = 0, lastSurf = 0, brakeG = null;
+  let rough = 0, thunderBuf = null, blitzBuf = null, tyreBuf = null, hubBuf = null, splashBuf = null, deerBuf = null, boarBuf = null, doeBuf = null, doeT = 120 + Math.random() * 120, wildT = 50 + Math.random() * 60, uhuT = 20 + Math.random() * 40, kitzT = 15 + Math.random() * 40, specT = 25 + Math.random() * 50, birdT = 3, clickAcc = 0, stoneAcc = 0, rainAcc = 0, lastSurf = 0, brakeG = null;
   let hubN = 72; const HUBS = [0, 16, 32, 56, 72];   // Freilauf: aus oder Zaehnezahl der Sperrklinken-Zahnscheibe (weniger Zaehne = gröber, klickernder)
   try { const v = localStorage.getItem('miworu_snd'); if (v === '0') on = false; const h = +localStorage.getItem('miworu_hub'); if (HUBS.indexOf(h) >= 0 && localStorage.getItem('miworu_hub') !== null) hubN = h; } catch (e) {}
 
@@ -183,6 +183,7 @@ export const AUDIO = (() => {
         const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true; src.loopStart = 0.04; src.loopEnd = buf.duration - 0.04;
         const g = ctx.createGain(); g.gain.value = 0; src.connect(g); g.connect(master); src.start(); N.hubS = { src, g }; hubBuf = buf; }).catch(() => {});
       fetch('/assets/audio/donner.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => { thunderBuf = buf; }).catch(() => {});   // echtes Donnergrollen (57 s), Ausschnitte je Blitz
+      fetch('/assets/audio/blitz.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => { blitzBuf = buf; }).catch(() => {});   // echter Blitzeinschlag (7 s), nur bei nahen Blitzen
       fetch('/assets/audio/pfuetze.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => { splashBuf = buf; }).catch(() => {});   // echte Pfuetzen-Aufnahme
     } catch (e) { ok = false; }
   }
@@ -275,6 +276,10 @@ export const AUDIO = (() => {
       burst(t, heavy ? 0.4 : 0.2, 'highpass', 1500, 0.7, 0.32 * k * k * h);
       if (heavy) { burst(t, 0.6, 'bandpass', 900, 0.6, 0.6); thump(t, 120, 30, 0.6, 0.8); }
       thump(t + 0.02, 80, 28, heavy ? 2.4 : 1.6, 0.4 * k * (heavy ? 1.4 : 1));
+    }
+    if (blitzBuf && (heavy || (dist || 0) < 0.35)) {   // echter Blitzknall: heftige Einschlaege voll, nahe normale Blitze gedaempft
+      const s = ctx.createBufferSource(), g = ctx.createGain(); s.buffer = blitzBuf; g.gain.value = heavy ? 0.9 : 0.45 * (1 - (dist || 0) / 0.35 * 0.5);
+      s.connect(g); g.connect(master); s.start(t);
     }
     if (thunderBuf) {   // echtes Grollen: zufaelliger Ausschnitt, weiche Ein-/Ausblendung, mit Entfernung dumpfer und leiser (bewusst nicht zu laut)
       const len = heavy ? 14 : 9, off = Math.random() * Math.max(1, thunderBuf.duration - len - 1), s = ctx.createBufferSource(); s.buffer = thunderBuf;
