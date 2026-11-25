@@ -4,6 +4,7 @@ export const AUDIO = (() => {
   let ctx = null, master = null, noise = null, on = true, vol = 0.8, ok = false, held = true;   // held: Menue/Pause offen -> alles stumm
   const N = {};              // Dauer-Klaenge: Name -> {g: GainNode, f: BiquadFilter}
   let rough = 0, thunderBuf = null, blitzBuf = null, tyreBuf = null, hubBuf = null, splashBuf = null, deerBuf = null, boarBuf = null, doeBuf = null, doeT = 120 + Math.random() * 120, wildT = 50 + Math.random() * 60, uhuT = 20 + Math.random() * 40, kitzT = 15 + Math.random() * 40, specT = 25 + Math.random() * 50, birdT = 3, clickAcc = 0, stoneAcc = 0, rainAcc = 0, lastSurf = 0, brakeG = null;
+  let animals = true; try { if (localStorage.getItem('miworu_tiere') === '0') animals = false; } catch (e) {}   // Tiergeraeusche (Voegel, Wild, Uhu, Specht) an/aus
   let hubN = 72; const HUBS = [0, 16, 32, 56, 72];   // Freilauf: aus oder Zaehnezahl der Sperrklinken-Zahnscheibe (weniger Zaehne = gröber, klickernder)
   try { const v = localStorage.getItem('miworu_snd'); if (v === '0') on = false; const h = +localStorage.getItem('miworu_hub'); if (HUBS.indexOf(h) >= 0 && localStorage.getItem('miworu_hub') !== null) hubN = h; } catch (e) {}
 
@@ -99,7 +100,7 @@ export const AUDIO = (() => {
     }
   }
   function call(kind, vg, p) {   // Ruf eines Nachtwild-Tieres kurz vor dem Weggehen (vg 0..1 = Entfernung, p = -1..1 links/rechts)
-    if (!ok || !on || vg <= 0.02) return; const t = ctx.currentTime + 0.02, d = pan(t, p || 0, vg);
+    if (!ok || !on || !animals || vg <= 0.02) return; const t = ctx.currentTime + 0.02, d = pan(t, p || 0, vg);
     const rb = (kind === 'boar' || kind === 'piglet') ? boarBuf : deerBuf;
     if (rb) {   // echte Aufnahme, leise, jedes Tier ruft nur einmal (Rufe duerfen sich ueberlagern)
       const src = ctx.createBufferSource(); src.buffer = rb;
@@ -239,19 +240,19 @@ export const AUDIO = (() => {
     set(N.rain, 0.00756 * s.rain * sm, dt, 1.5); set(N.rain2, 0.00678 * s.rain * sm, dt, 1.5);
     if (N.gust) { set(N.gust, 0.2 * windK * windK, dt, 3); N.gust.f.frequency.value = 260 + 900 * windK; }   // Regen: 40 % leiser
     // Voegel: nur im Wald und nur am Tag
-    birdT -= dt * (s.forest > 0.35 ? 0.4 + 0.6 * s.forest : 0) * s.day * (1 - 0.95 * s.rain);
+    birdT -= dt * (animals ? 1 : 0) * (s.forest > 0.35 ? 0.4 + 0.6 * s.forest : 0) * s.day * (1 - 0.95 * s.rain);
     // Wild: ab und zu Wildschwein-Grunzen, Rehbock-Schrecken oder Kitz-Fiepen (selten, nur im Wald, am Tag und Abend)
-    wildT -= dt * (s.forest > 0.35 && s.day > 0.25 && s.rain < 0.6 ? 1 : 0);
+    wildT -= dt * (animals ? 1 : 0) * (s.forest > 0.35 && s.day > 0.25 && s.rain < 0.6 ? 1 : 0);
     if (wildT <= 0) { wildT = 70 + Math.random() * 110; wildlife(t + 0.1); }
     // Nachts (Nightride, Daemmerung): ab und zu Uhu, ferner Specht und rufendes Rehkitz
-    uhuT -= dt * ((s.night || s.day < 0.35) && s.forest > 0.2 ? 1 : 0);
+    uhuT -= dt * (animals ? 1 : 0) * ((s.night || s.day < 0.35) && s.forest > 0.2 ? 1 : 0);
     if (uhuT <= 0) { uhuT = 60 + Math.random() * 100; uhu(t + 0.1); }
-    specT -= dt * ((s.night || s.day < 0.35) && s.forest > 0.2 && s.rain < 0.5 ? 1 : 0);
+    specT -= dt * (animals ? 1 : 0) * ((s.night || s.day < 0.35) && s.forest > 0.2 && s.rain < 0.5 ? 1 : 0);
     if (specT <= 0) { specT = 70 + Math.random() * 110; specht(t + 0.1); }
-    kitzT -= dt * ((s.night || (s.day < 0.35 && s.forest > 0.08)) && s.rain < 0.6 ? (window.__down ? 3 : 1) : 0);   // nachts auch ohne dichten Wald (z. B. Bergkamen)   // bergab oefter: etwa 2-3 Rufe pro Abfahrt
+    kitzT -= dt * (animals ? 1 : 0) * ((s.night || (s.day < 0.35 && s.forest > 0.08)) && s.rain < 0.6 ? (window.__down ? 3 : 1) : 0);   // nachts auch ohne dichten Wald (z. B. Bergkamen)   // bergab oefter: etwa 2-3 Rufe pro Abfahrt
     if (kitzT <= 0) { kitzT = window.__down ? 45 + Math.random() * 60 : 90 + Math.random() * 130; kitz(t + 0.1); }
     // Rehgeiss fiept in weiter Ferne: nur nachts bzw. in der Daemmerung im Wald, sehr selten, leise und dumpf (Entfernung)
-    doeT -= dt * ((s.night || s.day < 0.35) && s.forest > 0.2 && s.rain < 0.6 ? 1 : 0);
+    doeT -= dt * (animals ? 1 : 0) * ((s.night || s.day < 0.35) && s.forest > 0.2 && s.rain < 0.6 ? 1 : 0);
     if (doeT <= 0) { doeT = 240 + Math.random() * 360; if (doeBuf) { const src = ctx.createBufferSource(); src.buffer = doeBuf; src.playbackRate.value = 0.96 + Math.random() * 0.08;
         const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1700; lp.Q.value = 0.5; const gg = ctx.createGain(); gg.gain.value = 0.07; const d = pan(t + 0.1, (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.4), 0.5); src.connect(lp); lp.connect(gg); gg.connect(d); src.start(t + 0.1); } }
     if (birdT <= 0) { birdT = 5 + Math.random() * 10; if (s.forest > 0.35) bird(t + Math.random() * 0.3); }
@@ -301,5 +302,5 @@ export const AUDIO = (() => {
   // Browser starten Audio erst nach einer Nutzergeste (Klick, Taste, Touch): beim ersten Mal Kontext anlegen bzw. fortsetzen
   const wake = () => { init(); if (ctx && ctx.state === 'suspended') ctx.resume(); };
   ['pointerdown', 'keydown', 'touchstart', 'click'].forEach(ev => window.addEventListener(ev, wake, { passive: true }));
-  return { call, cycleHub, get hub() { return hubN; }, splash, init, get suspended() { return !ctx || ctx.state !== 'running'; }, update, setWind, thunder, bump, takeoff, land, edge, gear, toggle, hold, get on() { return on; } };
+  return { call, cycleHub, get animals() { return animals; }, toggleAnimals() { animals = !animals; try { localStorage.setItem('miworu_tiere', animals ? '1' : '0'); } catch (e) {} return animals; }, get hub() { return hubN; }, splash, init, get suspended() { return !ctx || ctx.state !== 'running'; }, update, setWind, thunder, bump, takeoff, land, edge, gear, toggle, hold, get on() { return on; } };
 })();
