@@ -569,10 +569,13 @@ function nightFrame(){
     const fd=forestD(cp.x,cp.z),ur=NT.houseNear&&NT.houseNear(cp.x,cp.z,50)?1:0;NT.fd=(NT.fd===undefined?fd:NT.fd+(fd-NT.fd)*0.04);NT.ur=(NT.ur===undefined?ur:NT.ur+(ur-NT.ur)*0.04);
     hemi.intensity=0.16+0.34*(1-NT.fd)+0.24*NT.ur*(1-0.6*NT.fd);sun.intensity=0.06+0.18*(1-NT.fd);
     renderer.toneMappingExposure=1.15+0.1*NT.ur;
-    NT.lamp.intensity=22*(1+0.15*NT.fd);}
+    NT.lamp.intensity=22*(1+0.15*NT.fd);NT.flood.intensity=3.4;}
   NT.stars.position.copy(cp);NT.city.position.copy(cp);
   NT.moon.position.copy(cp).addScaledVector(SUN,4200);NT.moon.lookAt(cp);NT.halo.position.copy(cp).addScaledVector(SUN,4150);NT.halo.lookAt(cp);
-  if(!NIGHT)return;
+  if(!NIGHT){   // Daemmerung/Dunkelheit ohne Nightride (z.B. Ambiente Live): Licht geht mit abnehmender Sonne automatisch an, Nightride-Look bleibt unberuehrt
+    const al=window.__sun?window.__sun.alt:90,dl=BK?1-sstep(1,9,al):0;
+    if(dl>0.02){NT.lamp.visible=true;NT.flood.visible=true;NT.lamp.castShadow=false;NT.lamp.intensity=22*dl;NT.flood.intensity=3.4*dl;}
+    else{NT.lamp.visible=false;NT.flood.visible=false;return;}}
   camera.getWorldDirection(_nd);
   NT.lamp.position.copy(cp);NT.lamp.position.y+=0.05;NT.lampT.position.copy(cp).addScaledVector(_nd,30);NT.lampT.updateMatrixWorld();
   NT.flood.position.copy(NT.lamp.position);NT.floodT.position.copy(cp).addScaledVector(_nd,8);NT.floodT.position.y-=1.2;NT.floodT.updateMatrixWorld();
