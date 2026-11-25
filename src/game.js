@@ -2275,10 +2275,8 @@ function update(dt){
   const off=Math.abs(st.x)>HW[i]+0.15;
   if(off)st.v*=Math.max(0,1-1.3*dt);
   const p0=st.pos;st.pos=Math.max(0,st.pos+st.v*dt);st.t+=dt;
-  {   // Aufzeichnung fuer den Strava-Export (ca. 1x pro Sekunde): Koordinaten aus Streckenursprung zurueckgerechnet
-    const og=MITT&&MITT.origin;let la=null,lo=null;
-    if(og){const ri=Math.min(N,Math.floor(st.pos/SEG));la=og[0]-PZ[ri]/111320;lo=og[1]+PX[ri]/(111320*Math.cos(og[0]*Math.PI/180));}
-    REC.add(st.t,{d:st.pos,lat:la,lon:lo,alt:NHN0+PY[Math.min(N,Math.floor(st.pos/SEG))],v:st.v,w:st.power,cad:(tr&&trainer.cadence)||0,hr:hrm.live?hrm.bpm:0});
+  {   // Aufzeichnung fuer den Strava-Export (ca. 1x pro Sekunde): bewusst OHNE Koordinaten, die hinterlegten Strecken werden nicht herausgegeben
+    REC.add(st.t,{d:st.pos,alt:NHN0+PY[Math.min(N,Math.floor(st.pos/SEG))],v:st.v,w:st.power,cad:(tr&&trainer.cadence)||0,hr:hrm.live?hrm.bpm:0});
   }
   // Ruppeln: Wurzeln und Steine unter dem Rad geben Stöße, Schotter/Trail rauschen leicht
   while(SHK.i<BUMPS.length&&BUMPS[SHK.i].s<st.pos){
