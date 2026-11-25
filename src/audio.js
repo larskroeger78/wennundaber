@@ -3,7 +3,7 @@
 export const AUDIO = (() => {
   let ctx = null, master = null, noise = null, on = true, vol = 0.8, ok = false, held = true;   // held: Menue/Pause offen -> alles stumm
   const N = {};              // Dauer-Klaenge: Name -> {g: GainNode, f: BiquadFilter}
-  let rough = 0, tyreBuf = null, hubBuf = null, splashBuf = null, deerBuf = null, boarBuf = null, doeBuf = null, doeT = 120 + Math.random() * 120, wildT = 50 + Math.random() * 60, uhuT = 20 + Math.random() * 40, kitzT = 15 + Math.random() * 40, specT = 25 + Math.random() * 50, birdT = 3, clickAcc = 0, stoneAcc = 0, rainAcc = 0, lastSurf = 0, brakeG = null;
+  let rough = 0, thunderBuf = null, tyreBuf = null, hubBuf = null, splashBuf = null, deerBuf = null, boarBuf = null, doeBuf = null, doeT = 120 + Math.random() * 120, wildT = 50 + Math.random() * 60, uhuT = 20 + Math.random() * 40, kitzT = 15 + Math.random() * 40, specT = 25 + Math.random() * 50, birdT = 3, clickAcc = 0, stoneAcc = 0, rainAcc = 0, lastSurf = 0, brakeG = null;
   let hubN = 72; const HUBS = [0, 16, 32, 56, 72];   // Freilauf: aus oder Zaehnezahl der Sperrklinken-Zahnscheibe (weniger Zaehne = gröber, klickernder)
   try { const v = localStorage.getItem('miworu_snd'); if (v === '0') on = false; const h = +localStorage.getItem('miworu_hub'); if (HUBS.indexOf(h) >= 0 && localStorage.getItem('miworu_hub') !== null) hubN = h; } catch (e) {}
 
@@ -182,6 +182,7 @@ export const AUDIO = (() => {
       fetch('/assets/audio/freilauf.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => {   // echte Freilauf-Aufnahme (16 Zaehne), als Loop; mehr Zaehne = schneller abgespielt
         const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true; src.loopStart = 0.04; src.loopEnd = buf.duration - 0.04;
         const g = ctx.createGain(); g.gain.value = 0; src.connect(g); g.connect(master); src.start(); N.hubS = { src, g }; hubBuf = buf; }).catch(() => {});
+      fetch('/assets/audio/donner.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => { thunderBuf = buf; }).catch(() => {});   // echtes Donnergrollen (57 s), Ausschnitte je Blitz
       fetch('/assets/audio/pfuetze.mp3').then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => { splashBuf = buf; }).catch(() => {});   // echte Pfuetzen-Aufnahme
     } catch (e) { ok = false; }
   }
@@ -273,6 +274,14 @@ export const AUDIO = (() => {
     burst(t, heavy ? 0.35 : 0.18, 'highpass', 1500, 0.7, 0.2 * k * k * h);
     if (heavy) { burst(t, 0.5, 'bandpass', 900, 0.6, 0.4); thump(t, 120, 30, 0.5, 0.55); }
     thump(t + 0.02, 80, 28, heavy ? 2.4 : 1.6, 0.4 * k * (heavy ? 1.4 : 1));
+    if (thunderBuf) {   // echtes Grollen: zufaelliger Ausschnitt, weiche Ein-/Ausblendung, mit Entfernung dumpfer und leiser (bewusst nicht zu laut)
+      const len = heavy ? 14 : 9, off = Math.random() * Math.max(1, thunderBuf.duration - len - 1), s = ctx.createBufferSource(); s.buffer = thunderBuf;
+      const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 500 + 3500 * k * k;
+      const g = ctx.createGain(), pk = (heavy ? 0.5 : 0.3) * (0.35 + 0.65 * k), t0 = t + (heavy ? 0.15 : 0.35);
+      g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(pk, t0 + (heavy ? 0.5 : 1.4)); g.gain.setValueAtTime(pk, t0 + len * 0.35); g.gain.linearRampToValueAtTime(0.0001, t0 + len);
+      s.connect(f); f.connect(g); g.connect(master); s.start(t0, off, len + 0.1);
+      return;
+    }
     const n = heavy ? 9 : 6;
     for (let i = 0; i < n; i++) burst(t + 0.1 + i * 0.4 + Math.random() * 0.2, heavy ? 1.8 : 1.3, 'lowpass', 140 + Math.random() * 150, 0.7, 0.4 * k * h * (1 - i * (heavy ? 0.09 : 0.13)));
   }
