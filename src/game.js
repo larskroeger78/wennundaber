@@ -2264,6 +2264,13 @@ function update(dt){
   st.v=Math.max(0,v+(Math.min(st.power*pf/vs,420)+fmot-fres)/M*dt);   // Zugkraft am Hinterrad gedeckelt (Traktion)
   if(st.v<0.3&&eg>7&&st.power>15&&st.t-(update.hintT||-9)>7){update.hintT=st.t;toastEl.textContent='Zu steil für diese Leistung · "−" = leichterer Gang';toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),2600);}
   BRK+=((down&&st.v>1.5?1:0)-BRK)*Math.min(1,dt*5);
+  {   // Kurventempo: Spitzkehren und enge Kurven nehmen sanft Tempo raus (Rollentrainer hat keine Bremse). Grenze aus Querbeschleunigung je Untergrund und Nässe
+    let kmax=0;const la=Math.min(N-1,i+Math.ceil(st.v*1.4/SEG)+2);for(let j=i;j<=la;j++){const a=Math.abs(KV[j]);if(a>kmax)kmax=a;}
+    const grip=(SURF[i]===0?4.6:SURF[i]===1?3.4:3.1)*(WX===2?0.8:1)*(WXSNOWM?0.75:1);
+    const vc=Math.max(3.0,Math.sqrt(grip/Math.max(kmax,1e-3)));
+    if(st.v>vc){st.v-=Math.min((st.v-vc)*0.9,2.2)*dt;}
+    update.lat=Math.min(1,st.v*st.v*kmax/grip);
+  }
   const off=Math.abs(st.x)>HW[i]+0.15;
   if(off)st.v*=Math.max(0,1-1.3*dt);
   const p0=st.pos;st.pos=Math.max(0,st.pos+st.v*dt);st.t+=dt;
@@ -2300,7 +2307,7 @@ function update(dt){
     if(hit&&!update.inPud&&st.v>1.5){splashDrops(st.v);AUDIO.splash(st.v);}update.inPud=hit;
   }
   if(AUDIO.on&&AUDIO.suspended&&st.t>3&&!update.sndT){update.sndT=1;toastEl.textContent='Sound aktivieren: einmal klicken oder eine Taste drücken';toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),4000);}
-  {const fd=forestD(PX[i],PZ[i]);CKENV.fd=fd;CKENV.gr=GR[i];CKENV.surf=SURF[i];CKENV.pud=!!update.inPud;CKENV.mud=!!(update.inPud&&update.muddy);AUDIO.update(dt,{running:true,v:st.v,surf:SHK.air?-1:SURF[i],pedal:st.power>20?1:0,brake:!!down,forest:fd,rain:WXS.rain,day:WXS.day,night:NIGHT,pud:!!update.inPud});}
+  {const fd=forestD(PX[i],PZ[i]);CKENV.fd=fd;CKENV.gr=GR[i];CKENV.surf=SURF[i];CKENV.pud=!!update.inPud;CKENV.mud=!!(update.inPud&&update.muddy);AUDIO.update(dt,{running:true,v:st.v,surf:SHK.air?-1:SURF[i],pedal:st.power>20?1:0,brake:!!down,forest:fd,rain:WXS.rain,day:WXS.day,night:NIGHT,pud:!!update.inPud,lat:update.lat||0});}
   updateJoggers(dt);updateWildlife(dt);updateVans(dt);updateGroup(dt);
   const steer=(right?1:0)-(left?1:0);
   // Automatische Lenkung (Rollentrainer wie D100 oder KICKR können nicht lenken): Lenker und Neigung folgen dem
@@ -2315,8 +2322,9 @@ function update(dt){
     if(Math.abs(tx-jx)<1.0){const r=jx+1.0,l=jx-1.0;tx=clamp(r<=lim?r:l,-lim,lim);}
   });
   st.x+=(tx-st.x)*Math.min(1,dt*2.2);
-  st.lean+=((clamp((tx-st.x)*0.12,-0.1,0.1)-clamp(KV[i]*st.v*st.v*0.08,-0.35,0.35))-st.lean)*Math.min(1,dt*5);
-  st.bar+=((clamp((tx-st.x)*6,-6,6)-clamp(KV[i]*600,-17,17))-st.bar)*Math.min(1,dt*6);   // Lenkereinschlag in Grad (Cockpit)
+  const kA=KV[Math.min(N-1,i+Math.ceil(st.v*0.5/SEG))],kk=KV[i]*0.6+kA*0.4;   // vorausschauend: Lenker und Neigung setzen schon kurz vor der Kurve an
+  st.lean+=((clamp((tx-st.x)*0.12,-0.1,0.1)-clamp(kk*st.v*st.v*0.08,-0.35,0.35))-st.lean)*Math.min(1,dt*3.6);
+  st.bar+=((clamp((tx-st.x)*6,-6,6)-clamp(kk*600,-17,17))-st.bar)*Math.min(1,dt*4.5);   // Lenkereinschlag in Grad (Cockpit)
   if(tr&&trainer.cadence>5)st.crank+=trainer.cadence*Math.PI/30*dt;else if(st.power>25)st.crank+=9*dt;
   st.wheel+=st.v/0.36*dt;
   offEl.style.display=off?'block':'none';
@@ -2743,7 +2751,8 @@ function render(dt,now){
   if(fp){
     {const tg=clamp((-CKENV.gr-2)/5,0,1)*clamp(((running?st.v:0)-4)/4,0,1);STD+=(tg-STD)*(1-Math.exp(-dt*1.6));}
     const ey=by+1.3+STD*0.22,k=1-Math.exp(-dt*9);
-    camera.position.set(bx+Math.sin(smp.h)*0.05+rx*Math.sin(st.crank)*0.011*Math.min(1,st.power/150),ey+Math.sin(st.wheel*0.9)*0.004*Math.min(1,st.v/4)+Math.abs(Math.sin(st.crank))*0.006*Math.min(1,st.power/150)-BRK*0.025+(running?(SHK.y+airH())*0.9+(SHK.buzz||0)*0.0035:0),bz+Math.cos(smp.h)*0.05);
+    camera.position.set(bx+Math.sin(smp.h)*0.05+rx*Math.sin(st.crank)*0.011*Math.min(1,st.power/150),ey+Math.sin(st.wheel*0.9)*0.004*Math.min(1,st.v/4)+Math.abs(Math.sin(st.crank))*0.006*Math.min(1,st.power/150)-BRK*0.025+(running?(SHK.y+airH())*0.9+(SHK.buzz||0)*0.0055:0),bz+Math.cos(smp.h)*0.05);
+    if(running&&SHK.buzz){camera.position.x+=rx*SHK.buzz*0.0022;camera.position.z+=rz*SHK.buzz*0.0022;}   // Rauschen des Untergrunds auch seitlich im Bild
     {const cx0=camera.position.x,cz0=camera.position.z,gm=Math.max(gnd(cx0,cz0),gnd(cx0-Math.sin(smp.h)*0.8,cz0-Math.cos(smp.h)*0.8),gnd(cx0+Math.sin(smp.h)*1.2,cz0+Math.cos(smp.h)*1.2));if(camera.position.y<gm+0.95)camera.position.y=gm+0.95;}   // Kamera nie unter oder in das Gelaende (Absatzkanten, Steilstuecke)
     sample(st.pos+9,smp2);
     lookT.set(smp2.x+rx*st.x*0.9,smp2.y+1.15,smp2.z+rz*st.x*0.9);
