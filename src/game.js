@@ -376,7 +376,8 @@ smoothArr(KV,4);smoothArr(GR,3);
 
 // ================= Renderer & Licht =================
 const canvas=document.getElementById('c');
-const renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true});
+const IOSX=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);   // iPad/iPhone: sparsamer Speicherverbrauch (aeltere Geraete werden sonst vom Browser beendet)
+const renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:!IOSX});
 renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.5));
 renderer.outputEncoding=THREE.sRGBEncoding;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
@@ -451,10 +452,10 @@ const QN={1:'Niedrig',2:'Mittel',3:'Hoch'};let quality=2;try{quality=clamp(+loca
 const QE=()=>quality>1?3:1;   // Mittel und Hoch teilen die Aufloesung/Sichtweite/Schatten der frueheren Stufe Hoch (lief auf dem iPad gut); Hoch fuegt nur die Nachbearbeitung hinzu
 function applyQ(){
   const dpr=window.devicePixelRatio||1;
-  renderer.setPixelRatio([0,Math.min(dpr,0.7),Math.min(dpr,1.25),Math.max(Math.min(dpr,2),1.5)][QE()]*DRS);   // Niedrig bewusst weich, Hoch mit Supersampling
+  renderer.setPixelRatio([0,Math.min(dpr,0.7),Math.min(dpr,1.25),IOSX?Math.min(dpr,1.5):Math.max(Math.min(dpr,2),1.5)][QE()]*DRS);   // Niedrig bewusst weich, Hoch mit Supersampling
   scene.fog.density=[0,0.0009,0.00055,0.0004][QE()]*[1,5,2.2][WX]*(STORM()?1.5:1)*(NIGHT?1.35:1)*((RT&&RT.alp)?0.32:1)*(1+SEA.win.value*0.7);                                  // Niedrig: naeher Dunst, spart Fernsicht
   sun.castShadow=quality>1&&!NIGHT&&WX!==2;if(NT.lamp)NT.lamp.castShadow=NIGHT&&quality>1;if(GRS)GRS.visible=quality>1;                                                       // Niedrig: keine Schatten, kein Gras
-  const sz=[0,1024,2048,4096][QE()];
+  const sz=[0,1024,2048,IOSX?2048:4096][QE()];
   if(sun.shadow.mapSize.x!==sz){sun.shadow.mapSize.set(sz,sz);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null;}}
   resize();
 }
@@ -462,7 +463,7 @@ applyQ();
 const qLabel=()=>quality===3?'Hoch · '+(FPSCAP===30?30:60)+' fps':quality===1&&FPSCAP===30?'Akku · 30 fps':QN[quality];   // Akku = Niedrig (kleine Aufloesung, keine Schatten) + 30 fps   // Stufe 4 = Hoch mit 30 Bildern/s (Akku sparen)
 function cycleQ(){if(quality===3&&FPSCAP!==30){FPSCAP=30;}else if(quality===1&&FPSCAP===0){FPSCAP=30;}else{quality=quality%3+1;FPSCAP=quality===3?60:0;}try{localStorage.setItem('miworu_q',quality);localStorage.setItem('miworu_fps',String(FPSCAP));}catch(_){}applyQ();fxSetup();toastEl.textContent='Grafik: '+qLabel();toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}
 // Nachbearbeitung (nur Stufe "Hoch"): leichtes Bloom, Filmton, Vignette. ?fx=0 schaltet aus, ?fx=1 erzwingt.
-function fxWanted(){let f=null;try{f=new URLSearchParams(location.search).get('fx');}catch(e){}if(f==='0')return false;if(f==='1')return true;return quality===3&&(MW||BK);}
+function fxWanted(){let f=null;try{f=new URLSearchParams(location.search).get('fx');}catch(e){}if(f==='0')return false;if(f==='1')return true;if(IOSX)return false;return quality===3&&(MW||BK);}   // iPad: keine Nachbearbeitung (MSAA-Float-Puffer + Bloom sind zu schwer)
 function fxSetup(){
   if(!fxWanted()){FXon=false;return;}
   if(!composer){
@@ -638,7 +639,9 @@ if(BK)applySun(true);
 const ASSETS=import.meta.env.BASE_URL+'assets/';
 const TL=new THREE.TextureLoader();
 function photo(id,karte,srgb,cb){
-  TL.load(ASSETS+'textures/'+id+'/'+karte+'.jpg',t=>{t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=8;if(srgb)t.encoding=THREE.sRGBEncoding;cb(t);},undefined,()=>{});
+  TL.load(ASSETS+'textures/'+id+'/'+karte+'.jpg',t=>{
+    if(IOSX&&t.image&&t.image.width>1024){try{const c=document.createElement('canvas');c.width=c.height=1024;c.getContext('2d').drawImage(t.image,0,0,1024,1024);t.image=c;}catch(e){}}   // iPad: Texturen auf 1024 verkleinern (spart rund drei Viertel des Speichers)
+    t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=IOSX?2:8;if(srgb)t.encoding=THREE.sRGBEncoding;cb(t);},undefined,()=>{});
 }
 function applyPhoto(mat,id,rx,ry,o){
   o=o||{};
