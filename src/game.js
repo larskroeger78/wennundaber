@@ -412,7 +412,7 @@ const SEA_CODE={
   leaf:'float sN=sH(vSeed.xz*0.731+vSeed.y);float sL=dot(diffuseColor.rgb,vec3(.3,.55,.15));vec3 sA=sN<.3?vec3(1.0,.64,.14):(sN<.58?vec3(.95,.42,.08):(sN<.8?vec3(.72,.17,.07):vec3(.86,.78,.22)));diffuseColor.rgb=mix(diffuseColor.rgb,sA*sL*1.9,uAut);if(uWin>0.0&&sN<uWin*.88)discard;diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.8,.85,.9),uWin*.4);',
   fir:'float sN=sH(vSeed.xz*0.731+vSeed.y);'+SEA_SN+'diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.86,.9,.95),sn*(.4+.35*sN));',
   grs:SEA_SN+'float sL=dot(diffuseColor.rgb,vec3(.3,.55,.15));diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.62,.46,.2)*sL*2.0,uAut*.6);diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.76,.79,.84),sn*.85);',
-  gnd:SEA_SN+'float sL=dot(diffuseColor.rgb,vec3(.3,.55,.15));diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.55,.36,.18)*sL*2.2,uAut*.35);diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.78,.82,.89),sn);',
+  gnd:SEA_SN+'diffuseColor.rgb*=0.8+0.4*sNz(vWP.xz*0.05)*(0.6+0.4*sNz(vWP.xz*0.31));float sL=dot(diffuseColor.rgb,vec3(.3,.55,.15));diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.55,.36,.18)*sL*2.2,uAut*.35);diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.78,.82,.89),sn);',
   asp:SEA_PATH(0.3,0.85,0.25),
   gvl:SEA_PATH(0.25,0.8,0.7),
   trl:SEA_PATH(0.3,0.65,1.0)};
@@ -514,6 +514,10 @@ const sky=new THREE.Mesh(new THREE.SphereGeometry((RT&&RT.alp)?16000:4500,32,16)
   ' float sh=fbm(uv*1.2+sunDir.xz*0.15);',
   ' vec3 cc=mix(vec3(0.50,0.56,0.66),vec3(1.25,1.2,1.15),smoothstep(0.3,0.8,1.0-sh*0.9+sd*0.3));',
   ' cc*=cloudTint;col=mix(col,cc,cov*smoothstep(0.0,0.12,d.y)*0.9);',
+  ' float edge=smoothstep(0.46,0.58,c)*(1.0-smoothstep(0.58,0.78,c));col+=sunCol*edge*pow(sd,2.0)*0.45*smoothstep(0.0,0.12,d.y);',   // Wolkenraender hellen zur Sonne hin auf (Silberrand)
+  ' vec2 u2=d.xz/(h+0.35)*vec2(0.55,1.5)+vec2(time*0.0025,time*0.0008);',   // zweite, hohe Schicht: duenne Schleierwolken
+  ' float ci=fbm(u2*vec2(1.0,4.0)+3.7);float cir=smoothstep(0.52,0.85,ci)*smoothstep(0.02,0.25,d.y)*0.38*(1.0-cov*0.7);',
+  ' col=mix(col,cloudTint*mix(vec3(0.85,0.9,1.0),vec3(1.2,1.15,1.05),sd),cir);',
   ' col=mix(hor,col,smoothstep(-0.02,0.06,d.y));',
   ' gl_FragColor=vec4(col,1.0);',
   ' #include <tonemapping_fragment>',
