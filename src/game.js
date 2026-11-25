@@ -2553,7 +2553,7 @@ function menu(title,sub){
   document.getElementById('trn').onclick=async()=>{bleMsg='';if(bleGuard())return;try{await trainer.connect();}catch(e){bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Trainer: '+(e&&e.message||e);}menu(title,sub);};
   document.getElementById('hlp').onclick=showHelp;
   document.getElementById('hrb').onclick=async()=>{bleMsg='';if(bleGuard())return;try{await hrm.connect();}catch(e){bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Brustgurt: '+(e&&e.message||e);}menu(title,sub);};
-  const stv=document.getElementById('stv');if(stv)stv.onclick=()=>{downloadTCX(REC,{name:'MIWORU '+(ROUTE?RT.label:'')});stv.textContent='Datei gespeichert ✓';};
+  const stv=document.getElementById('stv');if(stv)stv.onclick=()=>{downloadTCX(REC,{name:'MIWORU'});stv.textContent='Datei gespeichert ✓';};
   document.getElementById('clk').onclick=async()=>{bleMsg='';if(bleGuard())return;try{await click.connect();}catch(e){click.dbg('Koppeln fehlgeschlagen: '+(e&&e.name||'')+' '+(e&&e.message||e));bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Click: '+(e&&e.message||e);}menu(title,sub);};
   document.getElementById('go').onclick=paused?resume:(SAVED?startSaved:start);
   const rst=document.getElementById('rst');if(rst)rst.onclick=start;
