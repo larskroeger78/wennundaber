@@ -3453,6 +3453,7 @@ await BOOT('Setze Autos und Mitfahrer …',95);
 // ================= Gruppenfahrt: farbige Punkte der Mitfahrer =================
 const GRP=makeGroup(),GRP_ROUTE=GPX_ID?'gpx_'+GPX_ID:(RKEY||'tour2');
 let GRP_CODE='';try{GRP_CODE=localStorage.getItem('miworu_group')||'';}catch(e){}
+const DOTK=(window.matchMedia&&matchMedia('(pointer:coarse)').matches&&Math.max(innerWidth,innerHeight)<=1400)?2.4:1;   // iPad/Tablet: Mitfahrer-Punkt groesser
 const DOT_RANGE=500;   // ab dieser Entfernung (m) verschwindet der Punkt im Sichtfeld (nur noch in Minikarte und Profil)
 const dotTex=[0,1,2,3].map(l=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d'),r=[22,22,22,22][l];
   if(l===0){g.fillStyle='rgba(0,0,0,0.85)';g.beginPath();g.arc(32,32,r+4,0,7);g.fill();g.fillStyle='#fff';g.beginPath();g.arc(32,32,r,0,7);g.fill();}   // scharfer Punkt mit dunklem Rand
@@ -3471,7 +3472,7 @@ function updateGroup(dt){
     const d=Math.hypot(x-camera.position.x,y-camera.position.y,z-camera.position.z);
     if(d>DOT_RANGE||d<1.2)return;
     const t=d/DOT_RANGE,lv=t<0.08?0:t<0.25?1:t<0.55?2:3;   // je weiter weg, desto unschaerfer
-    sp.material.map=dotTex[lv];sp.material.opacity=1-t*0.6;sp.scale.setScalar(Math.max(0.3,d*0.012)*(1+lv*0.35));sp.position.set(x,y,z);sp.visible=true;
+    sp.material.map=dotTex[lv];sp.material.opacity=1-t*0.6;sp.scale.setScalar(Math.max(0.3,d*0.012)*(1+lv*0.35)*DOTK);sp.position.set(x,y,z);sp.visible=true;
   });
 }
 {   // Luftbilder laden und in den Spielfarben verwenden
