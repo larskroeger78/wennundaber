@@ -121,38 +121,6 @@ export class Trainer {
   stop() { if (this.connected && this.canControl) this._write([0x08, 0x01]); }
 }
 
-
-// ---------- Brustgurt / Pulsmesser (Heart Rate Service 0x180D, Messwert 0x2A37) ----------
-export function parseHeartRate(dv) {
-  const f = dv.getUint8(0);
-  return (f & 1) ? dv.getUint16(1, true) : dv.getUint8(1);   // Bit0: 16-Bit- oder 8-Bit-Wert
-}
-export class HeartRate {
-  constructor() { this.connected = false; this.name = ''; this.bpm = 0; this.status = ''; this.onChange = () => {}; this._t = 0; }
-  get live() { return this.connected && performance.now() - this._t < 6000 && this.bpm > 0; }   // ohne Messwert seit 6 s gilt der Gurt als nicht aktiv
-  async reconnect() {
-    try {
-      if (!BLE_OK || !navigator.bluetooth.getDevices || this.connected) return false;
-      const id = localStorage.getItem('miworu_hr_id'); if (!id) return false;
-      const dev = (await navigator.bluetooth.getDevices()).find(d => d.id === id); if (!dev) return false;
-      await waitAdv(dev);
-      await this.connect(dev); return this.connected;
-    } catch (e) { return false; }
-  }
-  async connect(devArg) {
-    if (!BLE_OK) throw new Error('Dieser Browser unterstützt kein Web Bluetooth. Bitte Chrome oder Edge am Mac/PC benutzen (nicht Safari).');
-    const dev = devArg || await navigator.bluetooth.requestDevice({ filters: [{ services: [U16(0x180d)] }], optionalServices: [U16(0x180d)] });
-    try { localStorage.setItem('miworu_hr_id', dev.id); } catch (_) {}
-    this.name = dev.name || 'Brustgurt';
-    dev.addEventListener('gattserverdisconnected', () => { this.connected = false; this.bpm = 0; this.status = 'Verbindung verloren'; this.onChange(); });
-    const srv = await dev.gatt.connect();
-    const s = await srv.getPrimaryService(U16(0x180d)), c = await s.getCharacteristic(U16(0x2a37));
-    c.addEventListener('characteristicvaluechanged', e => { const b = parseHeartRate(e.target.value); if (b > 0 && b < 250) { this.bpm = b; this._t = performance.now(); } });
-    await c.startNotifications();
-    this.dev = dev; this.connected = true; this.status = 'verbunden'; this.onChange();
-  }
-}
-
 // ---------- Zwift Click (experimentell) ----------
 // Das Click nutzt Zwifts proprietäres Protokoll (Service FC82, Handshake "RideOn", Protobuf, bei neueren Geräten verschlüsselt).
 // Ohne offizielle Spezifikation: wir koppeln, senden den RideOn-Handshake und protokollieren die Rohdaten.

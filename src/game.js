@@ -13,8 +13,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { Trainer, ClickPad, HeartRate, BLE_OK } from './ble.js';
-import { Rec, downloadTCX } from './strava.js';
+import { Trainer, ClickPad, BLE_OK } from './ble.js';
 import { AUDIO } from './audio.js';
 import MITT1 from './routes/mittwochsrunde.json';
 import MIW from './routes/miworu.json';
@@ -530,7 +529,7 @@ if(MW){
   {const P=[],C=[];for(let c=0;c<26;c++){const az=rr()*6.2832,sp=0.012+rr()*0.07,cnt=40+(rr()*160|0),warm=rr();for(let i=0;i<cnt;i++){const a=az+(rr()+rr()+rr()-1.5)*sp,el=0.0012+Math.pow(rr(),1.8)*0.014,r=Math.cos(el),k=4300;P.push(Math.sin(a)*r*k,Math.sin(el)*k,Math.cos(a)*r*k);const b=0.5+0.5*rr();C.push(b,b*(0.68+0.25*warm),b*(0.4+0.3*warm));}}
     const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('color',new THREE.Float32BufferAttribute(C,3));
     NT.city=new THREE.Points(g,new THREE.PointsMaterial({size:2.2,sizeAttenuation:false,vertexColors:true,transparent:true,opacity:1,depthWrite:false,fog:false,blending:THREE.AdditiveBlending}));NT.city.frustumCulled=false;NT.city.visible=false;scene.add(NT.city);}
-  NT.moon=new THREE.Mesh(new THREE.CircleGeometry(95,40),new THREE.MeshBasicMaterial({color:0xf3f1e4,fog:false,depthWrite:false,depthTest:false}));NT.moon.renderOrder=-20;NT.moon.visible=false;NT.moon.frustumCulled=false;scene.add(NT.moon);
+  NT.moon=new THREE.Mesh(new THREE.CircleGeometry(95,40),new THREE.MeshBasicMaterial({color:0xf3f1e4,fog:false,depthWrite:false}));NT.moon.visible=false;NT.moon.frustumCulled=false;scene.add(NT.moon);
   NT.halo=new THREE.Mesh(new THREE.PlaneGeometry(1100,1100),new THREE.MeshBasicMaterial({map:radTex('rgba(190,205,255,0.5)'),transparent:true,depthWrite:false,fog:false,blending:THREE.AdditiveBlending}));NT.halo.visible=false;NT.halo.frustumCulled=false;scene.add(NT.halo);
   NT.lamp=new THREE.SpotLight(0xfff4e2,22,88,0.3,0.6,1);NT.lamp.visible=false;NT.lamp.shadow.mapSize.set(1024,1024);NT.lamp.shadow.camera.near=0.6;NT.lamp.shadow.camera.far=110;NT.lamp.shadow.bias=-0.0006;scene.add(NT.lamp);NT.lampT=new THREE.Object3D();scene.add(NT.lampT);NT.lamp.target=NT.lampT;
   NT.flood=new THREE.SpotLight(0xffecd0,3.4,30,0.9,0.8,1.2);NT.flood.visible=false;scene.add(NT.flood);NT.floodT=new THREE.Object3D();scene.add(NT.floodT);NT.flood.target=NT.floodT;
@@ -539,7 +538,7 @@ function nightSky(u){   // wird am Ende von applySun aufgerufen: Nacht ueberschr
   if(!MW)return;
   if(scene.environment)NT.env=scene.environment;
   if(!NIGHT){if(NT.env&&scene.environment!==NT.env)scene.environment=NT.env;return;}
-  SUN.set(-0.3,0.78,0.6).normalize();
+  SUN.set(-0.35,0.62,0.7).normalize();
   sun.color.setRGB(0.5,0.6,0.95);sun.intensity=0.2;
   hemi.color.setRGB(0.1,0.13,0.26);hemi.groundColor.setRGB(0.035,0.04,0.06);hemi.intensity=0.55;
   renderer.toneMappingExposure=1.15;
@@ -582,7 +581,6 @@ function toggleNight(){if(!MW)return;const want=!NIGHT;   // manuell an/aus; bei
 
 // Sonnenstand nach Uhrzeit (nur Bergkamen). Nie dunkler als leichte Daemmerung: unter ~5 Grad Sonnenhoehe bleibt das Licht auf diesem Niveau.
 // Test: ?zeit=7.5 (Uhrzeit in Stunden, lokale Zeit)
-var DARK=false;const AMB_SUNNY_ON=()=>AMB_SUNNY&&TODM===0;   // Sonnig: nie dunkel
 let _sunMin=-1,TODM=0,TODUTC=null,NIGHT_MAN=NIGHT,NIGHT_AUTO=false,NIGHT_SUP=false;const TODN=['Live','Morgen','Mittag','Abend','Dämmerung'];
 function applySun(force){
   if(!BK)return;
@@ -597,10 +595,8 @@ function applySun(force){
   SUN.set(ca*Math.sin(A),Math.sin(altE),-ca*Math.cos(A)).normalize();
   const deg=(AMB_SUNNY&&TODM===0)?Math.max(alt*180/Math.PI,12):alt*180/Math.PI,low=1-sstep(8,40,deg),tw=sstep(-6,9,deg);   // low: tiefe Sonne (warm), tw: 1 = Tag, 0 = Daemmerung
   {   // Tageszeit Live: nach Sonnenuntergang automatisch Nightride-Look (mit Hysterese), morgens zurueck
-    DARK=deg<-5&&!AMB_SUNNY_ON();   // draussen ist es dunkel (Sonnenstand), unabhaengig davon ob Nightride schon laeuft
     let a=NIGHT_AUTO;if(!(TODM===0&&TODUTC===null))a=false;else if(deg>-3){a=false;NIGHT_SUP=false;}else if(deg<-5&&!NIGHT_SUP)a=true;
-    if(a!==NIGHT_AUTO){if(NIGHT_AUTO&&!a){NIGHT_MAN=false;try{localStorage.setItem('miworu_night','0');}catch(_){}}   // automatische Nacht endet (hellerer Modus oder Morgen): Nightride geht wieder aus, auch ein altes manuelles "an" bleibt nicht haengen
-      NIGHT_AUTO=a;const n=NIGHT_MAN||NIGHT_AUTO;if(n!==NIGHT){NIGHT=n;nightApply();return;}}}
+    if(a!==NIGHT_AUTO){NIGHT_AUTO=a;const n=NIGHT_MAN||NIGHT_AUTO;if(n!==NIGHT){NIGHT=n;nightApply();return;}}}
   const mixc=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
   let sc=mixc([1.0,0.9,0.78],[1.0,0.46,0.2],low);sc=mixc([0.7,0.4,0.55],sc,tw);
   const inten=(0.95+1.55*sstep(4,30,deg))*(0.72+0.28*tw);
@@ -1718,7 +1714,6 @@ function downAt(sPos){   // Abfahrtsstueck? mittleres Gefaelle +-30 m unter -4 %
   const i0=Math.floor(sPos/SEG);let a=0,n=0;for(let i=Math.max(0,i0-15);i<=Math.min(N-1,i0+15);i+=3){a+=GR[i];n++;}return n>0&&a/n<-4;
 }
 function updateJoggers(dt){
-  if(WX===2||NIGHT){joggers.forEach(j=>{if(j.active||j.g.visible){j.active=false;j.g.visible=false;}j.wait=Math.max(j.wait,8);});return;}   // bei Regen und in der Dunkelheit ist niemand joggen
   const sMax=ROUTE?TOTAL-40:(iTrail-30)*SEG;
   joggers.forEach(j=>{
     if(!j.active){
@@ -2066,7 +2061,7 @@ if(WXLIVE)setTimeout(wxFetch,600);else if(WXFIX||WXSTORM){WX=2;setTimeout(wxAppl
 const M=95,CDA=0.38,RHO=1.2,GRAV=9.81,PMAX=300,BRAKE=260;
 const keys={};
 let running=false,inputMode='keyboard',st;
-const trainer=new Trainer(),click=new ClickPad(),hrm=new HeartRate(),REC=new Rec();let paused=false,gear=0,bleMsg='',lastMenu=null;   // gear: virtuelle Schaltung = Widerstand in %-Steigung (+/-)
+const trainer=new Trainer(),click=new ClickPad();let paused=false,gear=0,bleMsg='',lastMenu=null;   // gear: virtuelle Schaltung = Widerstand in %-Steigung (+/-)
 let gearUsed=false,toastT=0;
 const DIFFN={1:'Leicht',2:'Normal',3:'Hardcore',4:'Eskalation'};
 let diff=1;try{const v=+localStorage.getItem('miworu_diff');if(v>=1&&v<=4)diff=v;}catch(e){}   // Schwierigkeit: 1 Leicht (Steigungen zählen 40 %), 2 Normal
@@ -2189,7 +2184,7 @@ function updateCockFx(now,deg){
 function applyCockpit(){const el=document.getElementById('cockpit');el.src='/assets/ui/cockpit2.png';el.classList.add('c2');}
 applyCockpit();
 const cockpitEl=document.getElementById('cockpit'),glowEl=document.getElementById('glow'),_cd=new THREE.Vector3(),_sv=new THREE.Vector3();
-function reset(){SHK.y=SHK.vy=SHK.r=SHK.vr=0;SHK.i=0;SHK.fi=0;SHK.w=SHK.wv=0;SHK.air=null;st={pos:0,v:0,x:0.4,power:0,t:0,crank:0.6,wheel:0,lean:0,bar:0,pitch:0,done:false};REC.reset();resetJoggers();vanWait=12;VANS&&VANS.forEach(v=>{if(!v.parked){v.active=false;v.g.visible=false;}});}
+function reset(){SHK.y=SHK.vy=SHK.r=SHK.vr=0;SHK.i=0;SHK.fi=0;SHK.w=SHK.wv=0;SHK.air=null;st={pos:0,v:0,x:0.4,power:0,t:0,crank:0.6,wheel:0,lean:0,bar:0,pitch:0,done:false};resetJoggers();vanWait=12;VANS&&VANS.forEach(v=>{if(!v.parked){v.active=false;v.g.visible=false;}});}
 reset();
 // Vollbild: Esc beendet es (Browser), auf dem Tablet gibt es dafuer das X oben links
 const isFS=()=>!!(document.fullscreenElement||document.webkitFullscreenElement);
@@ -2279,10 +2274,6 @@ function update(dt){
   const off=Math.abs(st.x)>HW[i]+0.15;
   if(off)st.v*=Math.max(0,1-1.3*dt);
   const p0=st.pos;st.pos=Math.max(0,st.pos+st.v*dt);st.t+=dt;
-  if(MW&&DARK&&!NIGHT&&st.t-(update.darkT===undefined?-99:update.darkT)>40){update.darkT=st.t;toastEl.textContent='Es ist dunkel · Taste L: Nightride einschalten (Licht an)';toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),4500);}   // Hinweis, wenn es dunkel ist und das Licht noch aus ist
-  {   // Aufzeichnung fuer den Strava-Export (ca. 1x pro Sekunde): bewusst OHNE Koordinaten, die hinterlegten Strecken werden nicht herausgegeben
-    REC.add(st.t,{d:st.pos,alt:NHN0+PY[Math.min(N,Math.floor(st.pos/SEG))],v:st.v,w:st.power,cad:(tr&&trainer.cadence)||0,hr:hrm.live?hrm.bpm:0});
-  }
   // Ruppeln: Wurzeln und Steine unter dem Rad geben Stöße, Schotter/Trail rauschen leicht
   while(SHK.i<BUMPS.length&&BUMPS[SHK.i].s<st.pos){
     const b=BUMPS[SHK.i++];
@@ -2395,7 +2386,7 @@ function drawHud(){
   if(SEC[i]!==lastSec){lastSec=SEC[i];secEl.innerHTML=SECN[lastSec]+'<small>'+PLACE+'</small>';}
   spdEl.firstChild.nodeValue=(st.v*3.6).toFixed(0);
   gearHud();
-  subEl.innerHTML='<b>'+Math.round(st.power)+' W</b>'+(hrm.live?' · <b>♥ '+hrm.bpm+'</b>':'')+' · '+(GR[i]>=0?'+':'')+GR[i].toFixed(0)+' %'+(GR[i]>2&&Math.abs(GR[i]*gearF()-GR[i])>0.5?' (fühlt sich an wie '+(GR[i]*gearF()).toFixed(0)+' %)':'')+' · '+(NHN0+PY[i]).toFixed(0)+' m ü. NHN<br>'+(st.pos/1000).toFixed(2)+' / '+(TOTAL/1000).toFixed(2)+' km · '+fmtT(st.t);
+  subEl.innerHTML='<b>'+Math.round(st.power)+' W</b>'+' · '+(GR[i]>=0?'+':'')+GR[i].toFixed(0)+' %'+(GR[i]>2&&Math.abs(GR[i]*gearF()-GR[i])>0.5?' (fühlt sich an wie '+(GR[i]*gearF()).toFixed(0)+' %)':'')+' · '+(NHN0+PY[i]).toFixed(0)+' m ü. NHN<br>'+(st.pos/1000).toFixed(2)+' / '+(TOTAL/1000).toFixed(2)+' km · '+fmtT(st.t);
   mg.clearRect(0,0,180,180);mg.drawImage(miniBase,0,0);
   const mx=90+(PX[i]-Math.cos(HS[i])*st.x-MCX)*MS,my=90+(PZ[i]+Math.sin(HS[i])*st.x-MCZ)*MS;
   mg.save();mg.translate(mx,my);mg.rotate(Math.atan2(Math.cos(HS[i]),Math.sin(HS[i])));
@@ -2540,7 +2531,7 @@ function menu(title,sub){
       (sub?'<div class="res">'+sub+'</div>':'')+
       (String(ROUTE?RT.label:TRACK_NAME).replace(/<[^>]*>/g,'').trim().toUpperCase()==='MIWORU'?'':'<div class="route">'+(ROUTE?RT.label:TRACK_NAME)+'</div>')+
       '<div class="stats"><div><b>'+km+'</b><i>km</i></div><div><b>'+HM+'</b><i>Höhenmeter</i></div></div>'+
-      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(st&&st.done&&REC.length>1?'<button id="stv" class="main" style="background:#fc4c02;border-color:#fc4c02;color:#fff">It never happened if it\'s not on Strava</button><div class="help" style="grid-column:1/-1;margin:0">Lädt deine Fahrt als Datei (.tcx) herunter. Bei Strava: + → Aktivität hochladen → Datei wählen, Sportart „Virtuelle Fahrt“ einstellen.</div>':'')+(paused||SAVED?'<button id="rst" class="sec">Neu starten</button>':'')+'<div class="bg">Verbinden</div><button id="trn" class="sec"><i class="dot'+(trainer.connected?' on':'')+'"></i>'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec"><i class="dot'+(click.connected?(click.devs.filter(x=>!x.lost).length>=2?' on':' mid'):'')+'"></i>'+(()=>{const n=click.devs.filter(x=>!x.lost).length;return n>=2?'Zwift Click: beide Hälften ✓':n===1&&click.connected?'Zwift Click ✓ · zweite Hälfte koppeln (stabiler)':(click.devs.length?'Zwift Click: getrennt – neu koppeln':'Zwift Click koppeln');})()+'</button>'+'<button id="hrb" class="sec"><i class="dot'+(hrm.connected?' on':'')+'"></i>'+(hrm.connected?'Brustgurt: '+hrm.name+(hrm.live?' · ♥ '+hrm.bpm:' ✓'):'Brustgurt koppeln (Puls)')+'</button><div class="bg">Fahren</div><button id="dif" class="sec">Schwierigkeit (S): '+DIFFN[diff]+'</button><button id="ebb" class="sec">E-Bike (E): '+(EBIKE?'an':'aus')+'</button><button id="hubb" class="sec">Freilauf: '+(AUDIO.hub?AUDIO.hub+' Zähne':'aus')+'</button><button id="grpb" class="sec">'+(GRP_CODE?'Groupride: '+GRP_CODE:'Groupride')+'</button><div class="bg">Darstellung &amp; Ton</div><button id="qual" class="sec">Grafik (Q): '+qLabel()+'</button><button id="wxb" class="sec">Ambiente (A): '+WXL()+'</button><button id="nghb" class="sec" style="display:'+(MW?'':'none')+'">Nightride: '+(NIGHT?(NIGHT_AUTO&&!NIGHT_MAN?'an · automatisch':'an'):'aus')+'</button><button id="snd" class="sec">Sound: '+(AUDIO.on?'an':'aus')+'</button><button id="fsb" class="sec">'+(isFS()?'Vollbild beenden (V)':'Vollbild (V)')+'</button><div class="bg">Hilfe</div><button id="hlp" class="sec">So fährst du · Problem melden</button></div>'+mineHtml()+
+      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused||SAVED?'<button id="rst" class="sec">Neu starten</button>':'')+'<div class="bg">Verbinden</div><button id="trn" class="sec"><i class="dot'+(trainer.connected?' on':'')+'"></i>'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec"><i class="dot'+(click.connected?(click.devs.filter(x=>!x.lost).length>=2?' on':' mid'):'')+'"></i>'+(()=>{const n=click.devs.filter(x=>!x.lost).length;return n>=2?'Zwift Click: beide Hälften ✓':n===1&&click.connected?'Zwift Click ✓ · zweite Hälfte koppeln (stabiler)':(click.devs.length?'Zwift Click: getrennt – neu koppeln':'Zwift Click koppeln');})()+'</button>'+'<div class="bg">Fahren</div><button id="dif" class="sec">Schwierigkeit (S): '+DIFFN[diff]+'</button><button id="ebb" class="sec">E-Bike (E): '+(EBIKE?'an':'aus')+'</button><button id="hubb" class="sec">Freilauf: '+(AUDIO.hub?AUDIO.hub+' Zähne':'aus')+'</button><button id="grpb" class="sec">'+(GRP_CODE?'Groupride: '+GRP_CODE:'Groupride')+'</button><div class="bg">Darstellung &amp; Ton</div><button id="qual" class="sec">Grafik (Q): '+qLabel()+'</button><button id="wxb" class="sec">Ambiente (A): '+WXL()+'</button><button id="nghb" class="sec" style="display:'+(MW?'':'none')+'">Nightride: '+(NIGHT?(NIGHT_AUTO&&!NIGHT_MAN?'an · automatisch':'an'):'aus')+'</button><button id="snd" class="sec">Sound: '+(AUDIO.on?'an':'aus')+'</button><button id="fsb" class="sec">'+(isFS()?'Vollbild beenden (V)':'Vollbild (V)')+'</button><div class="bg">Hilfe</div><button id="hlp" class="sec">So fährst du · Problem melden</button></div>'+mineHtml()+
       '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?(IOS?'iPad: Seite in der App Bluefy öffnen (Safari kann kein Bluetooth).':'Bluetooth nur in Chrome/Edge (nicht Safari).'):'D100 oder KICKR einschalten, dann „Trainer koppeln“.')+(bleMsg?'<br>'+bleMsg:'')+''+(click.connected?'<br>'+click.name+' verbunden'+'<br>Click: kurz drücken = schwerer · gedrückt halten = leichter':(click.devs.length?'<br><b>'+click.name+': nicht verbunden</b> – Click einmal drücken oder neu koppeln':''))+'</div>'+
     '<div class="help" style="font-size:11px;opacity:.6">© 2026 Lars Kröger. Alle Rechte vorbehalten. Kopieren oder Weiterverwenden ohne Genehmigung untersagt.<br>© OpenStreetMap-Mitwirkende · © Geobasis NRW · Datenquelle: Land Tirol - data.tirol.gv.at (CC BY 4.0) · <a href="/rechtliches.html" target="_blank" rel="noopener" style="color:inherit">Rechtliches</a> · <a href="mailto:post@kroeger-grafikdesign.de" style="color:inherit">post@kroeger-grafikdesign.de</a></div>'+
     '</div></div>';
@@ -2556,8 +2547,6 @@ function menu(title,sub){
   document.getElementById('fsb').onclick=()=>{toggleFS();setTimeout(()=>{const b=document.getElementById('fsb');if(b)b.textContent=isFS()?'Vollbild beenden (V)':'Vollbild (V)';},400);};
   document.getElementById('trn').onclick=async()=>{bleMsg='';if(bleGuard())return;try{await trainer.connect();}catch(e){bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Trainer: '+(e&&e.message||e);}menu(title,sub);};
   document.getElementById('hlp').onclick=showHelp;
-  document.getElementById('hrb').onclick=async()=>{bleMsg='';if(bleGuard())return;try{await hrm.connect();}catch(e){bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Brustgurt: '+(e&&e.message||e);}menu(title,sub);};
-  const stv=document.getElementById('stv');if(stv)stv.onclick=()=>{downloadTCX(REC,{name:'MIWORU'});stv.textContent='Datei gespeichert ✓';};
   document.getElementById('clk').onclick=async()=>{bleMsg='';if(bleGuard())return;try{await click.connect();}catch(e){click.dbg('Koppeln fehlgeschlagen: '+(e&&e.name||'')+' '+(e&&e.message||e));bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Click: '+(e&&e.message||e);}menu(title,sub);};
   document.getElementById('go').onclick=paused?resume:(SAVED?startSaved:start);
   const rst=document.getElementById('rst');if(rst)rst.onclick=start;
@@ -2641,7 +2630,7 @@ let SEAS=0,SPD=0;const SEAN=['Standard','Herbst','Winter'];
 const WIND={k:0,g:0,x:0,z:0,dir:0,gt:0,dur:3,pk:1,next:2,lt:5};
 const FLASH=document.createElement('div');FLASH.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:4;background:#e2e8ff;opacity:0;transition:opacity .07s linear';document.getElementById('wrap').appendChild(FLASH);
 function stormSync(){   // schaltet die Laub-Partikel zwischen Sturm und Jahreszeit um
-  const on=STORM();if(on===STORMFX)return;STORMFX=on;WIND.next=1.5;WIND.lt=10+Math.random()*15;WIND.gt=0;
+  const on=STORM();if(on===STORMFX)return;STORMFX=on;WIND.next=1.5;WIND.lt=20+Math.random()*30;WIND.gt=0;
   if(on){FALL.p.visible=false;const c=camera.position;   // Gewitter ohne fliegendes Laub
     for(let i=0;i<FALL.n;i++){FALL.pos[i*3]=c.x+(Math.random()-0.5)*18;FALL.pos[i*3+1]=c.y-4+Math.random()*16;FALL.pos[i*3+2]=c.z+(Math.random()-0.5)*18;
       const k=Math.random();FALL.col.set(k<0.3?[.62,.78,.28]:k<0.55?[.95,.8,.28]:k<0.8?[1,.58,.16]:[.85,.3,.1],i*3);FALL.al[i]=1;FALL.sz[i]=0.12+Math.random()*0.08;}
@@ -3506,7 +3495,6 @@ requestAnimationFrame(()=>{const b=document.getElementById('boot');if(b){b.class
 
 // Nach dem Neuladen: zuletzt gekoppelten Trainer und Click automatisch wieder verbinden (ohne Auswahlfenster, wenn der Browser es erlaubt)
 setTimeout(()=>{trainer.reconnect();click.reconnect();},1500);
-if(!(/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)))setTimeout(()=>{hrm.reconnect();},9000);   // am iPad (Bluefy) kein stilles Wiederverbinden des Gurts: dort per Knopf koppeln   // Brustgurt erst nach Trainer und Click verbinden, damit sich die Bluetooth-Suchen nicht gegenseitig stoeren
 
 // E-Bike-Schalter auch in der oberen Leiste (neben Nightride): Kopie des Nightride-Knopfes, wird nach jedem Neuaufbau der Leiste ergaenzt
 {const one=(act,key,text,on)=>{   // Knopf als Kopie des Nightride-Knopfes anlegen bzw. Beschriftung aktualisieren
