@@ -268,11 +268,13 @@ export const AUDIO = (() => {
   // Menue/Pause: Ton sofort ausblenden (update() laeuft in der Pause nicht), beim Weiterfahren wieder einblenden
   let windK = 0, stormOn = false;
   function setWind(k, on) { windK = k; stormOn = !!on; }   // Gewitter: Boeenstaerke 0..1, Sturm an/aus
-  function thunder(dist) {   // Donner: kurzer Knall + langes Grollen, weiter weg = leiser und dumpfer
-    if (!ok || !on) return; const t = ctx.currentTime + 0.02, k = 1 - Math.min(1, dist || 0) * 0.65;
-    burst(t, 0.18, 'highpass', 1800, 0.7, 0.2 * k * k);
-    thump(t + 0.02, 80, 28, 1.6, 0.4 * k);
-    for (let i = 0; i < 6; i++) burst(t + 0.1 + i * 0.4 + Math.random() * 0.2, 1.3, 'lowpass', 150 + Math.random() * 130, 0.7, 0.4 * k * (1 - i * 0.13));
+  function thunder(dist, heavy) {   // Donner: Knall + langes Grollen; weiter weg = leiser und dumpfer; heavy = naher Einschlag, sehr laut mit Nachbeben
+    if (!ok || !on) return; const t = ctx.currentTime + 0.02, k = 1 - Math.min(1, dist || 0) * 0.65, h = heavy ? 2.2 : 1;
+    burst(t, heavy ? 0.35 : 0.18, 'highpass', 1500, 0.7, 0.2 * k * k * h);
+    if (heavy) { burst(t, 0.5, 'bandpass', 900, 0.6, 0.4); thump(t, 120, 30, 0.5, 0.55); }
+    thump(t + 0.02, 80, 28, heavy ? 2.4 : 1.6, 0.4 * k * (heavy ? 1.4 : 1));
+    const n = heavy ? 9 : 6;
+    for (let i = 0; i < n; i++) burst(t + 0.1 + i * 0.4 + Math.random() * 0.2, heavy ? 1.8 : 1.3, 'lowpass', 140 + Math.random() * 150, 0.7, 0.4 * k * h * (1 - i * (heavy ? 0.09 : 0.13)));
   }
   function hold(b) { held = !!b; if (ctx && master) { master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setTargetAtTime(on && !held ? vol : 0, ctx.currentTime, held ? 0.05 : 0.15); } }
   function toggle() { on = !on; try { localStorage.setItem('miworu_snd', on ? '1' : '0'); } catch (e) {} init(); return on; }

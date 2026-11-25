@@ -2620,15 +2620,17 @@ const WIND={k:0,g:0,x:0,z:0,dir:0,gt:0,dur:3,pk:1,next:2,lt:5};
 const FLASH=document.createElement('div');FLASH.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:4;background:#e2e8ff;opacity:0;transition:opacity .07s linear';document.getElementById('wrap').appendChild(FLASH);
 function stormSync(){   // schaltet die Laub-Partikel zwischen Sturm und Jahreszeit um
   const on=STORM();if(on===STORMFX)return;STORMFX=on;WIND.next=1.5;WIND.lt=4+Math.random()*5;WIND.gt=0;
-  if(on){FALL.p.visible=true;FALL.m.uniforms.map.value=T_LEAF;const c=camera.position;
+  if(on){FALL.p.visible=false;const c=camera.position;   // Gewitter ohne fliegendes Laub
     for(let i=0;i<FALL.n;i++){FALL.pos[i*3]=c.x+(Math.random()-0.5)*18;FALL.pos[i*3+1]=c.y-4+Math.random()*16;FALL.pos[i*3+2]=c.z+(Math.random()-0.5)*18;
       const k=Math.random();FALL.col.set(k<0.3?[.62,.78,.28]:k<0.55?[.95,.8,.28]:k<0.8?[1,.58,.16]:[.85,.3,.1],i*3);FALL.al[i]=1;FALL.sz[i]=0.12+Math.random()*0.08;}
     FALL.g.attributes.aCol.needsUpdate=true;FALL.g.attributes.aAlpha.needsUpdate=true;FALL.g.attributes.aSize.needsUpdate=true;}
   else seasonSet(SEAS);
 }
-function lightning(){const dist=Math.random();   // Blitz: mehrfaches Aufflackern, Donner kommt je nach Entfernung verzoegert
-  [[0,0.8],[90,0.2],[170,0.65],[330,0]].forEach(([d,o])=>setTimeout(()=>{FLASH.style.opacity=(o*(1-dist*0.45)).toFixed(2);},d));
-  setTimeout(()=>{AUDIO.thunder(dist);if(dist<0.35){SHK.vy+=0.22;SHK.vr+=(Math.random()-0.5)*0.8;}},(300+dist*3200));}
+function lightning(){   // Blitz: mehrfaches Aufflackern, Donner kommt je nach Entfernung verzoegert; jeder dritte Blitz ist ein Einschlag in der Naehe (gleissend hell, Knall sofort, Rad wackelt)
+  const heavy=Math.random()<0.34,dist=heavy?Math.random()*0.1:Math.random();
+  const seq=heavy?[[0,1],[70,0.3],[140,1],[230,0.4],[310,0.9],[400,0.25],[520,0.6],[700,0]]:[[0,0.8],[90,0.2],[170,0.65],[330,0]];
+  seq.forEach(([d,o])=>setTimeout(()=>{FLASH.style.opacity=(o*(1-dist*0.45)).toFixed(2);},d));
+  setTimeout(()=>{AUDIO.thunder(dist,heavy);if(heavy){SHK.vy+=0.6;SHK.vr+=(Math.random()-0.5)*2.5;SHK.wv+=(Math.random()<0.5?-1:1)*90;}else if(dist<0.35){SHK.vy+=0.22;SHK.vr+=(Math.random()-0.5)*0.8;}},heavy?120+dist*800:300+dist*3200);}
 function windFx(dt,t){
   if(!STORMFX){if(WIND.k||WIND.g){WIND.k=WIND.g=WIND.x=WIND.z=0;AUDIO.setWind(0,false);}return;}
   WIND.next-=dt;
