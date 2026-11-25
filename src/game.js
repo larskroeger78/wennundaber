@@ -2190,6 +2190,9 @@ function reset(){SHK.y=SHK.vy=SHK.r=SHK.vr=0;SHK.i=0;SHK.fi=0;SHK.w=SHK.wv=0;SHK
 reset();
 // Vollbild: Esc beendet es (Browser), auf dem Tablet gibt es dafuer das X oben links
 const isFS=()=>!!(document.fullscreenElement||document.webkitFullscreenElement);
+{let lt=0;document.addEventListener('touchend',e=>{   // Handy/Tablet: schnell doppeltippen schaltet Vollbild an bzw. aus (nicht auf Knoepfen, Karte, Profil und Menue-Feldern)
+  const tg=e.target;if(tg&&tg.closest&&tg.closest('button,a,input,select,textarea,#prof,#mini,.panel,.mine'))return;
+  const n=performance.now();if(n-lt<320){lt=0;if(e.cancelable)e.preventDefault();toggleFS();}else lt=n;},{passive:false});}
 function toggleFS(){
   const d=document,el=d.documentElement;
   try{
