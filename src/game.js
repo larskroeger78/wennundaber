@@ -2619,7 +2619,7 @@ let SEAS=0,SPD=0;const SEAN=['Standard','Herbst','Winter'];
 const WIND={k:0,g:0,x:0,z:0,dir:0,gt:0,dur:3,pk:1,next:2,lt:5};
 const FLASH=document.createElement('div');FLASH.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:4;background:#e2e8ff;opacity:0;transition:opacity .07s linear';document.getElementById('wrap').appendChild(FLASH);
 function stormSync(){   // schaltet die Laub-Partikel zwischen Sturm und Jahreszeit um
-  const on=STORM();if(on===STORMFX)return;STORMFX=on;WIND.next=1.5;WIND.lt=4+Math.random()*5;WIND.gt=0;
+  const on=STORM();if(on===STORMFX)return;STORMFX=on;WIND.next=1.5;WIND.lt=20+Math.random()*30;WIND.gt=0;
   if(on){FALL.p.visible=false;const c=camera.position;   // Gewitter ohne fliegendes Laub
     for(let i=0;i<FALL.n;i++){FALL.pos[i*3]=c.x+(Math.random()-0.5)*18;FALL.pos[i*3+1]=c.y-4+Math.random()*16;FALL.pos[i*3+2]=c.z+(Math.random()-0.5)*18;
       const k=Math.random();FALL.col.set(k<0.3?[.62,.78,.28]:k<0.55?[.95,.8,.28]:k<0.8?[1,.58,.16]:[.85,.3,.1],i*3);FALL.al[i]=1;FALL.sz[i]=0.12+Math.random()*0.08;}
@@ -2640,7 +2640,7 @@ function windFx(dt,t){
   WIND.g=g;WIND.k=Math.min(1,0.22+0.78*g);const sp=1.2+9*g;WIND.x=Math.cos(WIND.dir)*sp;WIND.z=Math.sin(WIND.dir)*sp;
   if(g>0.45&&running)SHK.vr+=(Math.random()-0.5)*0.05*g;
   AUDIO.setWind(WIND.k,true);
-  WIND.lt-=dt;if(WIND.lt<=0&&running&&!paused){WIND.lt=6+Math.random()*12;lightning();}
+  WIND.lt-=dt;if(WIND.lt<=0&&running&&!paused){WIND.lt=105+Math.random()*30;lightning();}   // ein Blitz etwa alle 2 Minuten
 }
 function seasonSet(m){
   SEAS=m;try{localStorage.setItem('miworu_sea',m);}catch(e){}
