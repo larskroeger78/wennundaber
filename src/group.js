@@ -19,16 +19,15 @@ export function makeGroup(){
   }
   function reach(){   // fehlende Plaetze anwaehlen (Nicht-Vorhandene schlagen still fehl)
     if(!G.peer||G.slot<0)return;
-    for(let j=0;j<SLOTS;j++){if(j===G.slot)continue;const id=pid(j);{const o=G.conns.get(id);if(o&&o.open&&performance.now()-(o._t||0)<DEAD*2)continue;}
+    for(let j=0;j<G.slot;j++){const id=pid(j);   // nur zu niedrigeren Plaetzen verbinden: eine Seite waehlt an, die andere nimmt an (vermeidet gegenseitiges Anwaehlen und Handshake-Kollisionen)
+      {const o=G.conns.get(id);if(o&&o.open&&performance.now()-(o._t||0)<DEAD*2)continue;}
       try{attach(G.peer.connect(id,{reliable:false}));}catch(_){}}
   }
   function rejoin(gen,ms){const c=G.code,r=G.route;setTimeout(()=>{if(gen===G.gen&&c)G.join(c,r);},ms);}   // Verbindung neu aufbauen statt dauerhaft 'wartet'
   async function open(slot,gen){
     if(gen!==G.gen)return;
     if(slot>=SLOTS){G.status='Gruppe voll';return;}
-    const {default:Peer}=await import('peerjs');
-    if(gen!==G.gen)return;
-    const p=new Peer(pid(slot));
+    let Peer,p;try{Peer=(await import('peerjs')).default;if(gen!==G.gen)return;p=new Peer(pid(slot));}catch(e){if(gen===G.gen){G.status='offline (Start)';rejoin(gen,3000);}return;}
     p.on('open',()=>{if(gen!==G.gen){p.destroy();return;}G.peer=p;G.slot=slot;G.status='verbunden';reach();});
     p.on('connection',c=>{c.on('open',()=>attach(c));});
     p.on('error',e=>{
@@ -41,14 +40,14 @@ export function makeGroup(){
   }
   G.join=(code,route)=>{G.leave();G.code=clean(code);G.route=String(route).replace(/[^a-z0-9_]/gi,'');if(!G.code)return;G.status='verbinde …';G.gen++;open(0,G.gen);};
   G.leave=()=>{G.gen++;try{G.peer&&G.peer.destroy();}catch(_){}G.peer=null;G.slot=-1;G.conns.clear();G.riders.clear();G.status='aus';G.code='';};
-  function beat(){const L=G.last;if(!L||!G.peer||G.slot<0)return;const m={k:G.slot,s:L.pos,x:L.x,v:L.running?L.v:0};G.conns.forEach(c=>{if(c.open)try{c.send(m);}catch(_){}});}   // Lebenszeichen auch in Pause/Menue und bei verstecktem Tab
-  setInterval(()=>{if(G.peer&&document.hidden){beat();}},1000);
+  function beat(){const L=G.last;if(!G.peer||G.slot<0)return;const m=L?{k:G.slot,s:L.pos,x:L.x,v:L.running?L.v:0}:{k:G.slot,h:1};G.conns.forEach(c=>{if(c.open)try{c.send(m);}catch(_){}});}   // Lebenszeichen auch in Pause/Menue und bei verstecktem Tab
+  let _r=0;setInterval(()=>{if(!G.peer||G.slot<0)return;beat();if(++_r%3===0)reach();},1000);   // Takt unabhaengig von der Bildrate (iPad ruckelt, Menue, Pause, Tab im Hintergrund)
   document.addEventListener('visibilitychange',()=>{if(document.hidden||!G.code)return;const p=G.peer;if(!p||p.destroyed)rejoin(G.gen,200);else{if(p.disconnected){try{p.reconnect();}catch(_){}}G.retryT=0;}});
   G.update=(dt,pos,x,v,running)=>{   // aufrufen pro Bild
     G.last={pos,x,v,running};
     if(!G.peer||G.slot<0)return;
     G.sendT-=dt;G.retryT-=dt;
-    if(G.retryT<=0){G.retryT=7;reach();}
+    if(G.retryT<=0){G.retryT=3;reach();}
     if(G.sendT<=0){G.sendT=0.25;beat();}
     const now=performance.now();
     G.riders.forEach((r,k)=>{if(now-r.t>STALE){G.riders.delete(k);return;}
