@@ -599,7 +599,8 @@ function applySun(force){
   {   // Tageszeit Live: nach Sonnenuntergang automatisch Nightride-Look (mit Hysterese), morgens zurueck
     DARK=deg<-5&&!AMB_SUNNY_ON();   // draussen ist es dunkel (Sonnenstand), unabhaengig davon ob Nightride schon laeuft
     let a=NIGHT_AUTO;if(!(TODM===0&&TODUTC===null))a=false;else if(deg>-3){a=false;NIGHT_SUP=false;}else if(deg<-5&&!NIGHT_SUP)a=true;
-    if(a!==NIGHT_AUTO){NIGHT_AUTO=a;const n=NIGHT_MAN||NIGHT_AUTO;if(n!==NIGHT){NIGHT=n;nightApply();return;}}}
+    if(a!==NIGHT_AUTO){if(NIGHT_AUTO&&!a){NIGHT_MAN=false;try{localStorage.setItem('miworu_night','0');}catch(_){}}   // automatische Nacht endet (hellerer Modus oder Morgen): Nightride geht wieder aus, auch ein altes manuelles "an" bleibt nicht haengen
+      NIGHT_AUTO=a;const n=NIGHT_MAN||NIGHT_AUTO;if(n!==NIGHT){NIGHT=n;nightApply();return;}}}
   const mixc=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
   let sc=mixc([1.0,0.9,0.78],[1.0,0.46,0.2],low);sc=mixc([0.7,0.4,0.55],sc,tw);
   const inten=(0.95+1.55*sstep(4,30,deg))*(0.72+0.28*tw);
