@@ -192,12 +192,12 @@ body.ebike #spd::before{content:'';display:inline-block;width:.31em;height:.5em;
 #rst{font-size:20px;padding:11px 20px;flex:0 0 auto}   /* Weiterfahren und Neu starten in einer Zeile */
 /* iPad / Tablets (Touch, bis 1200px): Hoehenprofil gross und sichtbar, Minikarte kleiner, Tasten klein und in einer Reihe */
 @media (pointer:coarse) and (max-width:1200px){
-  #prof{left:16px;right:16px;bottom:auto;top:10px;transform:none;width:auto;max-width:none;height:72px;z-index:6}
+  #prof{left:50%;right:auto;bottom:auto;top:8px;transform:translateX(-50%);width:300px;max-width:44vw;height:46px;z-index:6}
   body.fpv #prof{top:10px}
-  #hint{top:92px;right:12px;flex-wrap:nowrap;max-width:none;gap:3px}
-  #hint button{padding:7px 8px;font-size:11px;letter-spacing:.04em;min-height:34px}
+  #hint{top:62px;right:12px;flex-wrap:nowrap;max-width:none;gap:2px}
+  #hint button{padding:5px 5px;font-size:9px;letter-spacing:0;min-height:28px}
   #hint b{margin-right:2px;min-width:9px}
-  #menuBtn{top:136px;right:12px;padding:8px 12px;min-height:36px;font-size:13px}
+  #menuBtn{top:98px;right:12px;padding:6px 10px;min-height:30px;font-size:11px}
   #mini{width:120px;height:120px;left:14px;bottom:14px;border-width:2px;opacity:.9}
-  #grp{top:92px}
+  #grp{top:62px}
 }
