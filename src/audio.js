@@ -271,13 +271,15 @@ export const AUDIO = (() => {
   function setWind(k, on) { windK = k; stormOn = !!on; }   // Gewitter: Boeenstaerke 0..1, Sturm an/aus
   function thunder(dist, heavy) {   // Donner: Knall + langes Grollen; weiter weg = leiser und dumpfer; heavy = naher Einschlag, sehr laut mit Nachbeben
     if (!ok || !on) return; const t = ctx.currentTime + 0.02, k = 1 - Math.min(1, dist || 0) * 0.65, h = heavy ? 2.2 : 1;
-    burst(t, heavy ? 0.4 : 0.2, 'highpass', 1500, 0.7, 0.32 * k * k * h);
-    if (heavy) { burst(t, 0.6, 'bandpass', 900, 0.6, 0.6); thump(t, 120, 30, 0.6, 0.8); }
-    thump(t + 0.02, 80, 28, heavy ? 2.4 : 1.6, 0.4 * k * (heavy ? 1.4 : 1));
+    if (!thunderBuf) {   // nur als Notbehelf, solange die Aufnahme nicht geladen ist
+      burst(t, heavy ? 0.4 : 0.2, 'highpass', 1500, 0.7, 0.32 * k * k * h);
+      if (heavy) { burst(t, 0.6, 'bandpass', 900, 0.6, 0.6); thump(t, 120, 30, 0.6, 0.8); }
+      thump(t + 0.02, 80, 28, heavy ? 2.4 : 1.6, 0.4 * k * (heavy ? 1.4 : 1));
+    }
     if (thunderBuf) {   // echtes Grollen: zufaelliger Ausschnitt, weiche Ein-/Ausblendung, mit Entfernung dumpfer und leiser (bewusst nicht zu laut)
       const len = heavy ? 14 : 9, off = Math.random() * Math.max(1, thunderBuf.duration - len - 1), s = ctx.createBufferSource(); s.buffer = thunderBuf;
-      const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 500 + 3500 * k * k;
-      const g = ctx.createGain(), pk = (heavy ? 1.15 : 0.6) * (0.3 + 0.7 * k * k), t0 = t + (heavy ? 0.15 : 0.35);
+      const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 900 + 15000 * k * k;   // nah: unverfaerbt wie die Aufnahme, fern: dumpfer
+      const g = ctx.createGain(), pk = (heavy ? 1.6 : 0.9) * (0.3 + 0.7 * k * k), t0 = t + (heavy ? 0.05 : 0.25);
       g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(pk, t0 + (heavy ? 0.5 : 1.4)); g.gain.setValueAtTime(pk, t0 + len * 0.35); g.gain.linearRampToValueAtTime(0.0001, t0 + len);
       s.connect(f); f.connect(g); g.connect(master); s.start(t0, off, len + 0.1);
       return;
