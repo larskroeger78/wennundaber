@@ -298,9 +298,15 @@ export const AUDIO = (() => {
     for (let i = 0; i < n; i++) burst(t + 0.1 + i * 0.4 + Math.random() * 0.2, heavy ? 1.8 : 1.3, 'lowpass', 140 + Math.random() * 150, 0.7, 0.4 * k * h * (1 - i * (heavy ? 0.09 : 0.13)));
   }
   function hold(b) { held = !!b; if (ctx && master) { master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setTargetAtTime(on && !held ? vol : 0, ctx.currentTime, held ? 0.05 : 0.15); } }
+  function setAnimals(v) { animals = !!v; try { localStorage.setItem('miworu_tiere', animals ? '1' : '0'); } catch (e) {} }
+  function label() { return on ? (animals ? 'an' : 'Tiere aus') : 'aus'; }
+  function cycleSound() {   // Sound an -> Sound aus -> Tiere aus (Sound an, ohne Tiergeraeusche) -> Sound an
+    if (on && animals) toggle(); else if (!on) { toggle(); setAnimals(false); } else setAnimals(true);
+    return label();
+  }
   function toggle() { on = !on; try { localStorage.setItem('miworu_snd', on ? '1' : '0'); } catch (e) {} init(); return on; }
   // Browser starten Audio erst nach einer Nutzergeste (Klick, Taste, Touch): beim ersten Mal Kontext anlegen bzw. fortsetzen
   const wake = () => { init(); if (ctx && ctx.state === 'suspended') ctx.resume(); };
   ['pointerdown', 'keydown', 'touchstart', 'click'].forEach(ev => window.addEventListener(ev, wake, { passive: true }));
-  return { call, cycleHub, get animals() { return animals; }, toggleAnimals() { animals = !animals; try { localStorage.setItem('miworu_tiere', animals ? '1' : '0'); } catch (e) {} return animals; }, get hub() { return hubN; }, splash, init, get suspended() { return !ctx || ctx.state !== 'running'; }, update, setWind, thunder, bump, takeoff, land, edge, gear, toggle, hold, get on() { return on; } };
+  return { call, cycleHub, get animals() { return animals; }, cycleSound, get label() { return label(); }, toggleAnimals() { animals = !animals; try { localStorage.setItem('miworu_tiere', animals ? '1' : '0'); } catch (e) {} return animals; }, get hub() { return hubN; }, splash, init, get suspended() { return !ctx || ctx.state !== 'running'; }, update, setWind, thunder, bump, takeoff, land, edge, gear, toggle, hold, get on() { return on; } };
 })();

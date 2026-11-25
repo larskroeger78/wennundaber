@@ -26,6 +26,15 @@ export function buildTCX(rec, meta) {
     '<Intensity>Active</Intensity><TriggerMethod>Manual</TriggerMethod><Track>' + pts + '</Track></Lap>' +
     '<Notes>' + esc(meta && meta.name || 'MIWORU') + ' (virtuelle Fahrt)</Notes></Activity></Activities></TrainingCenterDatabase>';
 }
+export async function shareTCX(rec, meta) {   // Handy/Tablet: Teilen-Menue mit der Datei (dort Strava waehlen); sonst normaler Download
+  const x = buildTCX(rec, meta); if (!x) return 'none';
+  const name = ((meta && meta.name) || 'MIWORU').replace(/[^A-Za-z0-9_-]+/g, '_') + '_' + rec.t0.toISOString().slice(0, 10) + '.tcx';
+  try {
+    const f = new File([x], name, { type: 'application/vnd.garmin.tcx+xml' });
+    if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: 'MIWORU' }); return 'shared'; }
+  } catch (e) { if (e && e.name === 'AbortError') return 'abort'; }
+  downloadTCX(rec, meta); return 'download';
+}
 export function downloadTCX(rec, meta) {
   const x = buildTCX(rec, meta); if (!x) return false;
   const name = ((meta && meta.name) || 'MIWORU').replace(/[^A-Za-z0-9_-]+/g, '_') + '_' + rec.t0.toISOString().slice(0, 10) + '.tcx';
