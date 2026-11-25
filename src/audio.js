@@ -214,7 +214,7 @@ export const AUDIO = (() => {
     set(N.trail, 0, dt, 5);
     // Abfahrten auf Schotter/Trail: nur leises, dumpfes Knistern (Steinchen, Laub) - tief gefiltert
     if (v > 0.6 && (surf === 1 || surf === 2)) {
-      stoneAcc += dt * v * (surf === 1 ? 9 : 4);
+      stoneAcc += dt * v * (surf === 1 ? 9 : 4) * (1 + 1.6 * (s.lat || 0));   // in Kurven knirscht und spritzt der Untergrund staerker
       let n = stoneAcc | 0; stoneAcc -= n; n = Math.min(n, 6);
       while (n--) burst(t + Math.random() * dt, 0.03 + Math.random() * 0.04, 'lowpass', 380 + Math.random() * 520, 0.8, (surf === 1 ? 0.05 : 0.035) * (0.4 + Math.random()));
     }
