@@ -451,15 +451,15 @@ const QE=()=>quality>1?3:1;   // Mittel und Hoch teilen die Aufloesung/Sichtweit
 function applyQ(){
   const dpr=window.devicePixelRatio||1;
   renderer.setPixelRatio([0,Math.min(dpr,0.7),Math.min(dpr,1.25),Math.max(Math.min(dpr,2),1.5)][QE()]*DRS);   // Niedrig bewusst weich, Hoch mit Supersampling
-  scene.fog.density=[0,0.0009,0.00055,0.0004][QE()]*[1,5,2.2][WX]*(NIGHT?1.35:1)*((RT&&RT.alp)?0.32:1)*(1+SEA.win.value*0.7);                                  // Niedrig: naeher Dunst, spart Fernsicht
+  scene.fog.density=[0,0.0009,0.00055,0.0004][QE()]*[1,5,2.2][WX]*(STORM()?1.5:1)*(NIGHT?1.35:1)*((RT&&RT.alp)?0.32:1)*(1+SEA.win.value*0.7);                                  // Niedrig: naeher Dunst, spart Fernsicht
   sun.castShadow=quality>1&&!NIGHT&&WX!==2;if(NT.lamp)NT.lamp.castShadow=NIGHT&&quality>1;if(GRS)GRS.visible=quality>1;                                                       // Niedrig: keine Schatten, kein Gras
   const sz=[0,1024,2048,4096][QE()];
   if(sun.shadow.mapSize.x!==sz){sun.shadow.mapSize.set(sz,sz);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null;}}
   resize();
 }
 applyQ();
-const qLabel=()=>quality===3?'Hoch · '+(FPSCAP===30?30:60)+' fps':QN[quality];   // Stufe 4 = Hoch mit 30 Bildern/s (Akku sparen)
-function cycleQ(){if(quality===3&&FPSCAP!==30){FPSCAP=30;}else{quality=quality%3+1;FPSCAP=quality===3?60:0;}try{localStorage.setItem('miworu_q',quality);localStorage.setItem('miworu_fps',String(FPSCAP));}catch(_){}applyQ();fxSetup();toastEl.textContent='Grafik: '+qLabel();toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}
+const qLabel=()=>quality===3?'Hoch · '+(FPSCAP===30?30:60)+' fps':quality===1&&FPSCAP===30?'Akku · 30 fps':QN[quality];   // Akku = Niedrig (kleine Aufloesung, keine Schatten) + 30 fps   // Stufe 4 = Hoch mit 30 Bildern/s (Akku sparen)
+function cycleQ(){if(quality===3&&FPSCAP!==30){FPSCAP=30;}else if(quality===1&&FPSCAP===0){FPSCAP=30;}else{quality=quality%3+1;FPSCAP=quality===3?60:0;}try{localStorage.setItem('miworu_q',quality);localStorage.setItem('miworu_fps',String(FPSCAP));}catch(_){}applyQ();fxSetup();toastEl.textContent='Grafik: '+qLabel();toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}
 // Nachbearbeitung (nur Stufe "Hoch"): leichtes Bloom, Filmton, Vignette. ?fx=0 schaltet aus, ?fx=1 erzwingt.
 function fxWanted(){let f=null;try{f=new URLSearchParams(location.search).get('fx');}catch(e){}if(f==='0')return false;if(f==='1')return true;return quality===3&&(MW||BK);}
 function fxSetup(){
@@ -574,11 +574,13 @@ function nightFrame(){
   NT.lamp.position.copy(cp);NT.lamp.position.y+=0.05;NT.lampT.position.copy(cp).addScaledVector(_nd,30);NT.lampT.updateMatrixWorld();
   NT.flood.position.copy(NT.lamp.position);NT.floodT.position.copy(cp).addScaledVector(_nd,8);NT.floodT.position.y-=1.2;NT.floodT.updateMatrixWorld();
 }
-function toggleNight(){if(!MW)return;NIGHT=!NIGHT;try{localStorage.setItem('miworu_night',NIGHT?'1':'0');}catch(_){}nightApply();toastEl.textContent='Nightride: '+(NIGHT?'an':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1200);}
+function toggleNight(){if(!MW)return;const want=!NIGHT;   // manuell an/aus; bei Auto-Nacht (Tageszeit Live) schaltet L die Nacht bis zum Tag ab
+  if(want){NIGHT_MAN=true;NIGHT_SUP=false;}else{NIGHT_MAN=false;if(NIGHT_AUTO){NIGHT_AUTO=false;NIGHT_SUP=true;}}
+  NIGHT=want;try{localStorage.setItem('miworu_night',NIGHT_MAN?'1':'0');}catch(_){}nightApply();toastEl.textContent='Nightride: '+(NIGHT?'an':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1200);}
 
 // Sonnenstand nach Uhrzeit (nur Bergkamen). Nie dunkler als leichte Daemmerung: unter ~5 Grad Sonnenhoehe bleibt das Licht auf diesem Niveau.
 // Test: ?zeit=7.5 (Uhrzeit in Stunden, lokale Zeit)
-let _sunMin=-1,TODM=0,TODUTC=null;const TODN=['Live','Morgen','Mittag','Abend','Dämmerung'];
+let _sunMin=-1,TODM=0,TODUTC=null,NIGHT_MAN=NIGHT,NIGHT_AUTO=false,NIGHT_SUP=false;const TODN=['Live','Morgen','Mittag','Abend','Dämmerung'];
 function applySun(force){
   if(!BK)return;
   const d=new Date(),mn=Math.floor(d.getTime()/60000);if(!force&&mn===_sunMin)return;_sunMin=mn;
@@ -591,6 +593,9 @@ function applySun(force){
   const altE=Math.max(alt,2.5*Math.PI/180),ca=Math.cos(altE);
   SUN.set(ca*Math.sin(A),Math.sin(altE),-ca*Math.cos(A)).normalize();
   const deg=alt*180/Math.PI,low=1-sstep(8,40,deg),tw=sstep(-6,9,deg);   // low: tiefe Sonne (warm), tw: 1 = Tag, 0 = Daemmerung
+  {   // Tageszeit Live: nach Sonnenuntergang automatisch Nightride-Look (mit Hysterese), morgens zurueck
+    let a=NIGHT_AUTO;if(!(TODM===0&&TODUTC===null))a=false;else if(deg>-3){a=false;NIGHT_SUP=false;}else if(deg<-5&&!NIGHT_SUP)a=true;
+    if(a!==NIGHT_AUTO){NIGHT_AUTO=a;const n=NIGHT_MAN||NIGHT_AUTO;if(n!==NIGHT){NIGHT=n;nightApply();return;}}}
   const mixc=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
   let sc=mixc([1.0,0.9,0.78],[1.0,0.46,0.2],low);sc=mixc([0.7,0.4,0.55],sc,tw);
   const inten=(0.95+1.55*sstep(4,30,deg))*(0.72+0.28*tw);
@@ -605,12 +610,12 @@ function applySun(force){
   scene.fog.color.setRGB(hor[0],hor[1],hor[2]);scene.background=scene.background&&scene.background.isColor?new THREE.Color(hor[0],hor[1],hor[2]):scene.background;
   // Wetter: Nebel/Nieselregen nehmen Sonne und Farbe, Himmel und Dunst werden grau
   WXS.day=tw;WXS.rain=WX===2?1:0;
-  if(WX){const g=WX===1?0.74:0.5,k=WX===1?0.75:0.85,gr=[g*(0.9+0.1*tw),g*(0.92+0.08*tw),g*(0.96+0.04*tw)];
+  if(WX){const g=WX===1?0.74:(STORM()?0.27:0.5),k=WX===1?0.75:0.85,gr=[g*(0.9+0.1*tw),g*(0.92+0.08*tw),g*(0.96+0.04*tw)];
     const gm=(c)=>[c[0]+(gr[0]-c[0])*k,c[1]+(gr[1]-c[1])*k,c[2]+(gr[2]-c[2])*k];
     const h2=gm(hor),z2=gm(WX===1?[gr[0]*0.95,gr[1]*0.97,gr[2]]:[gr[0]*0.7,gr[1]*0.72,gr[2]*0.78]);
     u.horCol.value.set(h2[0],h2[1],h2[2]);u.zenCol.value.set(z2[0],z2[1],z2[2]);u.cloudTint.value.set(gr[0],gr[1],gr[2]);if(WX===2)u.sunCol.value.set(0,0,0);else u.sunCol.value.set(gr[0],gr[1],gr[2]);   // Regen: keine Sonnenscheibe, kein Himmelsglimmen
     scene.fog.color.setRGB(h2[0],h2[1],h2[2]);scene.background=new THREE.Color(h2[0],h2[1],h2[2]);
-    if(WX===2){sun.color.setRGB(gr[0],gr[1],gr[2]);sun.intensity=0.1;hemi.intensity=hemi.intensity*1.18+0.1;sun.castShadow=false;}   // Regen: keine Sonne, keine Schatten, nur diffuses Licht
+    if(WX===2){sun.color.setRGB(gr[0],gr[1],gr[2]);sun.intensity=0.1;hemi.intensity=STORM()?hemi.intensity*0.92+0.04:hemi.intensity*1.18+0.1;sun.castShadow=false;}   // Regen: keine Sonne, keine Schatten, nur diffuses Licht
     else{sun.intensity*=0.42;hemi.intensity*=1.15;}
   }
   if(WX!==2&&!NIGHT)sun.castShadow=quality>1;
@@ -621,7 +626,7 @@ function applySun(force){
     sun.intensity*=0.62;hemi.intensity*=1.12;
   }
   if(MW)nightSky(u);
-  scene.fog.density=[0,0.0009,0.00055,0.0004][QE()]*[1,5,2.2][WX]*(NIGHT?1.35:1)*((RT&&RT.alp)?0.32:1)*(1+SEA.win.value*0.7);
+  scene.fog.density=[0,0.0009,0.00055,0.0004][QE()]*[1,5,2.2][WX]*(STORM()?1.5:1)*(NIGHT?1.35:1)*((RT&&RT.alp)?0.32:1)*(1+SEA.win.value*0.7);
   {let mn=1e9,mx=-1e9;for(let i=0;i<=N;i+=4){mn=Math.min(mn,PY[i]);mx=Math.max(mx,PY[i]);}GF.value.y=mn+(mx-mn)*0.35+5;GF.value.z=20;
    GF.value.x=((NIGHT?0.2:(H<0?0.85:0.3)*(1-sstep(2,22,deg)))*(TODM===2?0:1))*(WX===1?0.4:1)+SEA.win.value*0.12;}
   window.__sun={alt:deg,az:A*180/Math.PI,utc:utc};
@@ -2019,10 +2024,12 @@ function applyWXOther(){   // Strecken ohne Sonnenstand-Modell: Himmel/Dunst gra
   scene.fog.density=[0,0.0009,0.00055,0.0004][QE()]*[1,5,2.2][WX];
 }
 const WXPOS={miworu:[51.62,7.62],hagen:[51.34,7.45],buellberg:[51.38,7.32],dortmund:[51.42,7.47],hemer:[51.36,7.79],iserlohn:[51.36,7.69],ibenstein:[52.17,8.04],deikamm:[52.26,9.47],wuppertal:[51.22,7.11]};
-var WXFIX=(()=>{try{return localStorage.getItem('miworu_wxfix')==='1';}catch(_){return false;}})();   // "Schlecht": fester, leichter Nieselregen
+var WXFIX=(()=>{try{return localStorage.getItem('miworu_wxfix')==='1';}catch(_){return false;}})();
+var WXSTORM=(()=>{try{return localStorage.getItem('miworu_wxstorm')==='1';}catch(_){return false;}})(),WXLSTORM=false,STORMFX=false;   // Gewitter: Sturm, Starkregen, Blitze, Boeen mit fliegendem Laub (WXLSTORM: Live-Wetter meldet Gewitter)
+function STORM(){return !!(WXSTORM||WXLSTORM)&&WX===2;}   // "Schlecht": fester, leichter Nieselregen
 let WXSNOWM=false,WXLSNOW=false,WXAUTM=false;try{WXSNOWM=localStorage.getItem('miworu_wxsnow')==='1';WXAUTM=localStorage.getItem('miworu_wxaut')==='1';}catch(_){}   // Wetter "Schnee": Winterlook mit leichtem Schneefall; WXLSNOW: Live-Wetter meldet gerade Schnee
-const WXL=()=>WXSNOWM?'Schnee':WXAUTM?'Herbst':WXFIX?'Regen':WXLIVE?'Live'+(WXLIVEOK?(WXLSNOW?' · Schnee':' · '+WXN[WX]):' …'):'Sonnig';
-function wxApply(){if(BK)applySun(true);else applyWXOther();applyQ();}
+const WXL=()=>WXSNOWM?'Schnee':WXAUTM?'Herbst':WXSTORM?'Gewitter':WXFIX?'Regen':WXLIVE?'Live'+(WXLIVEOK?(WXLSNOW?' · Schnee':WXLSTORM&&WX===2?' · Gewitter':' · '+WXN[WX]):' …'):'Sonnig';
+function wxApply(){if(BK)applySun(true);else applyWXOther();applyQ();stormSync();}
 async function wxFetch(){
   if(!WXLIVE)return;
   const pos=WXPOS[RT&&RT.dem]||[51.5,7.5];
@@ -2030,7 +2037,7 @@ async function wxFetch(){
     // WMO-Code: 45/48 Nebel; 51-67 Niesel/Regen; 80-82 Schauer; 95-99 Gewitter; 71-77 Schnee (als Nebel/Dunst); sonst klar
     const snow=(wc>=71&&wc<=77)||wc===85||wc===86;
     let w=0;if(wc===45||wc===48)w=1;if(!snow&&((wc>=51&&wc<=67)||(wc>=80&&wc<=82)||wc>=95||pr>=0.1))w=2;
-    if(!WXLIVE)return;WX=w;WXLIVEOK=true;
+    if(!WXLIVE)return;WX=w;WXLIVEOK=true;WXLSTORM=!snow&&wc>=95;
     if(snow!==WXLSNOW){WXLSNOW=snow;if(snow)seasonSet(2);else if(SEAS===2)seasonSet(0);}   // echter Schneefall: Winterlook, danach wieder zurueck
     wxApply();hintHud.k=null;}
   catch(e){if(WXLIVE){WX=0;WXLIVEOK=false;wxApply();hintHud.k=null;}}
@@ -2038,14 +2045,14 @@ async function wxFetch(){
 setInterval(()=>{if(WXLIVE)wxFetch();},15*60*1000);
 function cycleWX(){   // Aus -> Live -> Schlecht (leichter, dauerhafter Nieselregen) -> Schnee (Winterlook, leichter Schneefall) -> Aus
   const wasSeason=WXSNOWM||WXAUTM||WXLSNOW;
-  if(WXSNOWM){WXSNOWM=false;}else if(WXAUTM){WXAUTM=false;WXSNOWM=true;}else if(!WXLIVE&&!WXFIX){WXLIVE=true;}else if(WXLIVE){WXLIVE=false;WXFIX=true;}else{WXFIX=false;WXAUTM=true;}
-  WXLSNOW=false;
-  try{localStorage.setItem('miworu_wxl',WXLIVE?'1':'0');localStorage.setItem('miworu_wxfix',WXFIX?'1':'0');localStorage.setItem('miworu_wxsnow',WXSNOWM?'1':'0');localStorage.setItem('miworu_wxaut',WXAUTM?'1':'0');}catch(_){}
+  if(WXSNOWM){WXSNOWM=false;}else if(WXAUTM){WXAUTM=false;WXSNOWM=true;}else if(!WXLIVE&&!WXFIX&&!WXSTORM){WXLIVE=true;}else if(WXLIVE){WXLIVE=false;WXFIX=true;}else if(WXFIX){WXFIX=false;WXSTORM=true;}else{WXSTORM=false;WXAUTM=true;}
+  WXLSNOW=false;WXLSTORM=false;
+  try{localStorage.setItem('miworu_wxl',WXLIVE?'1':'0');localStorage.setItem('miworu_wxfix',WXFIX?'1':'0');localStorage.setItem('miworu_wxstorm',WXSTORM?'1':'0');localStorage.setItem('miworu_wxsnow',WXSNOWM?'1':'0');localStorage.setItem('miworu_wxaut',WXAUTM?'1':'0');}catch(_){}
   if(WXSNOWM){WX=0;WXLIVEOK=false;seasonSet(2);wxApply();}else if(WXAUTM){WX=0;WXLIVEOK=false;seasonSet(1);wxApply();}else if(wasSeason&&SEAS!==0)seasonSet(0);
-  if(WXSNOWM||WXAUTM){}else if(WXLIVE){WXLIVEOK=false;wxFetch();}else if(WXFIX){WX=2;WXLIVEOK=false;wxApply();}else{WX=0;WXLIVEOK=false;wxApply();}
-  hintHud.k=null;toastEl.textContent='Ambiente: '+(WXSNOWM?'Schnee (leichter Schneefall)':WXAUTM?'Herbst (Laubfarben, fallendes Laub)':WXFIX?'Regen (leichter Regen)':WXLIVE?'Live (wird geladen …)':'Sonnig (Sonne scheint, je nach Tageszeit)');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1400);
+  if(WXSNOWM||WXAUTM){}else if(WXLIVE){WXLIVEOK=false;wxFetch();}else if(WXFIX||WXSTORM){WX=2;WXLIVEOK=false;wxApply();}else{WX=0;WXLIVEOK=false;wxApply();}
+  hintHud.k=null;toastEl.textContent='Ambiente: '+(WXSNOWM?'Schnee (leichter Schneefall)':WXAUTM?'Herbst (Laubfarben, fallendes Laub)':WXSTORM?'Gewitter (Sturm, Starkregen, Blitze, Böen mit Laub)':WXFIX?'Regen (leichter Regen)':WXLIVE?'Live (wird geladen …)':'Sonnig (Sonne scheint, je nach Tageszeit)');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1400);
   if(WXLIVE)setTimeout(()=>{if(WXLIVEOK){toastEl.textContent='Wetter live: '+WXN[WX];toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1600);}},1500);}
-if(WXLIVE)setTimeout(wxFetch,600);else if(WXFIX){WX=2;setTimeout(wxApply,600);}
+if(WXLIVE)setTimeout(wxFetch,600);else if(WXFIX||WXSTORM){WX=2;setTimeout(wxApply,600);}
 
 // ================= Zustand, Eingabe, Physik =================
 const M=95,CDA=0.38,RHO=1.2,GRAV=9.81,PMAX=300,BRAKE=260;
@@ -2055,7 +2062,7 @@ const trainer=new Trainer(),click=new ClickPad();let paused=false,gear=0,bleMsg=
 let gearUsed=false,toastT=0;
 const DIFFN={1:'Leicht',2:'Normal',3:'Hardcore',4:'Eskalation'};
 let diff=1;try{const v=+localStorage.getItem('miworu_diff');if(v>=1&&v<=4)diff=v;}catch(e){}   // Schwierigkeit: 1 Leicht (Steigungen zählen 40 %), 2 Normal
-let FPSCAP=quality===3?60:0;try{if(+localStorage.getItem('miworu_fps')===30&&quality===3)FPSCAP=30;}catch(e){}   // Bildrate: 0 = frei (Bildschirm-Takt), 60 oder 30
+let FPSCAP=quality===3?60:0;try{if(+localStorage.getItem('miworu_fps')===30&&(quality===3||quality===1))FPSCAP=30;}catch(e){}   // Bildrate: 0 = frei (Bildschirm-Takt), 60 oder 30
 let EBIKE=false;try{EBIKE=localStorage.getItem('miworu_ebike')==='1';}catch(e){}   // E-Bike: Motor schiebt bis 26 km/h an (nur beim Treten, bergauf begrenzt), bergab darf man schneller sein
 document.body.classList.toggle('ebike',EBIKE);
 function toggleEbike(){EBIKE=!EBIKE;try{localStorage.setItem('miworu_ebike',EBIKE?'1':'0');}catch(e){}document.body.classList.toggle('ebike',EBIKE);if(window.__ensureEbHint)window.__ensureEbHint();toastEl.textContent='E-Bike: '+(EBIKE?'an (Motor bis 26 km/h)':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1400);}
@@ -2402,7 +2409,7 @@ function showHelp(){
     sec('Trainer und Zwift-Geräte koppeln',['Für Zwift Cog und Zwift Click müssen <b>beide</b> gekoppelt sein, sonst funktioniert das Schalten nicht. Beide im Menü unter Bluetooth verbinden (Click vorher in den blauen Koppelmodus bringen).','<b>iPad / iPhone:</b> Safari kann kein Bluetooth. Dafür brauchst du einmalig die kostenlose Zusatz-App <b>Bluefy</b>: 1. Bluefy im App Store installieren. 2. MIWORU-Adresse in Safari kopieren. 3. Bluefy öffnen, Adresse in die Adresszeile einfügen. 4. Im Spiel Trainer, Cog und Click koppeln. Das Spiel immer in Bluefy starten, nicht in Safari.'])+
     sec('Fahren',['<b>↑</b> treten · <b>↓</b> bremsen','<b>+</b> / <b>−</b> (oder Bild↑ / Bild↓): Gang schwerer / leichter. Zwift Click: <b>+</b> kurz = schwerer, gedrückt halten oder andere Taste = leichter.','<b>R</b> Neustart · <b>Esc</b> Pause und Menü · <b>V</b> Vollbild (Esc beendet es, auf dem Tablet das ✕ oben links)','Ins <b>Höhenprofil</b> oben klicken oder ziehen: an diese Stelle der Strecke springen.'])+
     sec('Schwierigkeit',['<b>S</b> schaltet die Stufen durch (auch der Knopf oben antippbar):','Leicht: 1,6-fache Wirkung deiner Watt, Steigungen nur zu 40 %','Normal','Hardcore: Steigungen zu 150 %, 0,85-fache Watt','Eskalation: 20 % härter als realistisch'])+
-    sec('Anzeige und Sound ein- und ausschalten',['<b>Q</b> Grafik: Niedrig, Mittel, Hoch, Hoch mit 30 Bildern/s (spart Akku, bei ruckelndem Bild eine Stufe tiefer)','<b>V</b> Vollbild an/aus (Esc beendet; auf dem Tablet das ✕ oben links)','<b>T</b> Tageszeit: Live, Morgen, Mittag, Abend, Dämmerung (Nebel in den Senken, Sonnenstrahlen)','Auf Stufe Hoch: Sonnenstrahlen, Randunschärfe bei hohem Tempo, bei Nightride sichtbarer Lichtkegel mit Insekten','<b>A</b> Ambiente: sonnig, Live-Wetter, Regen, Herbst (Laubfarben, fallendes Laub), Schnee (leichter Schneefall, Schnee auf Boden und Bäumen)','<b>E</b> E-Bike: Motor hilft beim Treten bis 26 km/h, in jedem Gang (bergauf begrenzt, bergab darfst du schneller sein). Ein blauer Blitz steht dann neben km/h','<b>L</b> Nightride: Nachtfahrt an oder aus (nur auf den festen Strecken)','<b>N</b> Sound: alle Geräusche an oder aus','<b>F</b> Freilauf: schaltet durch aus, 16, 32, 56 und 72 Zähne. Weniger Zähne klingen gröber und klickernder, 72 ist das feine Surren. Bei hohem Tempo wird der Freilauf von Wind und Reifenabrollen überdeckt, ganz weg ist er nur auf „aus“.'])+
+    sec('Anzeige und Sound ein- und ausschalten',['<b>Q</b> Grafik: Niedrig, Mittel, Hoch, Hoch mit 30 Bildern/s (spart Akku, bei ruckelndem Bild eine Stufe tiefer)','<b>V</b> Vollbild an/aus (Esc beendet; auf dem Tablet das ✕ oben links)','<b>T</b> Tageszeit: Live, Morgen, Mittag, Abend, Dämmerung (Nebel in den Senken, Sonnenstrahlen)','Auf Stufe Hoch: Sonnenstrahlen, Randunschärfe bei hohem Tempo, bei Nightride sichtbarer Lichtkegel mit Insekten','<b>A</b> Ambiente: sonnig, Live-Wetter, Regen, Gewitter (Sturm, Blitz und Donner, Böen mit fliegendem Laub), Herbst (Laubfarben, fallendes Laub), Schnee (leichter Schneefall, Schnee auf Boden und Bäumen)','<b>E</b> E-Bike: Motor hilft beim Treten bis 26 km/h, in jedem Gang (bergauf begrenzt, bergab darfst du schneller sein). Ein blauer Blitz steht dann neben km/h','<b>L</b> Nightride: Nachtfahrt an oder aus (nur auf den festen Strecken)','<b>N</b> Sound: alle Geräusche an oder aus','<b>F</b> Freilauf: schaltet durch aus, 16, 32, 56 und 72 Zähne. Weniger Zähne klingen gröber und klickernder, 72 ist das feine Surren. Bei hohem Tempo wird der Freilauf von Wind und Reifenabrollen überdeckt, ganz weg ist er nur auf „aus“.'])+
     sec('Nachtfahrt und Tiere',['Im Nightride fährst du mit Stirnlampe, Mond und Sternen. Nur dort und nur im dunklen Wald tauchen ab und zu Tiere auf: Wildschweine in einer Rotte mit Frischlingen, Hirsche und Rehe.','Du siehst sie nur schemenhaft am Wegrand, ihre Augen reflektieren das Licht deiner Lampe. Vor dem Weggehen rufen sie leise. Kommst du näher als 10 Meter, rennen sie weg und verschwinden in der Dunkelheit.','Ausschalten: <b>L</b> beendet den Nightride, und damit sind auch die Tiere weg. Ihre Rufe sind Teil von <b>N</b> (Sound).'])+
     sec('Strecken und Liftfahrten',['MIWORU bleibt kostenlos. Weitere Strecken schaltest du mit einem kleinen Support ab 1 € oder einem Community-Code frei.','Auf der Strecke in Sölden bringen dich Bergbahnen nach oben: Ein Hinweis zeigt Höhenmeter und Fahrzeit, die Liftzeit zählt nicht zu deiner Fahrzeit.'])+
     sec('Groupride',['Im Menü einen Gruppencode eingeben (alle Freunde denselben, dieselbe Strecke wählen). Mitfahrer erscheinen als farbige Punkte, in Minikarte und Höhenprofil immer.'])+
@@ -2513,7 +2520,7 @@ function menu(title,sub){
       (sub?'<div class="res">'+sub+'</div>':'')+
       (String(ROUTE?RT.label:TRACK_NAME).replace(/<[^>]*>/g,'').trim().toUpperCase()==='MIWORU'?'':'<div class="route">'+(ROUTE?RT.label:TRACK_NAME)+'</div>')+
       '<div class="stats"><div><b>'+km+'</b><i>km</i></div><div><b>'+HM+'</b><i>Höhenmeter</i></div></div>'+
-      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused||SAVED?'<button id="rst" class="sec">Neu starten</button>':'')+'<div class="bg">Verbinden</div><button id="trn" class="sec"><i class="dot'+(trainer.connected?' on':'')+'"></i>'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec"><i class="dot'+(click.connected?(click.devs.filter(x=>!x.lost).length>=2?' on':' mid'):'')+'"></i>'+(()=>{const n=click.devs.filter(x=>!x.lost).length;return n>=2?'Zwift Click: beide Hälften ✓':n===1&&click.connected?'Zwift Click ✓ · zweite Hälfte koppeln (stabiler)':(click.devs.length?'Zwift Click: getrennt – neu koppeln':'Zwift Click koppeln');})()+'</button>'+'<div class="bg">Fahren</div><button id="dif" class="sec">Schwierigkeit (S): '+DIFFN[diff]+'</button><button id="ebb" class="sec">E-Bike (E): '+(EBIKE?'an':'aus')+'</button><button id="hubb" class="sec">Freilauf: '+(AUDIO.hub?AUDIO.hub+' Zähne':'aus')+'</button><button id="grpb" class="sec">'+(GRP_CODE?'Groupride: '+GRP_CODE:'Groupride')+'</button><div class="bg">Darstellung &amp; Ton</div><button id="qual" class="sec">Grafik (Q): '+qLabel()+'</button><button id="wxb" class="sec">Ambiente (A): '+WXL()+'</button><button id="nghb" class="sec" style="display:'+(MW?'':'none')+'">Nightride: '+(NIGHT?'an':'aus')+'</button><button id="snd" class="sec">Sound: '+(AUDIO.on?'an':'aus')+'</button><button id="fsb" class="sec">'+(isFS()?'Vollbild beenden (V)':'Vollbild (V)')+'</button><div class="bg">Hilfe</div><button id="hlp" class="sec">So fährst du · Problem melden</button></div>'+mineHtml()+
+      '<div class="btns"><button id="go" class="main">'+title+'</button>'+(paused||SAVED?'<button id="rst" class="sec">Neu starten</button>':'')+'<div class="bg">Verbinden</div><button id="trn" class="sec"><i class="dot'+(trainer.connected?' on':'')+'"></i>'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec"><i class="dot'+(click.connected?(click.devs.filter(x=>!x.lost).length>=2?' on':' mid'):'')+'"></i>'+(()=>{const n=click.devs.filter(x=>!x.lost).length;return n>=2?'Zwift Click: beide Hälften ✓':n===1&&click.connected?'Zwift Click ✓ · zweite Hälfte koppeln (stabiler)':(click.devs.length?'Zwift Click: getrennt – neu koppeln':'Zwift Click koppeln');})()+'</button>'+'<div class="bg">Fahren</div><button id="dif" class="sec">Schwierigkeit (S): '+DIFFN[diff]+'</button><button id="ebb" class="sec">E-Bike (E): '+(EBIKE?'an':'aus')+'</button><button id="hubb" class="sec">Freilauf: '+(AUDIO.hub?AUDIO.hub+' Zähne':'aus')+'</button><button id="grpb" class="sec">'+(GRP_CODE?'Groupride: '+GRP_CODE:'Groupride')+'</button><div class="bg">Darstellung &amp; Ton</div><button id="qual" class="sec">Grafik (Q): '+qLabel()+'</button><button id="wxb" class="sec">Ambiente (A): '+WXL()+'</button><button id="nghb" class="sec" style="display:'+(MW?'':'none')+'">Nightride: '+(NIGHT?(NIGHT_AUTO&&!NIGHT_MAN?'an · automatisch':'an'):'aus')+'</button><button id="snd" class="sec">Sound: '+(AUDIO.on?'an':'aus')+'</button><button id="fsb" class="sec">'+(isFS()?'Vollbild beenden (V)':'Vollbild (V)')+'</button><div class="bg">Hilfe</div><button id="hlp" class="sec">So fährst du · Problem melden</button></div>'+mineHtml()+
       '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?(IOS?'iPad: Seite in der App Bluefy öffnen (Safari kann kein Bluetooth).':'Bluetooth nur in Chrome/Edge (nicht Safari).'):'D100 oder KICKR einschalten, dann „Trainer koppeln“.')+(bleMsg?'<br>'+bleMsg:'')+''+(click.connected?'<br>'+click.name+' verbunden'+'<br>Click: kurz drücken = schwerer · gedrückt halten = leichter':(click.devs.length?'<br><b>'+click.name+': nicht verbunden</b> – Click einmal drücken oder neu koppeln':''))+'</div>'+
     '<div class="help" style="font-size:11px;opacity:.6">© 2026 Lars Kröger. Alle Rechte vorbehalten. Kopieren oder Weiterverwenden ohne Genehmigung untersagt.<br>© OpenStreetMap-Mitwirkende · © Geobasis NRW · Datenquelle: Land Tirol - data.tirol.gv.at (CC BY 4.0) · <a href="/rechtliches.html" target="_blank" rel="noopener" style="color:inherit">Rechtliches</a> · <a href="mailto:post@kroeger-grafikdesign.de" style="color:inherit">post@kroeger-grafikdesign.de</a></div>'+
     '</div></div>';
@@ -2561,13 +2568,13 @@ for(let k=0;k<RAIN_N;k++){rainS[k*3]=(Math.random()-0.5)*26;rainS[k*3+1]=Math.ra
 rainG.setAttribute('position',new THREE.BufferAttribute(rainP,3));
 const rainM=new THREE.LineSegments(rainG,new THREE.LineBasicMaterial({color:0xcfd8e0,transparent:true,opacity:0.28,depthWrite:false,fog:false}));rainM.frustumCulled=false;rainM.visible=false;scene.add(rainM);
 function updateRain(dt){
-  rainM.visible=WX===2;if(WX!==2)return;
+  rainM.visible=WX===2;if(WX!==2)return;rainM.material.opacity=STORMFX?0.42:0.28;
   const cx=camera.position.x,cy=camera.position.y-2,cz=camera.position.z,vv=(running?st.v:0);
   for(let k=0;k<RAIN_N;k++){
-    rainS[k*3+1]-=dt*9;let y=rainS[k*3+1];
+    rainS[k*3+1]-=dt*(STORMFX?13:9);let y=rainS[k*3+1];
     if(y<0){rainS[k*3+1]=y+14;rainS[k*3]=(Math.random()-0.5)*26;rainS[k*3+2]=(Math.random()-0.5)*26;y=rainS[k*3+1];}
     const x=cx+rainS[k*3],z=cz+rainS[k*3+2],yy=cy+y;
-    rainP.set([x,yy,z,x+0.012*vv,yy+0.45,z+0.02*vv],k*6);
+    rainP.set([x,yy,z,x+0.012*vv+WIND.x*0.05,yy+0.45,z+0.02*vv+WIND.z*0.05],k*6);
   }
   rainG.attributes.position.needsUpdate=true;
 }
@@ -2608,6 +2615,31 @@ const T_LEAF=softTex('leaf'),T_SOFT=softTex('soft');
 const FALL=mkPts(1500,T_LEAF,false),FALL_PH=new Float32Array(1500).map(()=>Math.random()*6.283);
 const DUST=mkPts(110,T_SOFT,false),DUST_V=new Float32Array(110*3),DUST_L=new Float32Array(110),DUST_A=new Float32Array(110);let dustI=0,dustAcc=0;
 let SEAS=0,SPD=0;const SEAN=['Standard','Herbst','Winter'];
+// ---- Gewitter: Boeen (Wind), Blitz-Flash, Laub im Sturm ----
+const WIND={k:0,g:0,x:0,z:0,dir:0,gt:0,dur:3,pk:1,next:2,lt:5};
+const FLASH=document.createElement('div');FLASH.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:4;background:#e2e8ff;opacity:0;transition:opacity .07s linear';document.getElementById('wrap').appendChild(FLASH);
+function stormSync(){   // schaltet die Laub-Partikel zwischen Sturm und Jahreszeit um
+  const on=STORM();if(on===STORMFX)return;STORMFX=on;WIND.next=1.5;WIND.lt=4+Math.random()*5;WIND.gt=0;
+  if(on){FALL.p.visible=true;FALL.m.uniforms.map.value=T_LEAF;const c=camera.position;
+    for(let i=0;i<FALL.n;i++){FALL.pos[i*3]=c.x+(Math.random()-0.5)*18;FALL.pos[i*3+1]=c.y-4+Math.random()*16;FALL.pos[i*3+2]=c.z+(Math.random()-0.5)*18;
+      const k=Math.random();FALL.col.set(k<0.3?[.62,.78,.28]:k<0.55?[.95,.8,.28]:k<0.8?[1,.58,.16]:[.85,.3,.1],i*3);FALL.al[i]=1;FALL.sz[i]=0.12+Math.random()*0.08;}
+    FALL.g.attributes.aCol.needsUpdate=true;FALL.g.attributes.aAlpha.needsUpdate=true;FALL.g.attributes.aSize.needsUpdate=true;}
+  else seasonSet(SEAS);
+}
+function lightning(){const dist=Math.random();   // Blitz: mehrfaches Aufflackern, Donner kommt je nach Entfernung verzoegert
+  [[0,0.8],[90,0.2],[170,0.65],[330,0]].forEach(([d,o])=>setTimeout(()=>{FLASH.style.opacity=(o*(1-dist*0.45)).toFixed(2);},d));
+  setTimeout(()=>{AUDIO.thunder(dist);if(dist<0.35){SHK.vy+=0.22;SHK.vr+=(Math.random()-0.5)*0.8;}},(300+dist*3200));}
+function windFx(dt,t){
+  if(!STORMFX){if(WIND.k||WIND.g){WIND.k=WIND.g=WIND.x=WIND.z=0;AUDIO.setWind(0,false);}return;}
+  WIND.next-=dt;
+  if(WIND.gt<=0&&WIND.next<=0){WIND.gt=WIND.dur=2.5+Math.random()*2.5;WIND.pk=0.7+Math.random()*0.3;WIND.dir=Math.random()*6.283;WIND.next=3+Math.random()*6;
+    if(running){const sg=Math.random()<0.5?-1:1;SHK.vr+=sg*0.5*WIND.pk;SHK.wv+=sg*45*WIND.pk;}}   // Boe erfasst das Rad
+  let g=0;if(WIND.gt>0){WIND.gt-=dt;const u=1-Math.max(0,WIND.gt)/WIND.dur;g=Math.pow(Math.sin(Math.PI*u),2)*WIND.pk;}
+  WIND.g=g;WIND.k=Math.min(1,0.22+0.78*g);const sp=1.2+9*g;WIND.x=Math.cos(WIND.dir)*sp;WIND.z=Math.sin(WIND.dir)*sp;
+  if(g>0.45&&running)SHK.vr+=(Math.random()-0.5)*0.05*g;
+  AUDIO.setWind(WIND.k,true);
+  WIND.lt-=dt;if(WIND.lt<=0&&running&&!paused){WIND.lt=6+Math.random()*12;lightning();}
+}
 function seasonSet(m){
   SEAS=m;try{localStorage.setItem('miworu_sea',m);}catch(e){}
   SEA.aut.value=m===1?1:0;SEA.win.value=m===2?1:0;
@@ -2625,6 +2657,7 @@ function sunAltAt(utc){const d=new Date(),doy=Math.floor((Date.UTC(d.getUTCFullY
   return Math.asin(clamp(Math.sin(phi)*Math.sin(dec)+Math.cos(phi)*Math.cos(dec)*Math.cos(H),-1,1))*180/Math.PI;}
 function todSet(m){
   TODM=m;TODUTC=null;try{localStorage.setItem('miworu_tod',m);}catch(e){}
+  if(NIGHT_AUTO){NIGHT_AUTO=false;if(!NIGHT_MAN){NIGHT=false;nightApply();}}
   if(m>0){let mx=-99,hm=12;for(let h=0;h<24;h+=0.05){const a=sunAltAt(h);if(a>mx){mx=a;hm=h;}}
     TODUTC=hm;
     if(m===1){const t=Math.min(8,mx*0.6);for(let h=hm;h>0;h-=0.05)if(sunAltAt(h)<t){TODUTC=h;break;}}
@@ -2637,14 +2670,15 @@ const _gd=new THREE.Vector3(),_gs=new THREE.Vector3();
 function updateFx(dt,now){
   PTS_U.uScale.value=renderer.domElement.height/(2*Math.tan(camera.fov*Math.PI/360));
   const hl=NIGHT?0.12:clamp(0.3+sun.intensity*0.3+hemi.intensity*0.2,0.3,1.0);PTS_U.uLit.value=hl;
-  const c=camera.position,t=now*0.001,run=running&&!st.done;
-  if(FALL.p.visible){const sp=SEAS===1?1.0:1.3,p=FALL.pos;
+  const c=camera.position,t=now*0.001,run=running&&!st.done;windFx(dt,t);
+  if(FALL.p.visible){const sp=STORMFX?0.8:SEAS===1?1.0:1.3,p=FALL.pos;
     for(let i=0;i<FALL.n;i++){const ph=FALL_PH[i],j=i*3;
       p[j]+=(Math.sin(t*1.3+ph)*(SEAS===1?0.7:0.3)+0.25)*dt;p[j+1]-=sp*dt*(0.7+0.3*Math.sin(ph*3));p[j+2]+=Math.cos(t*1.1+ph*1.7)*(SEAS===1?0.5:0.2)*dt;
-      let dx=p[j]-c.x,dz=p[j+2]-c.z;if(dx>16)p[j]-=32;else if(dx<-16)p[j]+=32;if(dz>16)p[j+2]-=32;else if(dz<-16)p[j+2]+=32;
-      if(p[j+1]<c.y-4)p[j+1]+=16;
-      if(SEAS===1)FALL.sz[i]=0.15*(0.5+0.5*Math.abs(Math.sin(t*2.4+ph*7)));}
-    FALL.g.attributes.position.needsUpdate=true;if(SEAS===1)FALL.g.attributes.aSize.needsUpdate=true;}
+      if(STORMFX){const lm=0.5+0.9*Math.abs(Math.sin(ph*5));p[j]+=WIND.x*lm*dt;p[j+2]+=WIND.z*lm*dt;p[j+1]+=WIND.g*dt*(1.2+2.8*Math.sin(ph*3+t*3.1));}   // Boeen wirbeln das Laub durch die Luft
+      let dx=p[j]-c.x,dz=p[j+2]-c.z;const bw=STORMFX?9:16;if(dx>bw)p[j]-=bw*2;else if(dx<-bw)p[j]+=bw*2;if(dz>bw)p[j+2]-=bw*2;else if(dz<-bw)p[j+2]+=bw*2;   // Sturm: dichtere Wolke aus Laub um den Fahrer
+      if(p[j+1]<c.y-4)p[j+1]+=16;else if(p[j+1]>c.y+12)p[j+1]-=16;
+      if(SEAS===1||STORMFX)FALL.sz[i]=(STORMFX?0.5:0.15)*(0.5+0.5*Math.abs(Math.sin(t*2.4+ph*7)));}
+    FALL.g.attributes.position.needsUpdate=true;if(SEAS===1||STORMFX)FALL.g.attributes.aSize.needsUpdate=true;}
   // Staub und Spritzer auf Schotter/Trail
   const si=clamp(Math.round(st.pos/SEG),0,N),dusty=run&&SURF[si]!==0&&st.v>3.5&&WX!==2;
   if(dusty){camera.getWorldDirection(_gd);_gd.y=0;_gd.normalize();dustAcc+=dt*st.v*2.4;

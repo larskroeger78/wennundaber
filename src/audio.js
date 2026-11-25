@@ -150,6 +150,7 @@ export const AUDIO = (() => {
       N.trail = loop('bandpass', 900, 0.5);     // Waldboden: weiches Rascheln
       N.rain = loop('highpass', 3500, 0.4);     // Regen auf Laub
       N.rain2 = loop('bandpass', 1400, 0.4);
+      N.gust = loop('bandpass', 420, 0.7);      // Sturm: Boeen
       brakeG = loop('bandpass', 3400, 7);
       // Stollenreifen auf Asphalt: tiefes, raues Brummen. Zwei leicht verstimmte Saegezaehne (Schwebung = Rauheit), Tonhoehe folgt dem Tempo (Stollenreihen pro Sekunde),
       // dazu eine langsame Pulsation im Takt der Radumdrehung (die Stollenbloecke schlagen nacheinander auf)
@@ -234,7 +235,9 @@ export const AUDIO = (() => {
     // Pfuetze: Spritzen, solange man drin ist
     set(N.pud, !splashBuf && s.pud && v > 1.2 ? 0.1 * Math.min(1, v / 7) : 0, dt, 12);   // synthetisches Spritzen nur als Ersatz, solange die Aufnahme fehlt
     // Regen
-    set(N.rain, 0.00756 * s.rain, dt, 1.5); set(N.rain2, 0.00678 * s.rain, dt, 1.5);   // Regen: 40 % leiser
+    const sm = stormOn ? 2.6 : 1;   // Gewitter: deutlich kraeftigerer Regen
+    set(N.rain, 0.00756 * s.rain * sm, dt, 1.5); set(N.rain2, 0.00678 * s.rain * sm, dt, 1.5);
+    if (N.gust) { set(N.gust, 0.2 * windK * windK, dt, 3); N.gust.f.frequency.value = 260 + 900 * windK; }   // Regen: 40 % leiser
     // Voegel: nur im Wald und nur am Tag
     birdT -= dt * (s.forest > 0.35 ? 0.4 + 0.6 * s.forest : 0) * s.day * (1 - 0.95 * s.rain);
     // Wild: ab und zu Wildschwein-Grunzen, Rehbock-Schrecken oder Kitz-Fiepen (selten, nur im Wald, am Tag und Abend)
@@ -263,10 +266,18 @@ export const AUDIO = (() => {
   function gear() { if (!ok) return; const t = ctx.currentTime; burst(t, 0.012, 'bandpass', 4200, 5, 0.1); burst(t + 0.06, 0.012, 'bandpass', 3000, 5, 0.08); }
   function cycleHub() { hubN = HUBS[(HUBS.indexOf(hubN) + 1) % HUBS.length]; try { localStorage.setItem('miworu_hub', hubN); } catch (e) {} init(); return hubN; }
   // Menue/Pause: Ton sofort ausblenden (update() laeuft in der Pause nicht), beim Weiterfahren wieder einblenden
+  let windK = 0, stormOn = false;
+  function setWind(k, on) { windK = k; stormOn = !!on; }   // Gewitter: Boeenstaerke 0..1, Sturm an/aus
+  function thunder(dist) {   // Donner: kurzer Knall + langes Grollen, weiter weg = leiser und dumpfer
+    if (!ok || !on) return; const t = ctx.currentTime + 0.02, k = 1 - Math.min(1, dist || 0) * 0.65;
+    burst(t, 0.18, 'highpass', 1800, 0.7, 0.2 * k * k);
+    thump(t + 0.02, 80, 28, 1.6, 0.4 * k);
+    for (let i = 0; i < 6; i++) burst(t + 0.1 + i * 0.4 + Math.random() * 0.2, 1.3, 'lowpass', 150 + Math.random() * 130, 0.7, 0.4 * k * (1 - i * 0.13));
+  }
   function hold(b) { held = !!b; if (ctx && master) { master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setTargetAtTime(on && !held ? vol : 0, ctx.currentTime, held ? 0.05 : 0.15); } }
   function toggle() { on = !on; try { localStorage.setItem('miworu_snd', on ? '1' : '0'); } catch (e) {} init(); return on; }
   // Browser starten Audio erst nach einer Nutzergeste (Klick, Taste, Touch): beim ersten Mal Kontext anlegen bzw. fortsetzen
   const wake = () => { init(); if (ctx && ctx.state === 'suspended') ctx.resume(); };
   ['pointerdown', 'keydown', 'touchstart', 'click'].forEach(ev => window.addEventListener(ev, wake, { passive: true }));
-  return { call, cycleHub, get hub() { return hubN; }, splash, init, get suspended() { return !ctx || ctx.state !== 'running'; }, update, bump, takeoff, land, edge, gear, toggle, hold, get on() { return on; } };
+  return { call, cycleHub, get hub() { return hubN; }, splash, init, get suspended() { return !ctx || ctx.state !== 'running'; }, update, setWind, thunder, bump, takeoff, land, edge, gear, toggle, hold, get on() { return on; } };
 })();
