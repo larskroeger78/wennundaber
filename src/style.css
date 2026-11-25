@@ -201,3 +201,6 @@ body.ebike #spd::before{content:'';display:inline-block;width:.31em;height:.5em;
   #mini{width:120px;height:120px;left:14px;bottom:14px;border-width:2px;opacity:.9}
   #grp{top:62px}
 }
+/* Zielscreen: Nochmal fahren + Strava-Knopf in einer Reihe, Hinweistext darunter ueber die volle Breite */
+#stv{flex:2 1 0;font-size:17px;padding:11px 14px;line-height:1.15}
+.btns #stv+.help{flex:1 1 100%;margin:0}
