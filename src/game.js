@@ -441,6 +441,7 @@ let HDRTEX=null;const WXB={},PUDH={};
 const WXN=['Klar','Nebel','Nieselregen'];let WX=0;const WXS={rain:0,fog:0,day:1};
 let NIGHT=false;const NT={emi:[],pools:[],lampPts:[],stars:null,city:null,moon:null,halo:null,lamp:null,lampT:null,flood:null,floodT:null,env:null,bloom:null};   // Nachtfahrt (nur Bergkamen): Taste L
 try{const q=new URLSearchParams(location.search).get('nightride')||new URLSearchParams(location.search).get('nacht');NIGHT=MW&&(q==='1'||(q===null&&localStorage.getItem('miworu_night')==='1'));}catch(e){}
+var AMB_SUNNY=(()=>{try{const g=k=>localStorage.getItem(k)==='1';return !(g('miworu_wxl')||g('miworu_wxfix')||g('miworu_wxstorm')||g('miworu_wxsnow')||g('miworu_wxaut'));}catch(e){return true;}})();   // Ambiente "Sonnig": immer sonnig und hell, die Tageszeit bestimmt nur Sonnenhoehe und Schatten
 let WXLIVE=false,WXLIVEOK=false;   // Wetter: nur Aus oder Live (Open-Meteo zur Strecken-Position); ?wetter=0|1|2 erzwingt festen Zustand (Entwicklung)
 try{const q=new URLSearchParams(location.search).get('wetter');if(q!==null&&!isNaN(+q))WX=clamp(+q|0,0,2);else WXLIVE=localStorage.getItem('miworu_wxl')==='1';}catch(e){}
 // Qualitaetsstufen (Taste Q): Aufloesung, Schattenkarte
@@ -590,9 +591,9 @@ function applySun(force){
   const phi=51.6*Math.PI/180,dec=23.44*Math.PI/180*Math.sin(2*Math.PI*(284+doy)/365),H=((utc+7.6/15)%24-12)*15*Math.PI/180;
   const sa=Math.sin(phi)*Math.sin(dec)+Math.cos(phi)*Math.cos(dec)*Math.cos(H),alt=Math.asin(clamp(sa,-1,1));
   let A=Math.acos(clamp((Math.sin(dec)-Math.sin(phi)*sa)/(Math.cos(phi)*Math.cos(alt)+1e-6),-1,1));if(H>0)A=2*Math.PI-A;   // Azimut ab Nord, im Uhrzeigersinn
-  const altE=Math.max(alt,2.5*Math.PI/180),ca=Math.cos(altE);
+  const altE=Math.max(alt,((AMB_SUNNY&&TODM===0)?12:2.5)*Math.PI/180),ca=Math.cos(altE);   // Sonnig: Sonne nie unter 12 Grad
   SUN.set(ca*Math.sin(A),Math.sin(altE),-ca*Math.cos(A)).normalize();
-  const deg=alt*180/Math.PI,low=1-sstep(8,40,deg),tw=sstep(-6,9,deg);   // low: tiefe Sonne (warm), tw: 1 = Tag, 0 = Daemmerung
+  const deg=(AMB_SUNNY&&TODM===0)?Math.max(alt*180/Math.PI,12):alt*180/Math.PI,low=1-sstep(8,40,deg),tw=sstep(-6,9,deg);   // low: tiefe Sonne (warm), tw: 1 = Tag, 0 = Daemmerung
   {   // Tageszeit Live: nach Sonnenuntergang automatisch Nightride-Look (mit Hysterese), morgens zurueck
     let a=NIGHT_AUTO;if(!(TODM===0&&TODUTC===null))a=false;else if(deg>-3){a=false;NIGHT_SUP=false;}else if(deg<-5&&!NIGHT_SUP)a=true;
     if(a!==NIGHT_AUTO){NIGHT_AUTO=a;const n=NIGHT_MAN||NIGHT_AUTO;if(n!==NIGHT){NIGHT=n;nightApply();return;}}}
@@ -2048,6 +2049,7 @@ function cycleWX(){   // Aus -> Live -> Schlecht (leichter, dauerhafter Nieselre
   if(WXSNOWM){WXSNOWM=false;}else if(WXAUTM){WXAUTM=false;WXSNOWM=true;}else if(!WXLIVE&&!WXFIX&&!WXSTORM){WXLIVE=true;}else if(WXLIVE){WXLIVE=false;WXFIX=true;}else if(WXFIX){WXFIX=false;WXSTORM=true;}else{WXSTORM=false;WXAUTM=true;}
   WXLSNOW=false;WXLSTORM=false;
   try{localStorage.setItem('miworu_wxl',WXLIVE?'1':'0');localStorage.setItem('miworu_wxfix',WXFIX?'1':'0');localStorage.setItem('miworu_wxstorm',WXSTORM?'1':'0');localStorage.setItem('miworu_wxsnow',WXSNOWM?'1':'0');localStorage.setItem('miworu_wxaut',WXAUTM?'1':'0');}catch(_){}
+  AMB_SUNNY=!(WXLIVE||WXFIX||WXSTORM||WXSNOWM||WXAUTM);
   if(WXSNOWM){WX=0;WXLIVEOK=false;seasonSet(2);wxApply();}else if(WXAUTM){WX=0;WXLIVEOK=false;seasonSet(1);wxApply();}else if(wasSeason&&SEAS!==0)seasonSet(0);
   if(WXSNOWM||WXAUTM){}else if(WXLIVE){WXLIVEOK=false;wxFetch();}else if(WXFIX||WXSTORM){WX=2;WXLIVEOK=false;wxApply();}else{WX=0;WXLIVEOK=false;wxApply();}
   hintHud.k=null;toastEl.textContent='Ambiente: '+(WXSNOWM?'Schnee (leichter Schneefall)':WXAUTM?'Herbst (Laubfarben, fallendes Laub)':WXSTORM?'Gewitter (Sturm, Starkregen, Blitze, Böen mit Laub)':WXFIX?'Regen (leichter Regen)':WXLIVE?'Live (wird geladen …)':'Sonnig (Sonne scheint, je nach Tageszeit)');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1400);
