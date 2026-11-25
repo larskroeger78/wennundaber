@@ -1,10 +1,11 @@
 /* MIWORU by Wenn & Aber Bike Crew - © 2026 Lars Kröger. Alle Rechte vorbehalten. Kopie, Weitergabe und Weiterverwendung ohne schriftliche Genehmigung untersagt. */
 // MIWORU by Wenn & Aber Bike Crew – Spielcode (Stand Prototyp 0.6).
 // Noch eine einzige Datei; wird schrittweise in Module aufgeteilt (Strecke, Gelände, Vegetation, Figuren, HUD).
+import './legacycolor.js';
 import * as THREE from 'three';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import './style.css';
 import { makeVan } from './van.js';
 import { makeGroup, GROUP_COLORS } from './group.js';
@@ -12,7 +13,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
-import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Trainer, ClickPad, HeartRate, BLE_OK } from './ble.js';
 import { Rec, downloadTCX, shareTCX } from './strava.js';
 import { AUDIO } from './audio.js';
@@ -380,7 +381,7 @@ const canvas=document.getElementById('c');
 const IOSX=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);   // iPad/iPhone: sparsamer Speicherverbrauch (aeltere Geraete werden sonst vom Browser beendet)
 const renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:!IOSX});
 renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.5));
-renderer.outputEncoding=THREE.sRGBEncoding;
+renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.useLegacyLights=true;   // altes Lichtmodell und Farbverhalten wie in r128
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure=0.95;
 renderer.shadowMap.enabled=true;
@@ -404,7 +405,7 @@ const SEA={aut:{value:0},win:{value:0},snowY:{value:-1e5},snowK:{value:1}};   //
 })();
 const SEA_SN='float sn=clamp(uWin*smoothstep(uSnowY-60.0,uSnowY+40.0,vWP.y)*(0.8+0.2*sin(vWP.x*0.31)*sin(vWP.z*0.37)),0.0,1.0)*uSnowK;';
 // Wege im Winter: Schnee liegt fleckig (mal bedeckt, mal frei), am Rand dichter; zwei duenne braune Fahrspuren und dunkle Matschpfuetzen bleiben frei
-const SEA_PATH=(e0,cv,pdk)=>SEA_SN+'float cx=abs(vUv.x-0.5)*2.0,sE=smoothstep('+e0+',0.95,cx),n1=sNz(vWP.xz*0.55)*0.65+sNz(vWP.xz*1.7)*0.35,pd=smoothstep(0.68,0.77,sNz(vWP.xz*0.8+7.0))*'+pdk.toFixed(2)+',rut=smoothstep(0.1,0.0,abs(cx-0.4+(sNz(vWP.xz*0.3)-0.5)*0.1));'
+const SEA_PATH=(e0,cv,pdk)=>SEA_SN+'float cx=abs(vSeaUv.x-0.5)*2.0,sE=smoothstep('+e0+',0.95,cx),n1=sNz(vWP.xz*0.55)*0.65+sNz(vWP.xz*1.7)*0.35,pd=smoothstep(0.68,0.77,sNz(vWP.xz*0.8+7.0))*'+pdk.toFixed(2)+',rut=smoothstep(0.1,0.0,abs(cx-0.4+(sNz(vWP.xz*0.3)-0.5)*0.1));'
   +'float cov=min(1.0,sn*1.5)*mix(smoothstep(0.4,0.62,n1)*'+cv.toFixed(2)+',0.9,sE)*(1.0-rut*0.85)*(1.0-pd*(1.0-sE));'
   +'diffuseColor.rgb*=1.0-uWin*(0.4*pd*(1.0-sE)+0.18*rut);diffuseColor.rgb=mix(diffuseColor.rgb,mix(vec3(.77,.81,.88),vec3(.9,.93,.97),sE),cov);';
 const SEA_CODE={
@@ -418,9 +419,9 @@ const SEA_CODE={
 function seaPatch(mat,kind,inst){
   mat.onBeforeCompile=function(s){
     s.uniforms.uGF=GF;s.uniforms.uAut=SEA.aut;s.uniforms.uWin=SEA.win;s.uniforms.uSnowY=SEA.snowY;s.uniforms.uSnowK=SEA.snowK;
-    s.vertexShader=s.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vSeed;varying vec3 vWP;')
-      .replace('#include <begin_vertex>','#include <begin_vertex>\nvSeed='+(inst?'instanceMatrix[3].xyz':'vec3(0.0)')+';vWP=(modelMatrix*'+(inst?'instanceMatrix*':'')+'vec4(transformed,1.0)).xyz;');
-    const pre='#include <common>\nuniform float uAut,uWin,uSnowY,uSnowK;varying vec3 vSeed;varying vec3 vWP;\nfloat sH(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}\nfloat sNz(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(sH(i),sH(i+vec2(1.0,0.0)),f.x),mix(sH(i+vec2(0.0,1.0)),sH(i+vec2(1.0)),f.x),f.y);}';
+    s.vertexShader=s.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vSeed;varying vec3 vWP;varying vec2 vSeaUv;')
+      .replace('#include <begin_vertex>','#include <begin_vertex>\nvSeaUv=uv;vSeed='+(inst?'instanceMatrix[3].xyz':'vec3(0.0)')+';vWP=(modelMatrix*'+(inst?'instanceMatrix*':'')+'vec4(transformed,1.0)).xyz;');
+    const pre='#include <common>\nuniform float uAut,uWin,uSnowY,uSnowK;varying vec3 vSeed;varying vec3 vWP;varying vec2 vSeaUv;\nfloat sH(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}\nfloat sNz(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(sH(i),sH(i+vec2(1.0,0.0)),f.x),mix(sH(i+vec2(0.0,1.0)),sH(i+vec2(1.0)),f.x),f.y);}';
     if(kind==='dep')s.fragmentShader=s.fragmentShader.replace('#include <common>',pre).replace('#include <alphatest_fragment>','if(uWin>0.0&&sH(vSeed.xz*0.731+vSeed.y)<uWin*.88)discard;\n#include <alphatest_fragment>');
     else s.fragmentShader=s.fragmentShader.replace('#include <common>',pre).replace('#include <color_fragment>','#include <color_fragment>\n'+SEA_CODE[kind]);
   };
@@ -469,7 +470,7 @@ function fxSetup(){
   if(!fxWanted()){FXon=false;return;}
   if(!composer){
     const w=window.innerWidth,h=window.innerHeight;
-    const rt=new THREE.WebGLMultisampleRenderTarget(w,h,{type:THREE.HalfFloatType,format:THREE.RGBAFormat,minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter});rt.samples=4;
+    const rt=new THREE.WebGLRenderTarget(w,h,{type:THREE.HalfFloatType,format:THREE.RGBAFormat,minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,samples:4});
     composer=new EffectComposer(renderer,rt);composer.addPass(new RenderPass(scene,camera));
     const bl=new UnrealBloomPass(new THREE.Vector2(w/2,h/2),0.14,0.55,0.93);composer.addPass(bl);NT.bloom=bl;if(NIGHT){bl.strength=0.75;bl.threshold=0.7;bl.radius=0.7;}
     FXP=new ShaderPass({uniforms:{tDiffuse:{value:null},exposure:{value:0.95},vig:{value:0.1},spd:{value:0},ray:{value:0},glr:{value:0},sunUV:{value:new THREE.Vector2(0.5,0.5)},rayCol:{value:new THREE.Color(1.0,0.8,0.52)}},vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
@@ -516,7 +517,7 @@ const sky=new THREE.Mesh(new THREE.SphereGeometry((RT&&RT.alp)?16000:4500,32,16)
   ' col=mix(hor,col,smoothstep(-0.02,0.06,d.y));',
   ' gl_FragColor=vec4(col,1.0);',
   ' #include <tonemapping_fragment>',
-  ' #include <encodings_fragment>',
+  ' #include <colorspace_fragment>',
   '}'].join('\n')
 }));
 sky.frustumCulled=false;scene.add(sky);
@@ -661,11 +662,12 @@ function applyPhoto(mat,id,rx,ry,o){
 new RGBELoader().load(ASSETS+'hdri/kloofendal_48d_partly_cloudy_puresky.hdr',tex=>{
   const d=tex.image.data,w=tex.image.width,h=tex.image.height;
   let best=-1,bx=0,by=0;
-  for(let y=0;y<h/2;y+=2)for(let x=0;x<w;x+=2){const k=(y*w+x)*4,l=Math.max(d[k],d[k+1],d[k+2])*Math.pow(2,d[k+3]-136);if(l>best){best=l;bx=x;by=y;}}
+  const rd=i=>THREE.DataUtils.fromHalfFloat(d[i]);   // r160: RGBELoader liefert Half-Float statt RGBE-Bytes
+  for(let y=0;y<h/2;y+=2)for(let x=0;x<w;x+=2){const k=(y*w+x)*4,l=Math.max(rd(k),rd(k+1),rd(k+2));if(l>best){best=l;bx=x;by=y;}}
   const v=1-(by+0.5)/h,u=(bx+0.5)/w,lat=(v-0.5)*Math.PI,lon=(u-0.5)*2*Math.PI;
   if(!BK)SUN.set(Math.cos(lon)*Math.cos(lat),Math.max(0.35,Math.sin(lat)),Math.sin(lon)*Math.cos(lat)).normalize();
   let r=0,g=0,b=0,n=0;const yy=Math.floor(h*0.485);
-  for(let x=0;x<w;x+=8){const k=(yy*w+x)*4,f=Math.pow(2,d[k+3]-136);r+=d[k]*f;g+=d[k+1]*f;b+=d[k+2]*f;n++;}
+  for(let x=0;x<w;x+=8){const k=(yy*w+x)*4;r+=rd(k);g+=rd(k+1);b+=rd(k+2);n++;}
   const hc=new THREE.Color(Math.min(1.2,r/n),Math.min(1.2,g/n),Math.min(1.2,b/n));
   if(!BK)scene.fog.color.copy(hc);
   tex.mapping=THREE.EquirectangularReflectionMapping;
@@ -1999,7 +2001,7 @@ if(OSM){
     }
     WG.push(g);
   });
-  const addMesh=(arr,map)=>{if(!arr.length)return;const mg=BufferGeometryUtils.mergeBufferGeometries(arr);const m=new THREE.Mesh(mg,new THREE.MeshStandardMaterial({map:map,vertexColors:true,roughness:0.88,metalness:0,side:THREE.DoubleSide}));m.castShadow=true;m.receiveShadow=true;m.frustumCulled=false;scene.add(m);return m;};
+  const addMesh=(arr,map)=>{if(!arr.length)return;const mg=BufferGeometryUtils.mergeGeometries(arr);const m=new THREE.Mesh(mg,new THREE.MeshStandardMaterial({map:map,vertexColors:true,roughness:0.88,metalness:0,side:THREE.DoubleSide}));m.castShadow=true;m.receiveShadow=true;m.frustumCulled=false;scene.add(m);return m;};
   {const fm=addMesh(wallG,facadeTex);
     if(fm&&MW){const emi=mkTex(2048,512,(x,w,h)=>{x.fillStyle='#000';x.fillRect(0,0,w,h);const pal=[[255,214,140],[255,200,120],[246,232,190],[255,224,170],[190,212,255]];
         FW.forEach(r=>{if(Math.random()>0.42)return;const c=pal[(Math.random()*pal.length)|0],k=0.55+Math.random()*0.45,cov=Math.random()<0.3?0.55:1;x.fillStyle='rgb('+(c[0]*k|0)+','+(c[1]*k|0)+','+(c[2]*k|0)+')';x.fillRect(r[0]+3,r[1]+3,(r[2]-6)*cov,r[3]-6);

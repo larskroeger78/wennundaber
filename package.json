@@ -42,7 +42,7 @@
   "dependencies": {
     "jpeg-js": "^0.4.4",
     "peerjs": "^1.5.5",
-    "three": "0.128.0"
+    "three": "0.160.1"
   },
   "devDependencies": {
     "geotiff": "^2.1.3",
