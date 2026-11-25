@@ -1718,6 +1718,7 @@ function downAt(sPos){   // Abfahrtsstueck? mittleres Gefaelle +-30 m unter -4 %
   const i0=Math.floor(sPos/SEG);let a=0,n=0;for(let i=Math.max(0,i0-15);i<=Math.min(N-1,i0+15);i+=3){a+=GR[i];n++;}return n>0&&a/n<-4;
 }
 function updateJoggers(dt){
+  if(WX===2||NIGHT){joggers.forEach(j=>{if(j.active||j.g.visible){j.active=false;j.g.visible=false;}j.wait=Math.max(j.wait,8);});return;}   // bei Regen und in der Dunkelheit ist niemand joggen
   const sMax=ROUTE?TOTAL-40:(iTrail-30)*SEG;
   joggers.forEach(j=>{
     if(!j.active){
