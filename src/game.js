@@ -582,6 +582,7 @@ function toggleNight(){if(!MW)return;const want=!NIGHT;   // manuell an/aus; bei
 
 // Sonnenstand nach Uhrzeit (nur Bergkamen). Nie dunkler als leichte Daemmerung: unter ~5 Grad Sonnenhoehe bleibt das Licht auf diesem Niveau.
 // Test: ?zeit=7.5 (Uhrzeit in Stunden, lokale Zeit)
+var DARK=false;const AMB_SUNNY_ON=()=>AMB_SUNNY&&TODM===0;   // Sonnig: nie dunkel
 let _sunMin=-1,TODM=0,TODUTC=null,NIGHT_MAN=NIGHT,NIGHT_AUTO=false,NIGHT_SUP=false;const TODN=['Live','Morgen','Mittag','Abend','Dämmerung'];
 function applySun(force){
   if(!BK)return;
@@ -596,6 +597,7 @@ function applySun(force){
   SUN.set(ca*Math.sin(A),Math.sin(altE),-ca*Math.cos(A)).normalize();
   const deg=(AMB_SUNNY&&TODM===0)?Math.max(alt*180/Math.PI,12):alt*180/Math.PI,low=1-sstep(8,40,deg),tw=sstep(-6,9,deg);   // low: tiefe Sonne (warm), tw: 1 = Tag, 0 = Daemmerung
   {   // Tageszeit Live: nach Sonnenuntergang automatisch Nightride-Look (mit Hysterese), morgens zurueck
+    DARK=deg<-5&&!AMB_SUNNY_ON();   // draussen ist es dunkel (Sonnenstand), unabhaengig davon ob Nightride schon laeuft
     let a=NIGHT_AUTO;if(!(TODM===0&&TODUTC===null))a=false;else if(deg>-3){a=false;NIGHT_SUP=false;}else if(deg<-5&&!NIGHT_SUP)a=true;
     if(a!==NIGHT_AUTO){NIGHT_AUTO=a;const n=NIGHT_MAN||NIGHT_AUTO;if(n!==NIGHT){NIGHT=n;nightApply();return;}}}
   const mixc=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
@@ -2276,6 +2278,7 @@ function update(dt){
   const off=Math.abs(st.x)>HW[i]+0.15;
   if(off)st.v*=Math.max(0,1-1.3*dt);
   const p0=st.pos;st.pos=Math.max(0,st.pos+st.v*dt);st.t+=dt;
+  if(MW&&DARK&&!NIGHT&&st.t-(update.darkT===undefined?-99:update.darkT)>40){update.darkT=st.t;toastEl.textContent='Es ist dunkel · Taste L: Nightride einschalten (Licht an)';toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),4500);}   // Hinweis, wenn es dunkel ist und das Licht noch aus ist
   {   // Aufzeichnung fuer den Strava-Export (ca. 1x pro Sekunde): bewusst OHNE Koordinaten, die hinterlegten Strecken werden nicht herausgegeben
     REC.add(st.t,{d:st.pos,alt:NHN0+PY[Math.min(N,Math.floor(st.pos/SEG))],v:st.v,w:st.power,cad:(tr&&trainer.cadence)||0,hr:hrm.live?hrm.bpm:0});
   }
