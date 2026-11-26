@@ -618,13 +618,13 @@ function applySun(force){
     if(a!==NIGHT_AUTO){if(NIGHT_AUTO&&!a){NIGHT_MAN=false;try{localStorage.setItem('miworu_night','0');}catch(_){}}   // automatische Nacht endet (hellerer Modus oder Morgen): Nightride geht wieder aus, auch ein altes manuelles "an" bleibt nicht haengen
       NIGHT_AUTO=a;const n=NIGHT_MAN||NIGHT_AUTO;if(n!==NIGHT){NIGHT=n;nightApply();return;}}}
   const mixc=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
-  let sc=mixc([1.0,0.9,0.78],[1.0,0.46,0.2],low);sc=mixc([0.7,0.4,0.55],sc,tw);
+  let sc=mixc([1.0,0.9,0.78],[1.0,0.46,0.2],low);sc=mixc([1.0,0.45,0.2],sc,tw);
   const inten=(0.95+1.55*sstep(4,30,deg))*(0.72+0.28*tw);
-  sun.color.setRGB(sc[0],sc[1],sc[2]);sun.intensity=Math.max(0.85+0.5*tw,inten);
+  sun.color.setRGB(sc[0],sc[1],sc[2]);sun.intensity=Math.max(0.85+0.5*tw,inten)*(0.2+0.8*tw);   // Daemmerung: Sonne deutlich schwaecher
   let hs=mixc([0.72,0.84,1.0],[0.88,0.72,0.66],low*0.7);hs=mixc([0.46,0.52,0.78],hs,tw);
   hemi.color.setRGB(hs[0],hs[1],hs[2]);hemi.groundColor.setRGB(0.34-0.1*(1-tw),0.31-0.1*(1-tw),0.22-0.02*(1-tw));hemi.intensity=0.8*(0.74+0.26*tw);
   renderer.toneMappingExposure=0.95*(1.0+0.12*(1-tw));
-  let hor=mixc([0.62,0.74,0.86],[0.96,0.54,0.36],low*0.95);hor=mixc([0.52,0.38,0.6],hor,tw);
+  let hor=mixc([0.62,0.74,0.86],[0.96,0.54,0.36],low*0.95);hor=mixc([0.86,0.40,0.26],hor,tw);   // Daemmerung: Sonnenuntergangs-Horizont (orange-rot)
   let zen=mixc([0.10,0.27,0.60],[0.14,0.25,0.52],low);zen=mixc([0.10,0.12,0.34],zen,tw);
   const u=sky.material.uniforms;u.horCol.value.set(hor[0],hor[1],hor[2]);u.zenCol.value.set(zen[0],zen[1],zen[2]);u.sunCol.value.set(sc[0],sc[1]*0.95,sc[2]*0.85);
   const ct=mixc([1,0.82,0.7],[1,1,1],1-low);u.cloudTint.value.set(ct[0]*(0.75+0.25*tw),ct[1]*(0.78+0.22*tw),ct[2]*(0.85+0.15*tw));
