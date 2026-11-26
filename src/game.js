@@ -3049,6 +3049,7 @@ function updateTiles(cp){   // weit entfernte Kacheln nicht zeichnen, Schatten n
       const inP=(x,z)=>{let c=false;for(let u=0,w=n-1;u<n;w=u++){if((q[u*2+1]>z)!==(q[w*2+1]>z)&&x<(q[w*2]-q[u*2])*(z-q[u*2+1])/(q[w*2+1]-q[u*2+1])+q[u*2])c=!c;}return c;};
       const col=ex.u?[0.3,0.27,0.22]:[0.12,0.125,0.13],cs=1.6,lift=0.1;
       for(let x=x0;x<x1;x+=cs)for(let z=z0;z<z1;z+=cs){if(!inP(x+cs/2,z+cs/2))continue;
+        if(nearest(allHash,x+cs/2,z+cs/2)&&nD<HW[nI]+1.2)continue;   // nicht ueber die eigene Strecke legen: dort bleibt der Weg sichtbar, keine schwarzen Keile ueber dem Asphaltweg
         const sh=0.92+0.1*fbm(x/5,z/5),P4=[[x,z],[x+cs,z],[x,z+cs],[x+cs,z],[x+cs,z+cs],[x,z+cs]];
         P4.forEach(v=>{RP.push(v[0],G(v[0],v[1])+lift,v[1]);RC.push(col[0]*sh,col[1]*sh,col[2]*sh);});}
       // Randstein entlang der Kante
