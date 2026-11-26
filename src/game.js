@@ -479,7 +479,7 @@ function fxSetup(){
         void main(){vec3 c=texture2D(tDiffuse,vUv).rgb;
           if(spd>0.05){vec2 d2=vUv-0.5;float eg=smoothstep(0.12,0.7,length(d2));vec3 ab=c;for(int k=1;k<=4;k++)ab+=texture2D(tDiffuse,vUv-d2*spd*0.075*eg*float(k)).rgb;c=mix(c,ab/5.0,smoothstep(0.0,0.25,eg));}   // Tempo: Rand verwischt, Mitte bleibt scharf
           if(ray>0.001){vec2 dv=sunUV-vUv;vec3 ac=vec3(0.0);float w=1.0;for(int i=0;i<10;i++){vec2 q=vUv+dv*(float(i)+0.5)/10.0*0.9;vec3 sm=texture2D(tDiffuse,q).rgb;float L=dot(sm,vec3(0.33,0.5,0.17));ac+=vec3(smoothstep(0.62,1.0,L))*w;w*=0.9;}c+=rayCol*ac*ray*(1.0-clamp(length(dv),0.0,1.0)*0.5)*0.15;}
-          if(glr>0.001){float gd=length(vUv-sunUV);c+=rayCol*glr*(0.7*exp(-gd*3.2)+0.1);c=mix(c,vec3(dot(c,vec3(0.33,0.5,0.17))),glr*0.18);}   // Gegenlicht: Blendung, heller Schleier, weniger Kontrast
+          if(glr>0.001){float gd=length(vUv-sunUV);c+=rayCol*glr*(0.16*exp(-gd*5.5)+0.012);c=mix(c,vec3(dot(c,vec3(0.33,0.5,0.17))),glr*0.05);}   // Gegenlicht: Blendung, heller Schleier, weniger Kontrast
           c*=exposure*1.03/0.6;
           c=mat3(vec3(0.59719,0.07600,0.02840),vec3(0.35458,0.90834,0.13383),vec3(0.04823,0.01566,0.83777))*c;c=RRT(c);
           c=mat3(vec3(1.60475,-0.10208,-0.00327),vec3(-0.53108,1.10813,-0.07276),vec3(-0.07367,-0.00605,1.07602))*c;c=clamp(c,0.0,1.0);
@@ -2740,7 +2740,7 @@ function updateFx(dt,now){
     if(BK&&fc>0.12&&!NIGHT&&WX!==2){_gs.copy(c).addScaledVector(SUN,1000).project(camera);U.sunUV.value.set(_gs.x*0.5+0.5,_gs.y*0.5+0.5);
       const alt=window.__sun?window.__sun.alt:30;ray=sstep(0.12,0.55,fc)*(0.4+0.6*(1-sstep(10,34,alt)))*(WX===1?0.45:1)*(TODM===2?0.5:1);}
     U.ray.value=ray;
-    U.glr.value=(BK&&fc>0.5&&!NIGHT&&WX!==2)?sstep(0.5,0.95,fc)*(0.3+0.7*(1-sstep(12,40,window.__sun?window.__sun.alt:30)))*(WX===1?0.5:1):0;}
+    U.glr.value=(BK&&fc>0.7&&!NIGHT&&WX!==2)?sstep(0.7,0.98,fc)*(0.3+0.7*(1-sstep(12,40,window.__sun?window.__sun.alt:30)))*(WX===1?0.5:1):0;}
 }
 
 // Nightride-Lampe: sichtbarer Lichtkegel (additive Scheiben, von Baeumen verdeckt) und Insekten im Strahl; nur Stufe Hoch
