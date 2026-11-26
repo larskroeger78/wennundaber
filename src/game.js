@@ -476,6 +476,8 @@ function fxSetup(){
     const w=window.innerWidth,h=window.innerHeight;
     const rt=new THREE.WebGLRenderTarget(w,h,{type:THREE.HalfFloatType,format:THREE.RGBAFormat,minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,samples:4});
     composer=new EffectComposer(renderer,rt);composer.addPass(new RenderPass(scene,camera));
+    composer.addPass(new ShaderPass({uniforms:{tDiffuse:{value:null}},vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',   // Schutz: NaN/Inf-Pixel wuerden im Bloom als schwarze Quadrate aufblitzen
+      fragmentShader:'uniform sampler2D tDiffuse;varying vec2 vUv;void main(){vec3 r=texture2D(tDiffuse,vUv).rgb;if(any(isnan(r))||any(isinf(r)))r=vec3(0.0);gl_FragColor=vec4(clamp(r,0.0,48.0),1.0);}'}));
     const bl=new UnrealBloomPass(new THREE.Vector2(w/2,h/2),0.14,0.55,0.93);composer.addPass(bl);NT.bloom=bl;if(NIGHT){bl.strength=0.75;bl.threshold=0.7;bl.radius=0.7;}
     FXP=new ShaderPass({uniforms:{tDiffuse:{value:null},exposure:{value:0.95},vig:{value:0.1},spd:{value:0},ray:{value:0},glr:{value:0},sunUV:{value:new THREE.Vector2(0.5,0.5)},rayCol:{value:new THREE.Color(1.0,0.8,0.52)}},vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
       fragmentShader:`uniform sampler2D tDiffuse;uniform float exposure,vig,spd,ray,glr;uniform vec2 sunUV;uniform vec3 rayCol;varying vec2 vUv;
@@ -543,8 +545,8 @@ if(MW){
     NT.city=new THREE.Points(g,new THREE.PointsMaterial({size:2.2,sizeAttenuation:false,vertexColors:true,transparent:true,opacity:1,depthWrite:false,fog:false,blending:THREE.AdditiveBlending}));NT.city.frustumCulled=false;NT.city.visible=false;scene.add(NT.city);}
   NT.moon=new THREE.Mesh(new THREE.CircleGeometry(95,40),new THREE.MeshBasicMaterial({color:0xf3f1e4,fog:false,depthWrite:false,depthTest:false}));NT.moon.renderOrder=-20;NT.moon.visible=false;NT.moon.frustumCulled=false;scene.add(NT.moon);
   NT.halo=new THREE.Mesh(new THREE.PlaneGeometry(1100,1100),new THREE.MeshBasicMaterial({map:radTex('rgba(190,205,255,0.5)'),transparent:true,depthWrite:false,fog:false,blending:THREE.AdditiveBlending}));NT.halo.visible=false;NT.halo.frustumCulled=false;scene.add(NT.halo);
-  NT.lamp=new THREE.SpotLight(0xfff4e2,22,88,0.3,0.6,1);NT.lamp.visible=false;NT.lamp.shadow.mapSize.set(1024,1024);NT.lamp.shadow.camera.near=0.6;NT.lamp.shadow.camera.far=110;NT.lamp.shadow.bias=-0.0006;scene.add(NT.lamp);NT.lampT=new THREE.Object3D();scene.add(NT.lampT);NT.lamp.target=NT.lampT;
-  NT.flood=new THREE.SpotLight(0xffecd0,3.4,30,0.9,0.8,1.2);NT.flood.visible=false;scene.add(NT.flood);NT.floodT=new THREE.Object3D();scene.add(NT.floodT);NT.flood.target=NT.floodT;
+  NT.lamp=new THREE.SpotLight(0xfff4e2,12,95,0.44,0.9,1);NT.lamp.visible=false;NT.lamp.shadow.mapSize.set(1024,1024);NT.lamp.shadow.camera.near=0.6;NT.lamp.shadow.camera.far=110;NT.lamp.shadow.bias=-0.0006;scene.add(NT.lamp);NT.lampT=new THREE.Object3D();scene.add(NT.lampT);NT.lamp.target=NT.lampT;
+  NT.flood=new THREE.SpotLight(0xffecd0,2.2,34,1.0,0.9,1.2);NT.flood.visible=false;scene.add(NT.flood);NT.floodT=new THREE.Object3D();scene.add(NT.floodT);NT.flood.target=NT.floodT;
 }
 function nightSky(u){   // wird am Ende von applySun aufgerufen: Nacht ueberschreibt Licht, Himmel und Dunst
   if(!MW)return;
@@ -579,12 +581,12 @@ function nightFrame(){
     const fd=forestD(cp.x,cp.z),ur=NT.houseNear&&NT.houseNear(cp.x,cp.z,50)?1:0;NT.fd=(NT.fd===undefined?fd:NT.fd+(fd-NT.fd)*0.04);NT.ur=(NT.ur===undefined?ur:NT.ur+(ur-NT.ur)*0.04);
     hemi.intensity=0.16+0.34*(1-NT.fd)+0.24*NT.ur*(1-0.6*NT.fd);sun.intensity=0.06+0.18*(1-NT.fd);
     renderer.toneMappingExposure=1.15+0.1*NT.ur;
-    NT.lamp.intensity=22*(1+0.15*NT.fd);NT.flood.intensity=3.4;}
+    NT.lamp.intensity=12*(1+0.15*NT.fd);NT.flood.intensity=2.2;}
   NT.stars.position.copy(cp);NT.city.position.copy(cp);
   NT.moon.position.copy(cp).addScaledVector(SUN,4200);NT.moon.lookAt(cp);NT.halo.position.copy(cp).addScaledVector(SUN,4150);NT.halo.lookAt(cp);
   if(!NIGHT){   // Daemmerung/Dunkelheit ohne Nightride (z.B. Ambiente Live): Licht geht mit abnehmender Sonne automatisch an, Nightride-Look bleibt unberuehrt
     const al=window.__sun?window.__sun.alt:90,dl=BK?1-sstep(1,9,al):0;
-    if(dl>0.02){NT.lamp.visible=true;NT.flood.visible=true;NT.lamp.castShadow=false;NT.lamp.intensity=22*dl;NT.flood.intensity=3.4*dl;}
+    if(dl>0.02){NT.lamp.visible=true;NT.flood.visible=true;NT.lamp.castShadow=false;NT.lamp.intensity=12*dl;NT.flood.intensity=2.2*dl;}
     else{NT.lamp.visible=false;NT.flood.visible=false;return;}}
   camera.getWorldDirection(_nd);
   NT.lamp.position.copy(cp);NT.lamp.position.y+=0.05;NT.lampT.position.copy(cp).addScaledVector(_nd,30);NT.lampT.updateMatrixWorld();
