@@ -84,6 +84,10 @@ function vn(x,z){const ix=Math.floor(x),iz=Math.floor(z);let fx=x-ix,fz=z-iz;fx=
   const a=hash2(ix,iz),b=hash2(ix+1,iz),c=hash2(ix,iz+1),d=hash2(ix+1,iz+1);return a+(b-a)*fx+(c-a)*fz+(a-b-c+d)*fx*fz;}
 function fbm(x,z){return vn(x,z)*0.5+vn(x*2.1+5.3,z*2.1+1.7)*0.25+vn(x*4.3+9.1,z*4.3+3.3)*0.15+vn(x*8.7,z*8.7)*0.1;}
 const C=h=>new THREE.Color(h).convertSRGBToLinear();
+function bbLegacy(root){   // Hoehe wie in three r128: Geometrie-Box je Mesh mal Weltmatrix, ohne Skelett-Pose (r160 liefert bei SkinnedMesh sonst andere Masse)
+  const box=new THREE.Box3();root.updateMatrixWorld(true);
+  root.traverse(o=>{if(o.isMesh&&o.geometry){o.geometry.computeBoundingBox();box.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld));}});
+  return box;}
 const L3=h=>{const c=C(h);return [c.r,c.g,c.b];};
 const mix3=(a,b,t)=>[lerp(a[0],b[0],t),lerp(a[1],b[1],t),lerp(a[2],b[2],t)];
 
@@ -1713,7 +1717,7 @@ function poseJogger(j){
 }
 // Mixamo-Joggerin: ersetzt die Platzhalter-Figuren, sobald das Modell geladen ist
 [['joggerin.glb',n=>n%2===0,1.68],['jogger.glb',n=>n%2===1,1.82]].forEach(([file,pick,hM])=>new GLTFLoader().load(ASSETS+'models/'+file,gltf=>{   // Mixamo-Figuren (Joggerin/Jogger im Wechsel): ersetzen die Platzhalter, sobald geladen
-  const fbx=gltf.scene,box=new THREE.Box3().setFromObject(fbx),h=box.max.y-box.min.y||170,k=hM/h;
+  const fbx=gltf.scene,box=bbLegacy(fbx),h=box.max.y-box.min.y||170,k=hM/h;
   const clip=gltf.animations[0];
   console.log(file+' geladen: Hoehe',h.toFixed(1),'Clips',gltf.animations.length,clip?clip.name+' '+clip.duration.toFixed(2)+'s':'-');
   joggers.forEach((j,n)=>{
@@ -3084,7 +3088,7 @@ const CARS={
 const shadowTex=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d'),gr=g.createRadialGradient(32,32,6,32,32,32);gr.addColorStop(0,'rgba(0,0,0,0.75)');gr.addColorStop(0.7,'rgba(0,0,0,0.35)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,64,64);return new THREE.CanvasTexture(c);})();
 if(false)Object.keys(CARS).forEach(k=>{const C=CARS[k];C.tpl=null;C.wait=[];
   new GLTFLoader().load(C.url,gl=>{const m=gl.scene;m.traverse(o=>{if(o.isMesh){o.castShadow=true;o.frustumCulled=true;const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(q=>{q.roughness=Math.max(q.roughness||0,0.38);q.metalness=Math.min(q.metalness||0,0.45);q.envMapIntensity=0.9;q.userData.keepEnv=true;if(q.map)q.map.anisotropy=8;if(q.normalMap)q.normalMap.anisotropy=4;});}});
-    const b=new THREE.Box3().setFromObject(m),c=b.getCenter(new THREE.Vector3());m.position.set(-c.x,-b.min.y,-c.z);   // mittig auf den Boden stellen
+    const b=bbLegacy(m),c=b.getCenter(new THREE.Vector3());m.position.set(-c.x,-b.min.y,-c.z);   // mittig auf den Boden stellen
     const r=new THREE.Group();r.add(m);r.rotation.y=C.rot||0;const w=new THREE.Group();w.add(r);w.scale.set(...C.sc);C.tpl=w;C.wait.forEach(g=>g.add(w.clone(true)));C.wait.length=0;},undefined,()=>{});});
 const makeCar=k=>{const C=CARS[k],g=new THREE.Group();g.userData.wheels=[];g.userData.hw=C.hw;g.userData.hl=C.hl;
   const sh=new THREE.Mesh(new THREE.PlaneGeometry(C.hw*2.5,C.hl*2.3),new THREE.MeshBasicMaterial({map:shadowTex,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-6,polygonOffsetUnits:-6}));sh.rotation.x=-Math.PI/2;sh.position.y=0.05;sh.renderOrder=1;g.add(sh);   // weicher Kontaktschatten
