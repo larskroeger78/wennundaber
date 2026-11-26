@@ -2441,7 +2441,7 @@ function drawHud(){
     mg.fillStyle=c;mg.strokeStyle='#111';mg.lineWidth=1.5;mg.beginPath();mg.arc(90+(PX[j]-Math.cos(HS[j])*r.x-MCX)*MS,90+(PZ[j]+Math.sin(HS[j])*r.x-MCZ)*MS,4.2,0,7);mg.fill();mg.stroke();});
   pg.clearRect(0,0,420,64);pg.drawImage(profBase,0,0);
   GRP.live().forEach(r=>{const j=Math.min(N-1,Math.max(0,Math.floor(r.d/SEG)));pg.fillStyle=GROUP_COLORS[r.k%8];pg.strokeStyle='#111';pg.lineWidth=1.2;pg.beginPath();pg.arc(j/N*420,profY(j),4,0,7);pg.fill();pg.stroke();});
-  const gn=GRP.live().length;grpEl.textContent=GRP_CODE?'Gruppe '+GRP_CODE+' · '+(GRP.peer?(gn?gn+' Mitfahrer':'wartet auf Mitfahrer'):GRP.status):'';
+  const gn=GRP.live().length;grpEl.textContent=GRP_CODE?'Gruppe '+GRP_CODE+' · '+(GRP.peer?(gn?gn+' Mitfahrer'+(GRP.live().some(r=>r.n)?' · '+GRP.live().map(r=>r.n).filter(Boolean).join(', '):''):'wartet auf Mitfahrer'):GRP.status):'';
   pg.fillStyle='#fff';pg.fillRect(i/N*420-1,2,2,60);pg.beginPath();pg.arc(i/N*420,profY(i),4,0,7);pg.fill();
 }
 let HM=90;
@@ -2568,6 +2568,20 @@ function showStory(){   // kleines Fenster ueber dem Support-Fenster: Foto und p
   document.body.appendChild(d);
   const c=()=>d.remove();d.querySelector('.sx').onclick=c;d.querySelector('.sok').onclick=c;d.onclick=e=>{if(e.target===d)c();};
 }
+const cleanName=t=>String(t||'').replace(/[^\p{L}\p{N} ._-]/gu,'').replace(/\s+/g,' ').trim().slice(0,16);   // Nickname: Buchstaben, Ziffern, Leerzeichen, . _ -
+let NAME='';try{NAME=cleanName(localStorage.getItem('miworu_name'));}catch(e){}
+function setName(t){NAME=cleanName(t);try{localStorage.setItem('miworu_name',NAME);}catch(e){}if(typeof GRP!=='undefined')GRP.name=NAME;}
+let LOGGED=false;
+function logRide(){   // Fahrtenprotokoll (nur Nickname, Strecke, Zeitpunkt; einmal je Seitenaufruf)
+  if(LOGGED||!NAME)return;LOGGED=true;
+  try{fetch('/api/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:NAME,route:GPX_ID?'eigene GPX':String(ROUTE?RT.label:'MIWORU').replace(/<[^>]*>/g,'')}),keepalive:true}).catch(()=>{});}catch(e){}
+}
+function needName(){   // ohne Nickname kein Start
+  const rn=document.getElementById('rname');if(rn)setName(rn.value);
+  if(NAME)return false;
+  const m=document.getElementById('nmmsg');if(m)m.textContent='Bitte zuerst einen Nickname eintragen (ein Spitzname genügt).';if(rn)rn.focus();
+  return true;
+}
 function menu(title,sub){
   helpOpen=false;lastMenu=[title,sub];menuBtn.style.display='none';AUDIO.hold(true);
   ov.style.display='flex';hudBox.style.display=sub?'block':'none';
@@ -2579,6 +2593,7 @@ function menu(title,sub){
       (sub?'<div class="res">'+sub+'</div>':'')+
       (String(ROUTE?RT.label:TRACK_NAME).replace(/<[^>]*>/g,'').trim().toUpperCase()==='MIWORU'?'':'<div class="route">'+(ROUTE?RT.label:TRACK_NAME)+'</div>')+
       '<div class="stats"><div><b>'+km+'</b><i>km</i></div><div><b>'+HM+'</b><i>Höhenmeter</i></div></div>'+
+      '<div class="nm"><label for="rname">Dein Nickname</label><input id="rname" type="text" maxlength="16" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="z. B. Trailfuchs" value="'+NAME+'"><small>Ein Spitzname genügt, kein echter Name nötig. Er erscheint bei Gruppenfahrten und im Fahrtenprotokoll (Strecke und Zeitpunkt).</small><div class="help" id="nmmsg" style="margin:4px 0 0;color:#f5a524"></div></div>'+
       '<div class="btns"><button id="go" class="main">'+title+'</button>'+(st&&st.done&&REC.length>1?'<button id="stv" class="main" style="background:#fc4c02;border-color:#fc4c02;color:#fff">It never happened if it\'s not on Strava</button><div class="help" style="grid-column:1/-1;margin:0">Lädt deine Fahrt als Datei (.tcx) herunter. Bei Strava: + → Aktivität hochladen → Datei wählen, Sportart „Virtuelle Fahrt“ einstellen.</div>':'')+(paused||SAVED?'<button id="rst" class="sec">Neu starten</button>':'')+'<div class="bg">Verbinden</div><button id="trn" class="sec"><i class="dot'+(trainer.connected?' on':'')+'"></i>'+(trainer.connected?'Trainer: '+trainer.name+' ✓':'Trainer koppeln')+'</button><button id="clk" class="sec"><i class="dot'+(click.connected?(click.devs.filter(x=>!x.lost).length>=2?' on':' mid'):'')+'"></i>'+(()=>{const n=click.devs.filter(x=>!x.lost).length;return n>=2?'Zwift Click: beide Hälften ✓':n===1&&click.connected?'Zwift Click ✓ · zweite Hälfte koppeln (stabiler)':(click.devs.length?'Zwift Click: getrennt – neu koppeln':'Zwift Click koppeln');})()+'</button>'+'<button id="hrb" class="sec"><i class="dot'+(hrm.connected?' on':'')+'"></i>'+(hrm.connected?'Brustgurt: '+hrm.name+(hrm.live?' · ♥ '+hrm.bpm:' ✓'):'Brustgurt koppeln (Puls)')+'</button><div class="bg">Fahren</div><button id="dif" class="sec">Schwierigkeit (S): '+DIFFN[diff]+'</button><button id="ebb" class="sec">E-Bike (E): '+(EBIKE?'an':'aus')+'</button><button id="hubb" class="sec">Freilauf: '+(AUDIO.hub?AUDIO.hub+' Zähne':'aus')+'</button><button id="grpb" class="sec">'+(GRP_CODE?'Groupride: '+GRP_CODE:'Groupride')+'</button><div class="bg">Darstellung &amp; Ton</div><button id="qual" class="sec">Grafik (Q): '+qLabel()+'</button><button id="wxb" class="sec">Ambiente (A): '+WXL()+'</button><button id="nghb" class="sec" style="display:'+(MW?'':'none')+'">Nightride: '+(NIGHT?(NIGHT_AUTO&&!NIGHT_MAN?'an · automatisch':'an'):'aus')+'</button><button id="snd" class="sec">Sound (N): '+AUDIO.label+'</button><button id="fsb" class="sec">'+(isFS()?'Vollbild beenden (V)':'Vollbild (V)')+'</button><div class="bg">Hilfe</div><button id="hlp" class="sec">So fährst du · Problem melden</button></div>'+mineHtml()+
       '<div class="help" id="blemsg">'+(trainer.connected?trainer.name+': '+trainer.status+' · '+Math.round(trainer.power)+' W':!BLE_OK?(IOS?'iPad: Seite in der App Bluefy öffnen (Safari kann kein Bluetooth).':'Bluetooth nur in Chrome/Edge (nicht Safari).'):'D100 oder KICKR einschalten, dann „Trainer koppeln“.')+(bleMsg?'<br>'+bleMsg:'')+''+(click.connected?'<br>'+click.name+' verbunden'+'<br>Click: kurz drücken = schwerer · gedrückt halten = leichter':(click.devs.length?'<br><b>'+click.name+': nicht verbunden</b> – Click einmal drücken oder neu koppeln':''))+'</div>'+
     '<div class="help" style="font-size:11px;opacity:.6">© 2026 Lars Kröger. Alle Rechte vorbehalten. Kopieren oder Weiterverwenden ohne Genehmigung untersagt.<br>© OpenStreetMap-Mitwirkende · © Geobasis NRW · Datenquelle: Land Tirol - data.tirol.gv.at (CC BY 4.0) · <a href="/rechtliches.html" target="_blank" rel="noopener" style="color:inherit">Rechtliches</a> · <a href="mailto:post@kroeger-grafikdesign.de" style="color:inherit">post@kroeger-grafikdesign.de</a></div>'+
@@ -2598,6 +2613,7 @@ function menu(title,sub){
   document.getElementById('hrb').onclick=async()=>{bleMsg='';if(bleGuard())return;try{await hrm.connect();}catch(e){bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Brustgurt: '+(e&&e.message||e);}menu(title,sub);};
   const stv=document.getElementById('stv');if(stv)stv.onclick=async()=>{const r=await shareTCX(REC,{name:'MIWORU'});if(r==='abort')return;stv.textContent=r==='shared'?'Geteilt ✓':'Datei gespeichert ✓';};
   document.getElementById('clk').onclick=async()=>{bleMsg='';if(bleGuard())return;try{await click.connect();}catch(e){click.dbg('Koppeln fehlgeschlagen: '+(e&&e.name||'')+' '+(e&&e.message||e));bleMsg=(e&&e.name==='NotFoundError')?'Kein Gerät gewählt.':'Click: '+(e&&e.message||e);}menu(title,sub);};
+  {const rn=document.getElementById('rname');rn.onkeydown=rn.onkeyup=rn.onkeypress=e=>e.stopPropagation();rn.oninput=()=>{setName(rn.value);const m=document.getElementById('nmmsg');if(m&&NAME)m.textContent='';};}
   document.getElementById('go').onclick=paused?resume:(SAVED?startSaved:start);
   const rst=document.getElementById('rst');if(rst)rst.onclick=start;
 }
@@ -2605,13 +2621,13 @@ function menu(title,sub){
 function pauseGame(){if(!running)return;running=false;paused=true;trainer.setGrade(0,0.005,true);offEl.style.display='none';menu('Weiterfahren','Pause · '+(st.pos/1000).toFixed(2)+' km · '+fmtT(st.t));}
 const menuBtn=document.getElementById('menuBtn');menuBtn.onclick=pauseGame;
 hintEl.onclick=e=>{const b=e.target.closest('[data-act]');if(!b)return;const a=b.getAttribute('data-act');if(a==='d1')setDiff(1);else if(a==='d2')setDiff(2);else if(a==='d3')setDiff(3);else if(a==='d4')setDiff(4);else if(a==='v')toggleFS();else if(a==='q')cycleQ();else if(a==='n'){AUDIO.cycleSound();hintHud.k=null;toastEl.textContent='Sound: '+AUDIO.label;toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1100);}else if(a==='w')cycleWX();else if(a==='l')toggleNight();else if(a==='f'){const h=AUDIO.cycleHub();hintHud.k=null;toastEl.textContent='Freilauf: '+(h?h+' Zähne':'aus');toastEl.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('on'),1200);}};
-function resume(){if(GRP_CODE&&!GRP.peer)grpJoin();menuBtn.style.display='';paused=false;running=true;AUDIO.hold(false);ov.style.display='none';hudBox.style.display='block';}
+function resume(){if(needName())return;logRide();if(GRP_CODE&&!GRP.peer)grpJoin();menuBtn.style.display='';paused=false;running=true;AUDIO.hold(false);ov.style.display='none';hudBox.style.display='block';}
 const PK='miworu_prog2_'+RKEY;let SAVED=null;   // prog2: alte Fortschritte gehoerten zu anderen Strecken
 try{const o=JSON.parse(localStorage.getItem(PK)||'null');if(o&&o.pos>50&&Date.now()-o.ts<864e5)SAVED=o;}catch(e){}
 setInterval(()=>{if(running&&st.pos>50&&!st.done)try{localStorage.setItem(PK,JSON.stringify({pos:st.pos,t:st.t,ts:Date.now()}));}catch(e){}},2000);
 function clearProg(){SAVED=null;try{localStorage.removeItem(PK);}catch(e){}}
-function startSaved(){const o=SAVED;start();if(o){st.pos=o.pos;st.t=o.t;}}
-function start(){AUDIO.init();if(GRP_CODE&&!GRP.peer)grpJoin();menuBtn.style.display='';clearProg();paused=false;reset();if(trainer.connected)trainer.setGrade(0,0.005,true);running=true;AUDIO.hold(false);lastSec=-1;ov.style.display='none';hudBox.style.display='block';}
+function startSaved(){if(needName())return;const o=SAVED;start();if(o){st.pos=o.pos;st.t=o.t;}}
+function start(){if(needName())return;logRide();AUDIO.init();if(GRP_CODE&&!GRP.peer)grpJoin();menuBtn.style.display='';clearProg();paused=false;reset();if(trainer.connected)trainer.setGrade(0,0.005,true);running=true;AUDIO.hold(false);lastSec=-1;ov.style.display='none';hudBox.style.display='block';}
 
 // ================= Kamera & Render =================
 const smp={x:0,y:0,z:0,h:0},smp2={x:0,y:0,z:0,h:0};
@@ -3494,11 +3510,23 @@ const dotTex=[0,1,2,3].map(l=>{const c=document.createElement('canvas');c.width=
   return new THREE.CanvasTexture(c);});
 const dotSp=[];for(let k=0;k<8;k++){const m=new THREE.SpriteMaterial({map:dotTex[0],color:new THREE.Color(GROUP_COLORS[k]),transparent:true,depthWrite:false,fog:false,toneMapped:false});const sp=new THREE.Sprite(m);sp.visible=false;sp.renderOrder=9;scene.add(sp);dotSp.push(sp);}
 const grpO={x:0,y:0,z:0,h:0};
-window.__grp=GRP;
+window.__grp=GRP;GRP.name=NAME;
+const nameTex=new Map();   // Namensschilder (Canvas-Textur je Name, zwischengespeichert)
+function nameTexFor(n){
+  let o=nameTex.get(n);if(o)return o;
+  const c=document.createElement('canvas'),g=c.getContext('2d'),F='700 34px system-ui,-apple-system,sans-serif';g.font=F;
+  const w=Math.max(60,Math.ceil(g.measureText(n).width)+26);c.width=w;c.height=52;g.font=F;g.textBaseline='middle';
+  g.fillStyle='rgba(0,0,0,0.6)';g.beginPath();if(g.roundRect)g.roundRect(0,4,w,44,12);else g.rect(0,4,w,44);g.fill();
+  g.fillStyle='#fff';g.fillText(n,13,27.5);
+  o={t:new THREE.CanvasTexture(c),a:w/52};nameTex.set(n,o);
+  if(nameTex.size>40){const k=nameTex.keys().next().value;nameTex.get(k).t.dispose();nameTex.delete(k);}
+  return o;
+}
+const nameSp=[];for(let k=0;k<8;k++){const m=new THREE.SpriteMaterial({map:nameTexFor(' ').t,transparent:true,depthWrite:false,fog:false,toneMapped:false});const sp=new THREE.Sprite(m);sp.visible=false;sp.renderOrder=10;scene.add(sp);nameSp.push(sp);}
 function grpJoin(){if(GRP_CODE)GRP.join(GRP_CODE,GRP_ROUTE);else GRP.leave();}
 function updateGroup(dt){
   GRP.update(dt,st.pos,st.x,st.v,running);
-  dotSp.forEach(sp=>sp.visible=false);
+  dotSp.forEach(sp=>sp.visible=false);nameSp.forEach(sp=>sp.visible=false);
   GRP.live().forEach(r=>{
     const sp=dotSp[r.k%8];if(!sp||!isFinite(r.d))return;
     sample(clamp(r.d,0,TOTAL-1),grpO);const x=grpO.x-Math.cos(grpO.h)*r.x,z=grpO.z+Math.sin(grpO.h)*r.x,y=gnd(x,z)+1.45;
@@ -3506,6 +3534,9 @@ function updateGroup(dt){
     if(d>DOT_RANGE||d<1.2)return;
     const t=d/DOT_RANGE,lv=t<0.08?0:t<0.25?1:t<0.55?2:3;   // je weiter weg, desto unschaerfer
     sp.material.map=dotTex[lv];sp.material.opacity=1-t*0.6;sp.scale.setScalar(Math.max(0.3,d*0.012)*(1+lv*0.35)*DOTK);sp.position.set(x,y,z);sp.visible=true;
+    if(r.n){const ns=nameSp[r.k%8],nt=nameTexFor(r.n),hh=Math.max(0.3,d*0.034)*(DOTK>1?1.4:1);   // Namensschild ueber dem Punkt, gleichbleibend lesbare Groesse
+      if(ns.material.map!==nt.t){ns.material.map=nt.t;}
+      ns.scale.set(hh*nt.a,hh,1);ns.position.set(x,y+sp.scale.y*0.5+hh*0.62,z);ns.material.opacity=1-t*0.45;ns.visible=true;}
   });
 }
 {   // Luftbilder laden und in den Spielfarben verwenden
@@ -3525,7 +3556,8 @@ function updateGroup(dt){
 }
 let last=performance.now(),drsAcc=0,drsN=0;
 function drsTick(dt){if(!running||paused){drsAcc=drsN=0;return;}
-  if(FXon){if(DRS!==1){DRS=1;applyQ();}drsAcc=drsN=0;return;}   // mit Nachbearbeitung (Hoch): keine dynamische Aufloesung, jeder Wechsel baut die Puffer neu auf und liess schwarze Flaechen aufblitzen (r160)drsAcc+=dt;drsN++;if(drsAcc<2.5)return;const ft=drsAcc/drsN;drsAcc=drsN=0;
+  if(FXon){if(DRS!==1){DRS=1;applyQ();}drsAcc=drsN=0;return;}   // mit Nachbearbeitung (Hoch): keine dynamische Aufloesung, jeder Wechsel baut die Puffer neu auf und liess schwarze Flaechen aufblitzen (r160)
+  drsAcc+=dt;drsN++;if(drsAcc<2.5)return;const ft=drsAcc/drsN;drsAcc=drsN=0;
   const slow=FPSCAP===30;   // bei 30-fps-Limit liegt die Frame-Zeit ohnehin bei ~33 ms
   if(ft>(slow?0.042:0.029)&&DRS>0.7){DRS=Math.max(0.7,+(DRS-0.1).toFixed(2));applyQ();}else if(ft<(slow?0.0365:0.0185)&&DRS<1){DRS=Math.min(1,+(DRS+0.05).toFixed(2));applyQ();}}
 function loop(now){

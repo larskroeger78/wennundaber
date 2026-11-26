@@ -13,7 +13,7 @@ export function makeGroup(){
     if(old&&old!==c&&old.open&&performance.now()-(old._t||0)<DEAD){try{c.close();}catch(_){}return;}   // lebende Verbindung bleibt; tote (z.B. nach iPad-Neustart derselben Kennung) wird ersetzt
     if(old&&old!==c){try{old.close();}catch(_){}}
     c._t=performance.now();G.conns.set(k,c);
-    c.on('data',d=>{c._t=performance.now();if(!d||typeof d.s!=='number'||typeof d.k!=='number')return;const r=G.riders.get(d.k)||{k:d.k,d:d.s};r.s=d.s;r.x=+d.x||0;r.v=+d.v||0;r.t=performance.now();G.riders.set(d.k,r);});
+    c.on('data',d=>{c._t=performance.now();if(!d||typeof d.s!=='number'||typeof d.k!=='number')return;const r=G.riders.get(d.k)||{k:d.k,d:d.s};if(typeof d.n==='string')r.n=d.n.replace(/[^\p{L}\p{N} ._-]/gu,'').slice(0,16);r.s=d.s;r.x=+d.x||0;r.v=+d.v||0;r.t=performance.now();G.riders.set(d.k,r);});
     const gone=()=>{if(G.conns.get(k)===c)G.conns.delete(k);};
     c.on('close',gone);c.on('error',gone);
   }
@@ -40,7 +40,7 @@ export function makeGroup(){
   }
   G.join=(code,route)=>{G.leave();G.code=clean(code);G.route=String(route).replace(/[^a-z0-9_]/gi,'');if(!G.code)return;G.status='verbinde …';G.gen++;open(0,G.gen);};
   G.leave=()=>{G.gen++;try{G.peer&&G.peer.destroy();}catch(_){}G.peer=null;G.slot=-1;G.conns.clear();G.riders.clear();G.status='aus';G.code='';};
-  function beat(){const L=G.last;if(!G.peer||G.slot<0)return;const m=L?{k:G.slot,s:L.pos,x:L.x,v:L.running?L.v:0}:{k:G.slot,h:1};G.conns.forEach(c=>{if(c.open)try{c.send(m);}catch(_){}});}   // Lebenszeichen auch in Pause/Menue und bei verstecktem Tab
+  function beat(){const L=G.last;if(!G.peer||G.slot<0)return;const m=L?{k:G.slot,s:L.pos,x:L.x,v:L.running?L.v:0,n:G.name||''}:{k:G.slot,h:1};G.conns.forEach(c=>{if(c.open)try{c.send(m);}catch(_){}});}   // Lebenszeichen auch in Pause/Menue und bei verstecktem Tab
   let _r=0;setInterval(()=>{if(!G.peer||G.slot<0)return;beat();if(++_r%3===0)reach();},1000);   // Takt unabhaengig von der Bildrate (iPad ruckelt, Menue, Pause, Tab im Hintergrund)
   document.addEventListener('visibilitychange',()=>{if(document.hidden||!G.code)return;const p=G.peer;if(!p||p.destroyed)rejoin(G.gen,200);else{if(p.disconnected){try{p.reconnect();}catch(_){}}G.retryT=0;}});
   G.update=(dt,pos,x,v,running)=>{   // aufrufen pro Bild

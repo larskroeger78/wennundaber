@@ -204,3 +204,9 @@ body.ebike #spd::before{content:'';display:inline-block;width:.31em;height:.5em;
 /* Zielscreen: Nochmal fahren + Strava-Knopf in einer Reihe, Hinweistext darunter ueber die volle Breite */
 #stv{flex:2 1 0;font-size:17px;padding:11px 14px;line-height:1.15}
 .btns #stv+.help{flex:1 1 100%;margin:0}
+/* Nickname-Eingabe im Startmenue */
+.nm{margin:12px 0 4px}
+.nm label{display:block;font-size:12px;letter-spacing:.4px;opacity:.7;margin-bottom:5px}
+.nm input{width:100%;box-sizing:border-box;padding:11px 12px;font-size:16px;font-weight:600;border-radius:8px;border:1px solid rgba(255,255,255,.28);background:rgba(0,0,0,.35);color:#fff;outline:none}
+.nm input:focus{border-color:#f5a524}
+.nm small{display:block;opacity:.55;font-size:11px;line-height:1.35;margin-top:5px}
