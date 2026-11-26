@@ -551,6 +551,13 @@ if(MW){
 function nightSky(u){   // wird am Ende von applySun aufgerufen: Nacht ueberschreibt Licht, Himmel und Dunst
   if(!MW)return;
   if(scene.environment)NT.env=scene.environment;
+  if(!NIGHT&&DARK&&NIGHT_SUP){   // Dunkelheit, Licht per L ausgeschaltet: nur schemenhafte Landschaft (kaum Licht, dunkler Himmel), Hinweis zum Einschalten
+    sun.color.setRGB(0.4,0.48,0.8);sun.intensity=0.03;sun.castShadow=false;
+    hemi.color.setRGB(0.09,0.115,0.21);hemi.groundColor.setRGB(0.02,0.022,0.032);hemi.intensity=0.2;
+    renderer.toneMappingExposure=1.0;
+    u.horCol.value.set(0.03,0.045,0.085);u.zenCol.value.set(0.003,0.007,0.026);u.sunCol.value.set(0,0,0);u.cloudTint.value.set(0.03,0.04,0.07);
+    scene.fog.color.setRGB(0.028,0.04,0.075);if(scene.background&&scene.background.isColor)scene.background=new THREE.Color(0.028,0.04,0.075);
+    scene.environment=null;WXS.day=0.12;return;}
   if(!NIGHT){if(NT.env&&scene.environment!==NT.env)scene.environment=NT.env;return;}
   SUN.set(-0.3,0.78,0.6).normalize();
   sun.color.setRGB(0.5,0.6,0.95);sun.intensity=0.2;
@@ -584,6 +591,7 @@ function nightFrame(){
     NT.lamp.intensity=7.5*(1+0.15*NT.fd);NT.flood.intensity=1.3;}
   NT.stars.position.copy(cp);NT.city.position.copy(cp);
   NT.moon.position.copy(cp).addScaledVector(SUN,4200);NT.moon.lookAt(cp);NT.halo.position.copy(cp).addScaledVector(SUN,4150);NT.halo.lookAt(cp);
+  if(!NIGHT&&DARK&&NIGHT_SUP){NT.lamp.visible=false;NT.flood.visible=false;return;}   // Licht per L aus: stockdunkel
   if(!NIGHT){   // Daemmerung/Dunkelheit ohne Nightride (z.B. Ambiente Live): Licht geht mit abnehmender Sonne automatisch an, Nightride-Look bleibt unberuehrt
     const al=window.__sun?window.__sun.alt:90,dl=BK?1-sstep(1,9,al):0;
     if(dl>0.02){NT.lamp.visible=true;NT.flood.visible=true;NT.lamp.castShadow=false;NT.lamp.intensity=7.5*dl;NT.flood.intensity=1.3*dl;}
@@ -651,6 +659,10 @@ function applySun(force){
   {let mn=1e9,mx=-1e9;for(let i=0;i<=N;i+=4){mn=Math.min(mn,PY[i]);mx=Math.max(mx,PY[i]);}GF.value.y=mn+(mx-mn)*0.35+5;GF.value.z=20;
    GF.value.x=((NIGHT?0.2:(H<0?0.85:0.3)*(1-sstep(2,22,deg)))*(TODM===2?0:1))*(WX===1?0.4:1)+SEA.win.value*0.12;}
   window.__sun={alt:deg,az:A*180/Math.PI,utc:utc};
+  {let h=document.getElementById('lampHint');
+   if(!h){h=document.createElement('div');h.id='lampHint';h.style.cssText='position:absolute;left:50%;bottom:18%;transform:translateX(-50%);z-index:5;padding:10px 18px;border-radius:10px;background:rgba(10,14,28,.78);color:#dfe6ff;font:600 15px system-ui,sans-serif;letter-spacing:.3px;text-align:center;cursor:pointer;display:none;pointer-events:auto;border:1px solid rgba(160,180,255,.35)';
+     h.textContent='Es ist dunkel – Licht einschalten: Taste L (oder hier tippen)';h.onclick=()=>{if(!NIGHT)toggleNight();};document.getElementById('wrap').appendChild(h);}
+   h.style.display=(DARK&&NIGHT_SUP&&!NIGHT)?'block':'none';}
 }
 if(BK)applySun(true);
 
