@@ -3506,7 +3506,8 @@ function updateGroup(dt){
   }
 }
 let last=performance.now(),drsAcc=0,drsN=0;
-function drsTick(dt){if(!running||paused){drsAcc=drsN=0;return;}drsAcc+=dt;drsN++;if(drsAcc<2.5)return;const ft=drsAcc/drsN;drsAcc=drsN=0;
+function drsTick(dt){if(!running||paused){drsAcc=drsN=0;return;}
+  if(FXon){if(DRS!==1){DRS=1;applyQ();}drsAcc=drsN=0;return;}   // mit Nachbearbeitung (Hoch): keine dynamische Aufloesung, jeder Wechsel baut die Puffer neu auf und liess schwarze Flaechen aufblitzen (r160)drsAcc+=dt;drsN++;if(drsAcc<2.5)return;const ft=drsAcc/drsN;drsAcc=drsN=0;
   const slow=FPSCAP===30;   // bei 30-fps-Limit liegt die Frame-Zeit ohnehin bei ~33 ms
   if(ft>(slow?0.042:0.029)&&DRS>0.7){DRS=Math.max(0.7,+(DRS-0.1).toFixed(2));applyQ();}else if(ft<(slow?0.0365:0.0185)&&DRS<1){DRS=Math.min(1,+(DRS+0.05).toFixed(2));applyQ();}}
 function loop(now){
