@@ -413,7 +413,7 @@ const SEA_PATH=(e0,cv,pdk)=>SEA_SN+'float cx=abs(vSeaUv.x-0.5)*2.0,sE=smoothstep
   +'float cov=min(1.0,sn*1.5)*mix(smoothstep(0.4,0.62,n1)*'+cv.toFixed(2)+',0.9,sE)*(1.0-rut*0.85)*(1.0-pd*(1.0-sE));'
   +'diffuseColor.rgb*=1.0-uWin*(0.4*pd*(1.0-sE)+0.18*rut);diffuseColor.rgb=mix(diffuseColor.rgb,mix(vec3(.77,.81,.88),vec3(.9,.93,.97),sE),cov);';
 const SEA_CODE={
-  leaf:'float sN=sH(vSeed.xz*0.731+vSeed.y);float sL=dot(diffuseColor.rgb,vec3(.3,.55,.15));vec3 sA=sN<.3?vec3(1.0,.64,.14):(sN<.58?vec3(.95,.42,.08):(sN<.8?vec3(.72,.17,.07):vec3(.86,.78,.22)));diffuseColor.rgb=mix(diffuseColor.rgb,sA*sL*1.9,uAut);if(uWin>0.0&&sN<uWin*.88)discard;diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.8,.85,.9),uWin*.4);',
+  leaf:'float sN=sH(vSeed.xz*0.731+vSeed.y);float sL=dot(diffuseColor.rgb,vec3(.3,.55,.15));vec3 sA=sN<.3?vec3(1.0,.64,.14):(sN<.58?vec3(.95,.42,.08):(sN<.8?vec3(.72,.17,.07):vec3(.86,.78,.22)));diffuseColor.rgb=mix(diffuseColor.rgb,sA*sL*1.9,uAut);if(uWin>0.0&&sN<uWin*.3)discard;diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.8,.85,.9),uWin*.4);',
   fir:'float sN=sH(vSeed.xz*0.731+vSeed.y);'+SEA_SN+'diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.86,.9,.95),sn*(.4+.35*sN));',
   grs:SEA_SN+'float sL=dot(diffuseColor.rgb,vec3(.3,.55,.15));diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.62,.46,.2)*sL*2.0,uAut*.6);diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.76,.79,.84),sn*.85);',
   gnd:SEA_SN+'diffuseColor.rgb*=0.8+0.4*sNz(vWP.xz*0.05)*(0.6+0.4*sNz(vWP.xz*0.31));float sL=dot(diffuseColor.rgb,vec3(.3,.55,.15));diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.55,.36,.18)*sL*2.2,uAut*.35);diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.78,.82,.89),sn);',
@@ -426,7 +426,7 @@ function seaPatch(mat,kind,inst){
     s.vertexShader=s.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vSeed;varying vec3 vWP;varying vec2 vSeaUv;')
       .replace('#include <begin_vertex>','#include <begin_vertex>\nvSeaUv=uv;vSeed='+(inst?'instanceMatrix[3].xyz':'vec3(0.0)')+';vWP=(modelMatrix*'+(inst?'instanceMatrix*':'')+'vec4(transformed,1.0)).xyz;');
     const pre='#include <common>\nuniform float uAut,uWin,uSnowY,uSnowK;varying vec3 vSeed;varying vec3 vWP;varying vec2 vSeaUv;\nfloat sH(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}\nfloat sNz(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(sH(i),sH(i+vec2(1.0,0.0)),f.x),mix(sH(i+vec2(0.0,1.0)),sH(i+vec2(1.0)),f.x),f.y);}';
-    if(kind==='dep')s.fragmentShader=s.fragmentShader.replace('#include <common>',pre).replace('#include <alphatest_fragment>','if(uWin>0.0&&sH(vSeed.xz*0.731+vSeed.y)<uWin*.88)discard;\n#include <alphatest_fragment>');
+    if(kind==='dep')s.fragmentShader=s.fragmentShader.replace('#include <common>',pre).replace('#include <alphatest_fragment>','if(uWin>0.0&&sH(vSeed.xz*0.731+vSeed.y)<uWin*.3)discard;\n#include <alphatest_fragment>');
     else s.fragmentShader=s.fragmentShader.replace('#include <common>',pre).replace('#include <color_fragment>','#include <color_fragment>\n'+SEA_CODE[kind]);
   };
 }
