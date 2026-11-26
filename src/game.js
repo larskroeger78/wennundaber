@@ -3048,12 +3048,12 @@ function updateTiles(cp){   // weit entfernte Kacheln nicht zeichnen, Schatten n
       area=Math.abs(area)/2;if(area<40||x1-x0>250||z1-z0>250)return;
       const inP=(x,z)=>{let c=false;for(let u=0,w=n-1;u<n;w=u++){if((q[u*2+1]>z)!==(q[w*2+1]>z)&&x<(q[w*2]-q[u*2])*(z-q[u*2+1])/(q[w*2+1]-q[u*2+1])+q[u*2])c=!c;}return c;};
       const col=ex.u?[0.3,0.27,0.22]:[0.12,0.125,0.13],cs=1.6,lift=0.1;
-      for(let x=x0;x<x1;x+=cs)for(let z=z0;z<z1;z+=cs){if(!inP(x+cs/2,z+cs/2))continue;
+      if(!DOP_RAW)for(let x=x0;x<x1;x+=cs)for(let z=z0;z<z1;z+=cs){if(!inP(x+cs/2,z+cs/2))continue;   // mit Luftbild: kein schwarzer Fuellflaeche, das Foto zeigt den echten Belag
         if(nearest(allHash,x+cs/2,z+cs/2)&&nD<HW[nI]+1.2)continue;   // nicht ueber die eigene Strecke legen: dort bleibt der Weg sichtbar, keine schwarzen Keile ueber dem Asphaltweg
         const sh=0.92+0.1*fbm(x/5,z/5),P4=[[x,z],[x+cs,z],[x,z+cs],[x+cs,z],[x+cs,z+cs],[x,z+cs]];
         P4.forEach(v=>{RP.push(v[0],G(v[0],v[1])+lift,v[1]);RC.push(col[0]*sh,col[1]*sh,col[2]*sh);});}
       // Randstein entlang der Kante
-      for(let i=0;i<n;i++){const j=(i+1)%n;flat(q[i*2],q[i*2+1],q[j*2],q[j*2+1],0.22,[0.5,0.5,0.48],G(q[i*2],q[i*2+1])+lift+0.04,G(q[j*2],q[j*2+1])+lift+0.04);}
+      if(!DOP_RAW)for(let i=0;i<n;i++){const j=(i+1)%n;flat(q[i*2],q[i*2+1],q[j*2],q[j*2+1],0.22,[0.5,0.5,0.48],G(q[i*2],q[i*2+1])+lift+0.04,G(q[j*2],q[j*2+1])+lift+0.04);}
       if(!ex.u&&area>150){   // Stellplatzlinien: ausgerichtet an der laengsten Kante, Reihen 5 m tief, 6 m Fahrgasse
         let bl=0,ang=0;for(let i=0;i<n;i++){const j=(i+1)%n,dx=q[j*2]-q[i*2],dz=q[j*2+1]-q[i*2+1],l=Math.hypot(dx,dz);if(l>bl){bl=l;ang=Math.atan2(dz,dx);}}
         const ux=Math.cos(ang),uz=Math.sin(ang),vx=-uz,vz=ux,cx=(x0+x1)/2,cz=(z0+z1)/2,R=Math.hypot(x1-x0,z1-z0)/2+2;
