@@ -2452,7 +2452,9 @@ function mineHtml(){   // Streckenliste: feste Strecken + eigene GPX-Strecken (Z
   const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const cur=GPX_ID?'gpx_'+GPX_ID:(!ROUTE?'halde':(ROUTES[RKEY]&&!ROUTES[RKEY].custom?RKEY:'tour2'));
   const base=[['tour2','MIWORU'],['wuppertal2','Whopperthal'],['hagen','Hagmoor'],['hagen2','Hagfeld'],['iserlohn','Isehorst'],['iserlohn2','Isebrink'],['ibenstein','Bad Ibenstein'],['deikamm','Deikamm'],['hemer','Hemstein'],['buellberg','Bölkamp'],['dortmund','Dorbach'],['alpen','Sölden']];
-  let h='<div class="mine"><div class="mh">Strecken</div>'+(hasPass()?'':'<div class="mr" style="grid-column:1/-1"><span class="mn">Weitere Strecken<small>mit einem kleinen Support ab 1 € · oder Community-Code</small></span><button class="main" data-unlock="">Supporten</button></div>')+base.map(b=>'<div class="mr'+(b[0]===cur?' cur':'')+'"><span class="mn">'+b[1]+'</span>'+(b[0]===cur?'<span class="act">aktiv</span>':(LOCKED.indexOf(b[0])>=0&&!hasPass()?'<button class="sec" data-unlock="'+b[0]+'">🔒 Supporten</button>':'<button class="sec" data-route="'+b[0]+'">Fahren</button>'))+'</div>').join('');
+  const RS={tour2:['9,6',360],wuppertal2:['17,1',720],hagen:['11,1',560],hagen2:['23,9',1140],iserlohn:['12,2',450],iserlohn2:['31,4',1160],ibenstein:['22,0',970],deikamm:['36,7',1220],hemer:['20,4',790],buellberg:['16,3',500],dortmund:['17,8',650],alpen:['44,6',3700]};   // km und Hoehenmeter wie im Startbild (nach Aenderung einer Strecke neu auslesen)
+  const rs=k=>RS[k]?'<small>'+RS[k][0]+' km · '+RS[k][1]+' hm</small>':'';
+  let h='<div class="mine"><div class="mh">Strecken</div>'+(hasPass()?'':'<div class="mr" style="grid-column:1/-1"><span class="mn">Weitere Strecken<small>mit einem kleinen Support ab 3 € · oder Community-Code</small></span><button class="main" data-unlock="">Supporten</button></div>')+base.map(b=>'<div class="mr'+(b[0]===cur?' cur':'')+'"><span class="mn">'+b[1]+rs(b[0])+'</span>'+(b[0]===cur?'<span class="act">aktiv</span>':(LOCKED.indexOf(b[0])>=0&&!hasPass()?'<button class="sec" data-unlock="'+b[0]+'">🔒 Supporten</button>':'<button class="sec" data-route="'+b[0]+'">Fahren</button>'))+'</div>').join('');
   return h+'</div>';
 }
 let helpOpen=false;
@@ -2468,7 +2470,7 @@ function showHelp(){
     sec('Schwierigkeit',['<b>S</b> schaltet die Stufen durch (auch der Knopf oben antippbar):','Leicht: 1,6-fache Wirkung deiner Watt, Steigungen nur zu 40 %','Normal','Hardcore: Steigungen zu 150 %, 0,85-fache Watt','Eskalation: 20 % härter als realistisch'])+
     sec('Anzeige und Sound ein- und ausschalten',['<b>Q</b> Grafik: Niedrig, Mittel, Hoch, Hoch mit 30 Bildern/s (spart Akku, bei ruckelndem Bild eine Stufe tiefer)','<b>V</b> Vollbild an/aus (Esc beendet; auf dem Tablet das ✕ oben links)','<b>T</b> Tageszeit: Live, Morgen, Mittag, Abend, Dämmerung (Nebel in den Senken, Sonnenstrahlen)','Auf Stufe Hoch: Sonnenstrahlen, Randunschärfe bei hohem Tempo, bei Nightride sichtbarer Lichtkegel mit Insekten','<b>A</b> Ambiente: sonnig, Live-Wetter, Regen, Gewitter (Sturm, Blitz und Donner, Böen mit fliegendem Laub), Herbst (Laubfarben, fallendes Laub), Schnee (leichter Schneefall, Schnee auf Boden und Bäumen)','<b>E</b> E-Bike: Motor hilft beim Treten bis 26 km/h, in jedem Gang (bergauf begrenzt, bergab darfst du schneller sein). Ein blauer Blitz steht dann neben km/h','<b>L</b> Nightride: Nachtfahrt an oder aus (nur auf den festen Strecken)','<b>N</b> Sound: alle Geräusche an oder aus','<b>F</b> Freilauf: schaltet durch aus, 16, 32, 56 und 72 Zähne. Weniger Zähne klingen gröber und klickernder, 72 ist das feine Surren. Bei hohem Tempo wird der Freilauf von Wind und Reifenabrollen überdeckt, ganz weg ist er nur auf „aus“.'])+
     sec('Nachtfahrt und Tiere',['Im Nightride fährst du mit Stirnlampe, Mond und Sternen. Nur dort und nur im dunklen Wald tauchen ab und zu Tiere auf: Wildschweine in einer Rotte mit Frischlingen, Hirsche und Rehe.','Du siehst sie nur schemenhaft am Wegrand, ihre Augen reflektieren das Licht deiner Lampe. Vor dem Weggehen rufen sie leise. Kommst du näher als 10 Meter, rennen sie weg und verschwinden in der Dunkelheit.','Ausschalten: <b>L</b> beendet den Nightride, und damit sind auch die Tiere weg. Ihre Rufe sind Teil von <b>N</b> (Sound).'])+
-    sec('Strecken und Liftfahrten',['MIWORU bleibt kostenlos. Weitere Strecken schaltest du mit einem kleinen Support ab 1 € oder einem Community-Code frei.','Auf der Strecke in Sölden bringen dich Bergbahnen nach oben: Ein Hinweis zeigt Höhenmeter und Fahrzeit, die Liftzeit zählt nicht zu deiner Fahrzeit.'])+
+    sec('Strecken und Liftfahrten',['MIWORU bleibt kostenlos. Weitere Strecken schaltest du mit einem kleinen Support ab 3 € oder einem Community-Code frei.','Auf der Strecke in Sölden bringen dich Bergbahnen nach oben: Ein Hinweis zeigt Höhenmeter und Fahrzeit, die Liftzeit zählt nicht zu deiner Fahrzeit.'])+
     sec('Groupride',['Im Menü einen Gruppencode eingeben (alle Freunde denselben, dieselbe Strecke wählen). Mitfahrer erscheinen als farbige Punkte, in Minikarte und Höhenprofil immer.'])+
     sec('Probleme und Fehler',['Etwas läuft nicht rund? Technische Daten werden automatisch angehängt, du schreibst nur kurz, was passiert ist.'])+
     '</div>'+
@@ -2516,12 +2518,12 @@ function showThanks(code,next){   // nach dem Support: Dank und Freischaltcode z
   const cp=document.getElementById('tcp');if(cp)cp.onclick=()=>{try{navigator.clipboard.writeText(c);cp.textContent='Kopiert';}catch(e){ti.select();}};
   document.getElementById('tgo').onclick=next;
 }
-function showUnlock(want){   // Support-Fenster: Betrag ab 1 EUR, kurze Geschichte zum Projekt, PayPal. Ein Support schaltet alle weiteren Strecken frei (Pruefung auf dem Server)
+function showUnlock(want){   // Support-Fenster: Betrag ab 3 EUR, kurze Geschichte zum Projekt, PayPal. Ein Support schaltet alle weiteren Strecken frei (Pruefung auf dem Server)
   helpOpen=true;ov.style.display='flex';menuBtn.style.display='none';
   const wname=want&&ROUTES[want]?ROUTES[want].label:'';
   ov.innerHTML='<div class="intro"><div class="panel unlock">'+
     '<div class="by">by Wenn &amp; Aber Bike Crew</div><h1>Support &amp; weitere Strecken</h1>'+
-    '<div class="help">'+(wname?'<b>'+wname+'</b> gehört zu den weiteren Strecken. ':'')+'MIWORU bleibt kostenlos. Wer weitere Strecken fahren möchte, kann mich gern mit einem kleinen Betrag supporten: <b>ab 1 €</b>, den Betrag bestimmst du selbst. Damit sind Whopperthal, Hagmoor, Hagfeld, Isehorst, Isebrink, Bad Ibenstein, Deikamm, Hemstein, Bölkamp, Dorbach und Sölden in diesem Browser freigeschaltet.</div>'+
+    '<div class="help">'+(wname?'<b>'+wname+'</b> gehört zu den weiteren Strecken. ':'')+'MIWORU bleibt kostenlos. Wer weitere Strecken fahren möchte, kann mich gern mit einem kleinen Betrag supporten: <b>ab 3 €</b>, den Betrag bestimmst du selbst. Damit sind Whopperthal, Hagmoor, Hagfeld, Isehorst, Isebrink, Bad Ibenstein, Deikamm, Hemstein, Bölkamp, Dorbach und Sölden in diesem Browser freigeschaltet.</div>'+
     '<div class="ucode"><div class="uh">Betrag</div><div class="urow"><input id="uamt" type="text" inputmode="decimal" autocomplete="off" value="5" aria-label="Betrag in Euro"><span class="ueur">€</span><button id="ubuy" class="main">Supporten</button></div><div id="upp"></div></div>'+
     '<div class="help" id="umsg"></div>'+
     '<div class="ucode"><div class="uh">Community-Code</div><div class="urow"><input id="ucode" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Code eingeben"><button id="ucodeb" class="sec">Einlösen</button></div></div>'+
@@ -2536,9 +2538,9 @@ function showUnlock(want){   // Support-Fenster: Betrag ab 1 EUR, kurze Geschich
   const doRedeem=async()=>{const c=ci.value.trim();if(!c)return;msg('Prüfe Code …');try{const r=await redeem(c);if(r.ok){msg('Freigeschaltet!');setTimeout(done,500);}else msg(r.error||'Code nicht gültig.');}catch(e){msg('Keine Verbindung zum Server.');}};
   document.getElementById('ucodeb').onclick=doRedeem;ci.onkeydown=e=>{e.stopPropagation();if(e.key==='Enter')doRedeem();};ci.onkeyup=ci.onkeypress=e=>e.stopPropagation();
   const ai=document.getElementById('uamt'),buy=document.getElementById('ubuy');ai.onkeydown=ai.onkeyup=ai.onkeypress=e=>e.stopPropagation();
-  const amount=()=>{const n=Math.round(parseFloat(String(ai.value).replace(',','.'))*100)/100;return isFinite(n)&&n>=1&&n<=500?n:null;};
+  const amount=()=>{const n=Math.round(parseFloat(String(ai.value).replace(',','.'))*100)/100;return isFinite(n)&&n>=3&&n<=500?n:null;};
   buy.onclick=async()=>{
-    const a=amount();if(a===null){msg('Bitte einen Betrag von 1 bis 500 € eingeben.');return;}
+    const a=amount();if(a===null){msg('Bitte einen Betrag von 3 bis 500 € eingeben.');return;}
     buy.disabled=true;ai.disabled=true;msg('PayPal wird geladen …');
     try{
       const cfg=await payConfig();if(!cfg.clientId){msg('Bezahlung ist noch nicht eingerichtet.');buy.disabled=false;ai.disabled=false;return;}
