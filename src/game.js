@@ -1,5 +1,5 @@
-/* MIWORU by Wenn & Aber Bike Crew - © 2026 Lars Kröger. Alle Rechte vorbehalten. Kopie, Weitergabe und Weiterverwendung ohne schriftliche Genehmigung untersagt. */
-// MIWORU by Wenn & Aber Bike Crew – Spielcode (Stand Prototyp 0.6).
+/* MIWORU - © 2026 Lars Kröger. Alle Rechte vorbehalten. Kopie, Weitergabe und Weiterverwendung ohne schriftliche Genehmigung untersagt. */
+// MIWORU – Spielcode (Stand Prototyp 0.6).
 // Noch eine einzige Datei; wird schrittweise in Module aufgeteilt (Strecke, Gelände, Vegetation, Figuren, HUD).
 import './legacycolor.js';
 import * as THREE from 'three';
@@ -1642,7 +1642,7 @@ box(mHelmet,hd,0,0.09,0.15,0.19,0.012,0.13).rotation.x=0.18;
 [-0.05,0.05].forEach(x=>box(mWhite,hd,x,0.135,-0.02,0.022,0.012,0.17));
 box(mWhite,hd,0,0.03,-0.143,0.12,0.03,0.012);
 box(mDark,hd,0,0.01,0.125,0.15,0.05,0.03);
-const backTex=canvasTex(512,128,(g,w,h)=>{g.clearRect(0,0,w,h);g.fillStyle='#e8e8e8';g.font='italic bold 58px Arial';g.textAlign='center';g.textBaseline='middle';g.fillText('WENN UND ABER',w/2,h/2);},false);
+const backTex=canvasTex(512,128,(g,w,h)=>{g.clearRect(0,0,w,h);g.fillStyle='#e8e8e8';g.font='italic bold 58px Arial';g.textAlign='center';g.textBaseline='middle';g.fillText('MIWORU',w/2,h/2);},false);
 const backTxt=new THREE.Mesh(new THREE.PlaneGeometry(0.27,0.13),new THREE.MeshLambertMaterial({map:backTex,transparent:true,alphaTest:0.4}));
 backTxt.position.set(0,0.2,-0.168);backTxt.rotation.y=Math.PI;torso.add(backTxt);
 [-1,1].forEach(sd=>{
@@ -2462,7 +2462,7 @@ function showHelp(){
   helpOpen=true;ov.style.display='flex';
   const sec=(h,rows)=>'<div class="hs"><h3>'+h+'</h3>'+rows.map(r=>'<p>'+r+'</p>').join('')+'</div>';
   ov.innerHTML='<div class="intro"><div class="panel helpP">'+
-    '<div class="by">by Wenn &amp; Aber Bike Crew</div><h1 style="font-size:clamp(34px,5vw,56px)">So funktioniert&rsquo;s</h1>'+
+    '<h1 style="font-size:clamp(34px,5vw,56px)">So funktioniert&rsquo;s</h1>'+
     '<div class="hscroll">'+
     sec('Das Spiel',['Du fährst echte Mountainbike-Strecken aus der Lenkersicht. Dein Tempo entsteht nur durch dein Treten, auch bergab: Abfahrten sind neutral. Lenken und Ausweichen laufen automatisch.','Mit einem Smart-Trainer (Bluetooth) trittst du einfach los, ohne Trainer geht es mit der Tastatur.'])+
     sec('Trainer und Zwift-Geräte koppeln',['Für Zwift Cog und Zwift Click müssen <b>beide</b> gekoppelt sein, sonst funktioniert das Schalten nicht. Beide im Menü unter Bluetooth verbinden (Click vorher in den blauen Koppelmodus bringen).','<b>iPad / iPhone:</b> Safari kann kein Bluetooth. Dafür brauchst du einmalig die kostenlose Zusatz-App <b>Bluefy</b>: 1. Bluefy im App Store installieren. 2. MIWORU-Adresse in Safari kopieren. 3. Bluefy öffnen, Adresse in die Adresszeile einfügen. 4. Im Spiel Trainer, Cog und Click koppeln. Das Spiel immer in Bluefy starten, nicht in Safari.'])+
@@ -2482,7 +2482,7 @@ function showHelp(){
 function showReport(){   // Problem melden: technische Daten werden automatisch angehaengt, Meldung geht ueber /api/report in eine Tabelle
   helpOpen=true;ov.style.display='flex';
   const rl=(ROUTES[RKEY]||ROUTES.tour2).label;
-  ov.innerHTML='<div class="intro"><div class="panel unlock"><div class="by">by Wenn &amp; Aber Bike Crew</div><h1>Problem melden</h1>'+
+  ov.innerHTML='<div class="intro"><div class="panel unlock"><h1>Problem melden</h1>'+
     '<div class="help">Du hast einen technischen Fehler gefunden? Beschreibe kurz, was passiert ist. Strecke, Streckenposition, Gerät, Grafikstufe und Trainerstatus werden automatisch mitgesendet.</div>'+
     '<div class="ucode"><div class="uh">Art des Problems</div><select id="rcat" class="rsel"><option>Trainer/Bluetooth</option><option>Grafik/Ruckeln</option><option>Strecke/Gelände</option><option>Sound</option><option selected>Sonstiges</option></select></div>'+
     '<div class="ucode"><div class="uh">Nachricht</div><textarea id="rmsg" class="rsel" rows="5" maxlength="2000" placeholder="Was ist passiert? Wo? Was hast du vorher gemacht?"></textarea></div>'+
@@ -2509,7 +2509,7 @@ function showReport(){   // Problem melden: technische Daten werden automatisch 
 }
 function showThanks(code,next){   // nach dem Support: Dank und Freischaltcode zum Notieren (fuer weitere Geraete: unter Community-Code eingeben)
   const c=typeof code==='string'?code:'';
-  ov.innerHTML='<div class="intro"><div class="panel unlock"><div class="by">by Wenn &amp; Aber Bike Crew</div><h1>Vielen Dank!</h1>'+
+  ov.innerHTML='<div class="intro"><div class="panel unlock"><h1>Vielen Dank!</h1>'+
     '<div class="help">Dein Support ist angekommen, alle weiteren Strecken sind jetzt freigeschaltet. Das hilft mir sehr, das Projekt weiterzuentwickeln.</div>'+
     (c?'<div class="ucode"><div class="uh">Dein Freischaltcode</div><div class="urow"><input id="tcode" type="text" readonly value="'+c+'" aria-label="Freischaltcode"><button id="tcp" class="sec">Kopieren</button></div></div>'+
     '<div class="help">Bitte notieren: Auf einem anderen Gerät oder nach dem Löschen der Browserdaten gibst du ihn im Support-Fenster bei „Community-Code" ein, dann sind die Strecken wieder frei.</div>':'')+
@@ -2522,7 +2522,7 @@ function showUnlock(want){   // Support-Fenster: Betrag ab 3 EUR, kurze Geschich
   helpOpen=true;ov.style.display='flex';menuBtn.style.display='none';
   const wname=want&&ROUTES[want]?ROUTES[want].label:'';
   ov.innerHTML='<div class="intro"><div class="panel unlock">'+
-    '<div class="by">by Wenn &amp; Aber Bike Crew</div><h1>Support &amp; weitere Strecken</h1>'+
+    '<h1>Support &amp; weitere Strecken</h1>'+
     '<div class="help">'+(wname?'<b>'+wname+'</b> gehört zu den weiteren Strecken. ':'')+'MIWORU bleibt kostenlos. Wer weitere Strecken fahren möchte, kann mich gern mit einem kleinen Betrag supporten: <b>ab 3 €</b>, den Betrag bestimmst du selbst. Damit sind Whopperthal, Hagmoor, Hagfeld, Isehorst, Isebrink, Bad Ibenstein, Deikamm, Hemstein, Bölkamp, Dorbach und Sölden in diesem Browser freigeschaltet.</div>'+
     '<div class="ucode"><div class="uh">Betrag</div><div class="urow"><input id="uamt" type="text" inputmode="decimal" autocomplete="off" value="5" aria-label="Betrag in Euro"><span class="ueur">€</span><button id="ubuy" class="main">Supporten</button></div><div id="upp"></div></div>'+
     '<div class="help" id="umsg"></div>'+
@@ -3607,3 +3607,23 @@ if(!(/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacInt
  new MutationObserver(ensure).observe(hintEl,{childList:true,subtree:true,characterData:true});
  hintEl.addEventListener('click',e=>{if(e.target.closest('[data-act="e"]')){toggleEbike();ensure();}else if(e.target.closest('[data-act="t"]')){todSet((TODM+1)%5);toastMsg('Tageszeit: '+TODN[TODM]);ensure();}});
  ensure();window.__ensureEbHint=ensure;setInterval(ensure,1000);}
+
+// Fotomodus: Kamera-Symbol in der oberen Leiste (Taste K, oder Link mit ?foto=1). Blendet die ganze Oberflaeche aus, das Bild laeuft weiter;
+// Screenshot macht man dann selbst (Mac: Cmd+Shift+4, Aufnahme Cmd+Shift+5). Beenden: Esc, K oder kleines Kamera-Symbol unten rechts.
+{const CAM='<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8a2 2 0 0 1 2-2h2.5l1.5-2h6l1.5 2H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.6"/></svg>';
+ const st=document.createElement('style');st.textContent='body.foto #hudbox{display:none!important}body.foto #fsx{display:none!important}#fotoX{position:fixed;right:14px;bottom:14px;z-index:60;width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.35);background:rgba(0,0,0,.35);color:#fff;display:none;align-items:center;justify-content:center;opacity:.18;cursor:pointer;transition:opacity .25s}body.foto #fotoX{display:flex}#fotoX:hover,#fotoX:focus{opacity:.9}body.foto{cursor:default}[data-act="foto"]{display:inline-flex!important;align-items:center;justify-content:center;padding-left:9px!important;padding-right:9px!important}';document.head.appendChild(st);
+ const X=document.createElement('button');X.id='fotoX';X.type='button';X.title='Fotomodus beenden (Esc)';X.setAttribute('aria-label','Fotomodus beenden');X.innerHTML=CAM;document.body.appendChild(X);
+ const set=on=>{document.body.classList.toggle('foto',!!on);};
+ const tog=()=>set(!document.body.classList.contains('foto'));
+ X.addEventListener('click',e=>{e.stopPropagation();set(false);});
+ hintEl.addEventListener('click',e=>{if(e.target.closest('[data-act="foto"]')){e.stopPropagation();e.preventDefault();set(true);}},true);
+ const ensureCam=()=>{const src=hintEl.querySelector('[data-act="l"]');if(!src||hintEl.querySelector('[data-act="foto"]'))return;
+   const b=src.cloneNode(false);b.setAttribute('data-act','foto');b.classList.remove('on');b.title='Fotomodus (K): Oberfläche ausblenden';b.setAttribute('aria-label','Fotomodus');b.innerHTML=CAM;hintEl.appendChild(b);};
+ new MutationObserver(ensureCam).observe(hintEl,{childList:true});ensureCam();setInterval(ensureCam,1000);
+ window.addEventListener('keydown',e=>{
+   if(e.target&&/^(INPUT|TEXTAREA)$/.test(e.target.tagName))return;
+   if(e.key==='k'||e.key==='K'){e.stopImmediatePropagation();tog();}
+   else if(e.key==='Escape'&&document.body.classList.contains('foto')){e.stopImmediatePropagation();set(false);}
+ },true);
+ try{if(/[?&]foto=1/.test(location.search))set(true);}catch(e){}
+}
